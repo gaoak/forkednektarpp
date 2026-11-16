@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjGrad2/PipeConjGrad2Op.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjGrad2/PipeConjGrad2Op.hpp>
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjGrad2/PipeConjGrad2Kernels.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjGrad2/PipeConjGrad2Kernels.hpp>
 
 #include <iomanip>
 
@@ -55,35 +55,17 @@ public:
                         const std::vector<std::string> &components)
         : PipeConjGrad2Op<TData>(expansionList, components),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjGrad2 w",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjGrad2 w", this->m_blockAttr, components, 1)),
           m_u(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjGrad2 u",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjGrad2 u", this->m_blockAttr, components, 1)),
           m_s(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjGrad2 s",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjGrad2 s", this->m_blockAttr, components, 1)),
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjGrad2 r",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjGrad2 r", this->m_blockAttr, components, 1)),
           m_q(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjGrad2 q",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjGrad2 q", this->m_blockAttr, components, 1)),
           m_p(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjGrad2 p",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjGrad2 p", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(2, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();

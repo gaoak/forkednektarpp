@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/TFQMR/TFQMROp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/TFQMR/TFQMROp.hpp>
 
 #include <iomanip>
 
@@ -53,40 +53,19 @@ public:
                 const std::vector<std::string> &components)
         : TFQMROp<TData>(expansionList, components),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "TFQMROp w",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "TFQMROp w", this->m_blockAttr, components, 1)),
           m_s(LibUtilities::Field<TData, FieldState::Coeff>(
-              "TFQMROp s",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "TFQMROp s", this->m_blockAttr, components, 1)),
           m_u(LibUtilities::Field<TData, FieldState::Coeff>(
-              "TFQMROp u",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "TFQMROp u", this->m_blockAttr, components, 1)),
           m_p(LibUtilities::Field<TData, FieldState::Coeff>(
-              "TFQMROp p",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "TFQMROp p", this->m_blockAttr, components, 1)),
           m_d(LibUtilities::Field<TData, FieldState::Coeff>(
-              "TFQMROp p",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "TFQMROp p", this->m_blockAttr, components, 1)),
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
-              "TFQMROp r",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "TFQMROp r", this->m_blockAttr, components, 1)),
           m_rtilde(LibUtilities::Field<TData, FieldState::Coeff>(
-              "TFQMROp rtilde",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "TFQMROp rtilde", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(3, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();

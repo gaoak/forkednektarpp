@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
+#include <LibUtilities/BasicUtils/Math/MathKernels.hpp>
 
 namespace Nektar::SolverCore::detail
 {

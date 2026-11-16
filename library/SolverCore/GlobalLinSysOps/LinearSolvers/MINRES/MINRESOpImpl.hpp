@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/MINRES/MINRESOp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/MINRES/MINRESOp.hpp>
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/MINRES/MINRESKernels.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/MINRES/MINRESKernels.hpp>
 
 #include <iomanip>
 
@@ -55,35 +55,17 @@ public:
                  const std::vector<std::string> &components)
         : MINRESOp<TData>(expansionList, components),
           m_q(LibUtilities::Field<TData, FieldState::Coeff>(
-              "MINRESOp q",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "MINRESOp q", this->m_blockAttr, components, 1)),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "MINRESOp w",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "MINRESOp w", this->m_blockAttr, components, 1)),
           m_p0(LibUtilities::Field<TData, FieldState::Coeff>(
-              "MINRESOp p0",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "MINRESOp p0", this->m_blockAttr, components, 1)),
           m_p1(LibUtilities::Field<TData, FieldState::Coeff>(
-              "MINRESOp p1",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "MINRESOp p1", this->m_blockAttr, components, 1)),
           m_v0(LibUtilities::Field<TData, FieldState::Coeff>(
-              "MINRESOp r0",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "MINRESOp r0", this->m_blockAttr, components, 1)),
           m_v1(LibUtilities::Field<TData, FieldState::Coeff>(
-              "MINRESOp r1",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "MINRESOp r1", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(2, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();

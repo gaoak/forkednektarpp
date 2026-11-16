@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/ConjRes/ConjResOp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/ConjRes/ConjResOp.hpp>
 
 #include <iomanip>
 
@@ -53,30 +53,15 @@ public:
                   const std::vector<std::string> &components)
         : ConjResOp<TData>(expansionList, components),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "ConjRes w",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "ConjRes w", this->m_blockAttr, components, 1)),
           m_s(LibUtilities::Field<TData, FieldState::Coeff>(
-              "ConjRes s",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "ConjRes s", this->m_blockAttr, components, 1)),
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
-              "ConjRes r",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "ConjRes r", this->m_blockAttr, components, 1)),
           m_q(LibUtilities::Field<TData, FieldState::Coeff>(
-              "ConjRes q",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "ConjRes q", this->m_blockAttr, components, 1)),
           m_p(LibUtilities::Field<TData, FieldState::Coeff>(
-              "ConjRes p",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "ConjRes p", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(2, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();

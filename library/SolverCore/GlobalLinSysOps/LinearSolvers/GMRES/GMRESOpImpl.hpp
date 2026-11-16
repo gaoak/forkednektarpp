@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/GMRES/GMRESKernels.hpp"
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/GMRES/GMRESOp.hpp"
-#include "SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/GMRES/GMRESKernels.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/GMRES/GMRESOp.hpp>
+#include <SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp>
 
 #include <iomanip>
 
@@ -55,26 +55,12 @@ public:
                 const std::vector<std::string> &components)
         : GMRESOp<TData>(expansionList, components),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "GMRES w",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
-          m_r0(LibUtilities::Field<TData, FieldState::Coeff>(
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
-          m_V("GMRES V",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components),
-          m_Z("GMRES Z",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components),
-          m_delta("GMRES delta",
-                  MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                      expansionList),
-                  components)
+              "GMRES w", this->m_blockAttr, components, 1)),
+          m_r0(LibUtilities::Field<TData, FieldState::Coeff>(this->m_blockAttr,
+                                                             components, 1)),
+          m_V("GMRES V", this->m_blockAttr, components),
+          m_Z("GMRES Z", this->m_blockAttr, components),
+          m_delta("GMRES delta", this->m_blockAttr, components)
     {
         this->template SetLinearSolver<ExecSpace>();
         this->template SetMask<ExecSpace>();

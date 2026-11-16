@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
 namespace Nektar::SolverCore::detail
 {

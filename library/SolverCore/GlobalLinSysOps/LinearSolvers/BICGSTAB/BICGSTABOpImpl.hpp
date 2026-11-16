@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/BICGSTAB/BICGSTABOp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/BICGSTAB/BICGSTABOp.hpp>
 
 #include <iomanip>
 
@@ -53,35 +53,17 @@ public:
                    const std::vector<std::string> &components)
         : BICGSTABOp<TData>(expansionList, components),
           m_p(LibUtilities::Field<TData, FieldState::Coeff>(
-              "BICGSTABOp p",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "BICGSTABOp p", this->m_blockAttr, components, 1)),
           m_v(LibUtilities::Field<TData, FieldState::Coeff>(
-              "BICGSTABOp v",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "BICGSTABOp v", this->m_blockAttr, components, 1)),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "BICGSTABOp w",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "BICGSTABOp w", this->m_blockAttr, components, 1)),
           m_z(LibUtilities::Field<TData, FieldState::Coeff>(
-              "BICGSTABOp z",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "BICGSTABOp z", this->m_blockAttr, components, 1)),
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
-              "BICGSTABOp r",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "BICGSTABOp r", this->m_blockAttr, components, 1)),
           m_rtilde(LibUtilities::Field<TData, FieldState::Coeff>(
-              "BICGSTABOp rtilde",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "BICGSTABOp rtilde", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(3, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();

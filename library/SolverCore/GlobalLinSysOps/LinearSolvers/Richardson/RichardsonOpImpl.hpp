@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/Richardson/RichardsonOp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/Richardson/RichardsonOp.hpp>
 
 #include <iomanip>
 
@@ -53,15 +53,9 @@ public:
                      const std::vector<std::string> &components)
         : RichardsonOp<TData>(expansionList, components),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "RichardsonOp w",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "RichardsonOp w", this->m_blockAttr, components, 1)),
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
-              "RichardsonOp r",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "RichardsonOp r", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(2, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();

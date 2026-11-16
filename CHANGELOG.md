@@ -171,6 +171,7 @@ v5.11.0
 - Add 3DH1 support to EnergyOp, the Energy filter, ReynoldsStressOp, AeroForcesOp, HistoryPointsOp and the AeroForces and HistoryPoints filters, and size the filters' cached velocity gradient for the homogeneous derivative (!2930)
 - Add an optional root-only reduction to the SolverCore reducing operators and use it in the filters; reduce over the space communicator, fixing a FilterMean hang in parallel and NormLinf with one local plane per rank (!2930)
 - Remove the unused FlagType enumeration, FlagTypeMap and FlagList class, the unused GeomTol and CoinTol constants, and duplicate integer typedefs (!2917)
+- Compute the block attributes of the redesign linear solvers once in the LinearSolverOp base class instead of once per allocated field (!2935)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

@@ -36,13 +36,13 @@
 
 #include <MultiRegions/Common/Operator.hpp>
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
-#include "SolverCore/GlobalLinSysOps/LinearSystems/LHSOp.hpp"
-#include "SolverCore/PreconOps/PreconOp.hpp"
 #include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
 #include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondOp.hpp>
 #include <MultiRegions/ElmtOps/ElmtOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/LHSOp.hpp>
+#include <SolverCore/PreconOps/PreconOp.hpp>
 
 namespace Nektar::SolverCore
 {

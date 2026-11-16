@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/GCR/GCROp.hpp"
-#include "SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/GCR/GCROp.hpp>
+#include <SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp>
 
 #include <iomanip>
 
@@ -54,18 +54,9 @@ public:
               const std::vector<std::string> &components)
         : GCROp<TData>(expansionList, components),
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
-              "GCR r",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
-          m_Q("GCR Q",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components),
-          m_P("GCR P",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components)
+              "GCR r", this->m_blockAttr, components, 1)),
+          m_Q("GCR Q", this->m_blockAttr, components),
+          m_P("GCR P", this->m_blockAttr, components)
     {
         this->template SetLinearSolver<ExecSpace>();
         this->template SetMask<ExecSpace>();
