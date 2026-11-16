@@ -68,17 +68,8 @@ public:
               "TFQMROp rtilde", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(3, eHostPinned))
     {
-        this->template SetLinearSolver<ExecSpace>();
-
-        auto session = this->m_expansionList->GetSession();
-
-        // Set parameters.
-        int leftPreconditioner  = 0;
-        int rightPreconditioner = 0;
-        session->LoadParameter("LinSysLeftPrecon", leftPreconditioner, 0);
-        session->LoadParameter("LinSysRightPrecon", rightPreconditioner, 1);
-        this->m_leftPreconditioner  = leftPreconditioner;
-        this->m_rightPreconditioner = rightPreconditioner;
+        const auto defaultPrecon = LinearSolverOp<TData>::PreconSide::Right;
+        this->template SetLinearSolver<ExecSpace>(defaultPrecon);
     }
 
     // className - for OperatorFactory
@@ -176,11 +167,7 @@ protected:
         {
             if (this->m_niter > this->m_maxIter)
             {
-                std::stringstream msg;
-                msg << "Exceeded max iterations: " << this->m_niter
-                    << ". Increase NekLinSysMaxIterations in the session "
-                       "PARAMETERS section to allow more iterations.";
-                NEKERROR(ErrorUtil::efatal, msg.str());
+                this->ReportNotConverged();
 
                 return;
             }

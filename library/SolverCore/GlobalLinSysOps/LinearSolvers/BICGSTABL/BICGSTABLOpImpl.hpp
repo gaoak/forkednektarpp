@@ -65,19 +65,9 @@ public:
           m_rtilde(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABLOp rtilde", this->m_blockAttr, components, 1))
     {
-        this->template SetLinearSolver<ExecSpace>();
+        const auto defaultPrecon = LinearSolverOp<TData>::PreconSide::Right;
+        this->template SetLinearSolver<ExecSpace>(defaultPrecon);
 
-        auto session = this->m_expansionList->GetSession();
-
-        // Set parameters.
-        this->m_leftPreconditioner =
-            session->DefinesParameter("LinSysLeftPrecon")
-                ? session->GetParameter("LinSysLeftPrecon")
-                : false;
-        this->m_rightPreconditioner =
-            session->DefinesParameter("LinSysRightPrecon")
-                ? session->GetParameter("LinSysRightPrecon")
-                : true;
         // Set-up storage. The Gram matrix of r is exchanged whole.
         m_r.ResizeNumField(m_stage + 1);
         m_u.ResizeNumField(m_stage + 1);
@@ -115,9 +105,9 @@ protected:
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         auto session = expansionList->GetSession();
-        return session->DefinesParameter("BICGSTABLstage")
-                   ? session->GetParameter("BICGSTABLstage")
-                   : 4;
+        unsigned int stage;
+        session->LoadParameter("BICGSTABLstage", stage, 4u);
+        return stage;
     }
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
@@ -218,11 +208,7 @@ protected:
         {
             if (this->m_niter > this->m_maxIter)
             {
-                std::stringstream msg;
-                msg << "Exceeded max iterations: " << this->m_niter
-                    << ". Increase NekLinSysMaxIterations in the session "
-                       "PARAMETERS section to allow more iterations.";
-                NEKERROR(ErrorUtil::efatal, msg.str());
+                this->ReportNotConverged();
 
                 return;
             }

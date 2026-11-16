@@ -189,6 +189,7 @@ public:
             this->m_expList, this->m_session->GetVariables(), "Diagonal");
         m_linsolve = LinearSolverOp<TData>::Create(
             this->m_expList, this->m_session->GetVariables(), method);
+        m_linsolve->SetVerboseOutput(true);
         m_op->SetLambda(m_lambda);
         m_op->SetDiffCoeff(m_diffCoeff);
         m_op->SetLinearSolver(m_linsolve);

@@ -68,24 +68,14 @@ public:
               "MINRESOp r1", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(2, eHostPinned))
     {
-        this->template SetLinearSolver<ExecSpace>();
+        const auto defaultPrecon = LinearSolverOp<TData>::PreconSide::Left;
+        this->template SetLinearSolver<ExecSpace>(defaultPrecon);
 
         auto session = this->m_expansionList->GetSession();
 
         // Set parameters.
-        this->m_leftPreconditioner =
-            session->DefinesParameter("LinSysLeftPrecon")
-                ? session->GetParameter("LinSysLeftPrecon")
-                : true;
-        this->m_rightPreconditioner =
-            session->DefinesParameter("LinSysRightPrecon")
-                ? session->GetParameter("LinSysRightPrecon")
-                : false;
-
-        m_deferredNormalisation =
-            session->DefinesParameter("MINRESDeferredNormalisation")
-                ? session->GetParameter("MINRESDeferredNormalisation")
-                : false;
+        session->LoadParameter("MINRESDeferredNormalisation",
+                               m_deferredNormalisation, false);
 
         ASSERTL0(!this->m_rightPreconditioner,
                  "MINRESOpImpl: Only left preconditioner is supported");
@@ -178,11 +168,7 @@ protected:
         {
             if (this->m_niter > this->m_maxIter)
             {
-                std::stringstream msg;
-                msg << "Exceeded max iterations: " << this->m_niter
-                    << ". Increase NekLinSysMaxIterations in the session "
-                       "PARAMETERS section to allow more iterations.";
-                NEKERROR(ErrorUtil::efatal, msg.str());
+                this->ReportNotConverged();
 
                 return;
             }
@@ -267,20 +253,13 @@ protected:
             const TData d = gamma1 * eta;
             if (this->m_niter == 0)
             {
-                // m_p1, m_p0 = 0
-                UpdateMINRESSolution<ExecSpace, 0>(a, b, c, d, m_w, m_p1, m_p0,
-                                                   out);
-            }
-            else if (this->m_niter == 1)
-            {
-                // m_p0 = 0
-                UpdateMINRESSolution<ExecSpace, 1>(a, b, c, d, m_w, m_p1, m_p0,
-                                                   out);
+                // m_p1 = 0
+                InitMINRESSolution<ExecSpace>(b, d, m_w, m_p0, out);
             }
             else
             {
-                UpdateMINRESSolution<ExecSpace, 2>(a, b, c, d, m_w, m_p1, m_p0,
-                                                   out);
+                UpdateMINRESSolution<ExecSpace>(a, b, c, d, m_w, m_p1, m_p0,
+                                                out);
             }
 
             // Update coefficients.

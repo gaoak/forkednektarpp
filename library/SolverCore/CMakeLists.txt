@@ -185,6 +185,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     set(SOLVER_CORE_SOURCES
         SolverCore.cpp
         TimeOps/TimeOp.cpp
+        GlobalLinSysOps/LinearSolvers/LinearSolverOp.cpp
     )
     set(SOLVER_CORE_HEADERS
         SolverCore.hpp

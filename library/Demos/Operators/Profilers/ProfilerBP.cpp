@@ -80,6 +80,11 @@
  *              the order of the polynomial expansions. If provided, it will
  *              override the expansion definition in the mesh file. This gives
  *              a convenient way to profile different orders by same mesh file.
+ *      --linsys-allow-not-converged
+ *              warn, instead of stopping with an error, when the CG solver
+ *              reaches NekLinSysMaxIterations (5000 by default, or set with
+ *              -P NekLinSysMaxIterations=N). Use it to time a fixed number of
+ *              iterations, or a solve that does not converge.
  *      -verbose
  *              print out more information. Not recommended if you launch many
  *              processes.

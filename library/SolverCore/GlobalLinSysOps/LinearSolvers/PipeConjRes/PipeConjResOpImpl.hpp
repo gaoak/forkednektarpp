@@ -70,19 +70,8 @@ public:
               "PipeConjRes p", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(3, eHostPinned))
     {
-        this->template SetLinearSolver<ExecSpace>();
-
-        auto session = this->m_expansionList->GetSession();
-
-        // Set parameters.
-        this->m_leftPreconditioner =
-            session->DefinesParameter("LinSysLeftPrecon")
-                ? session->GetParameter("LinSysLeftPrecon")
-                : true;
-        this->m_rightPreconditioner =
-            session->DefinesParameter("LinSysRightPrecon")
-                ? session->GetParameter("LinSysRightPrecon")
-                : false;
+        const auto defaultPrecon = LinearSolverOp<TData>::PreconSide::Left;
+        this->template SetLinearSolver<ExecSpace>(defaultPrecon);
 
         m_request = this->m_rowComm->CreateRequest(1);
 
@@ -181,11 +170,7 @@ protected:
         {
             if (this->m_niter > this->m_maxIter)
             {
-                std::stringstream msg;
-                msg << "Exceeded max iterations: " << this->m_niter
-                    << ". Increase NekLinSysMaxIterations in the session "
-                       "PARAMETERS section to allow more iterations.";
-                NEKERROR(ErrorUtil::efatal, msg.str());
+                this->ReportNotConverged();
 
                 return;
             }
@@ -275,13 +260,12 @@ protected:
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
             if (this->m_niter == 1)
             {
-                UpdatePipeConjResSearchDirection<ExecSpace, 0>(
-                    alpha, beta, m_s, m_wk, m_z, m_q, m_p, m_r, m_w, out,
-                    exchange);
+                InitPipeConjResSearchDirection<ExecSpace>(
+                    alpha, m_s, m_wk, m_z, m_q, m_p, m_r, m_w, out, exchange);
             }
             else
             {
-                UpdatePipeConjResSearchDirection<ExecSpace, 1>(
+                UpdatePipeConjResSearchDirection<ExecSpace>(
                     alpha, beta, m_s, m_wk, m_z, m_q, m_p, m_r, m_w, out,
                     exchange);
             }

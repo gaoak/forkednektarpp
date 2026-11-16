@@ -66,26 +66,17 @@ public:
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
               "IDRSOp r", this->m_blockAttr, components, 1))
     {
-        this->template SetLinearSolver<ExecSpace>();
+        const auto defaultPrecon = LinearSolverOp<TData>::PreconSide::Right;
+        this->template SetLinearSolver<ExecSpace>(defaultPrecon);
 
         auto session = this->m_expansionList->GetSession();
 
         // Set parameters.
-        this->m_leftPreconditioner =
-            session->DefinesParameter("LinSysLeftPrecon")
-                ? session->GetParameter("LinSysLeftPrecon")
-                : false;
-        this->m_rightPreconditioner =
-            session->DefinesParameter("LinSysRightPrecon")
-                ? session->GetParameter("LinSysRightPrecon")
-                : true;
-        m_stage = session->DefinesParameter("IDRstage")
-                      ? session->GetParameter("IDRstage")
-                      : 4;
-        m_classicalGramSchmidt =
-            session->DefinesParameter("IDRClassicalGramSchmidt")
-                ? session->GetParameter("IDRClassicalGramSchmidt")
-                : false;
+        session->LoadParameter("IDRstage", m_stage, 4);
+        session->LoadParameter("IDRClassicalGramSchmidt",
+                               m_classicalGramSchmidt, false);
+
+        // Set-up storage.
         m_vExchange = LibUtilities::MemoryRegion<TData>(std::max(m_stage, 2u),
                                                         eHostPinned);
         m_coeffs    = LibUtilities::MemoryRegion<TData>(std::max(m_stage, 1u),
@@ -93,7 +84,6 @@ public:
         m_biOrthCoeffs =
             LibUtilities::MemoryRegion<TData>(2 * m_stage, eHostPinned);
 
-        // Set-up storage.
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<> dis(0.0, 1.0);
@@ -247,11 +237,7 @@ protected:
             {
                 if (this->m_niter > this->m_maxIter)
                 {
-                    std::stringstream msg;
-                    msg << "Exceeded max iterations: " << this->m_niter
-                        << ". Increase NekLinSysMaxIterations in the session "
-                           "PARAMETERS section to allow more iterations.";
-                    NEKERROR(ErrorUtil::efatal, msg.str());
+                    this->ReportNotConverged();
 
                     return;
                 }
@@ -474,11 +460,7 @@ protected:
 
             if (this->m_niter > this->m_maxIter)
             {
-                std::stringstream msg;
-                msg << "Exceeded max iterations: " << this->m_niter
-                    << ". Increase NekLinSysMaxIterations in the session "
-                       "PARAMETERS section to allow more iterations.";
-                NEKERROR(ErrorUtil::efatal, msg.str());
+                this->ReportNotConverged();
 
                 return;
             }
