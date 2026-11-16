@@ -83,7 +83,7 @@ namespace Nektar::SolverCore::detail
  *
  * @tparam NDIM           Spatial dimension: components of the normal.
  * @tparam APPEND         Add to the flux rather than overwrite it.
- * @tparam PARALLEL       A partition block; never on Device.
+ * @tparam PARTITION      A partition block; never on Device.
  * @tparam PointFlux      The point flux (see TraceFluxKernels.hpp).
  * @param  views          The block's two sides and global-trace offsets.
  * @param  pointFlux      The point flux.
@@ -98,7 +98,7 @@ namespace Nektar::SolverCore::detail
  *                        stream afterwards.
  */
 template <
-    unsigned int NDIM, bool APPEND, bool PARALLEL, typename ExecSpace,
+    unsigned int NDIM, bool APPEND, bool PARTITION, typename ExecSpace,
     typename PointFlux, typename TData,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
         Enable = true>
@@ -108,7 +108,8 @@ void InteriorBlockInPlaceKernelLauncher(
     const TData *second1, TData *fluxPtr, const TData *normPtr,
     const TData *penPtr, const unsigned int streamID)
 {
-    static_assert(!PARALLEL, "Partition blocks keep the packed path on Device");
+    static_assert(!PARTITION,
+                  "Partition blocks keep the packed path on Device");
     constexpr unsigned nVar    = PointFlux::numVar;
     constexpr unsigned nSecond = nVar * PointFlux::secondPerVar;
     static_assert(IsPointFlux<PointFlux, NDIM>(),

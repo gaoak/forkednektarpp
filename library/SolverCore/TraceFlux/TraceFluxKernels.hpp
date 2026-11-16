@@ -674,6 +674,16 @@ struct InteriorBlockViews
 };
 
 /**
+ * @brief What the in-place kernels of one interior block keep between calls:
+ * nothing on Serial and Device; TraceFluxSerialAVXKernels.hpp specialises it
+ * for AVX, where it holds the across-group form's plan.
+ */
+template <typename ExecSpace, typename TData, typename = void>
+struct InteriorInPlaceBlock
+{
+};
+
+/**
  * @brief The interface a point flux presents to the in-place kernels
  * (TraceFluxSerialAVXKernels.hpp, TraceFluxDeviceKernels.hpp),
  * which gather the two sides of a trace point and hand them to it, checked
