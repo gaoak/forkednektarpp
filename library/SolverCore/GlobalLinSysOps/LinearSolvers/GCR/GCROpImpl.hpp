@@ -58,24 +58,14 @@ public:
           m_Q("GCR Q", this->m_blockAttr, components),
           m_P("GCR P", this->m_blockAttr, components)
     {
-        this->template SetLinearSolver<ExecSpace>();
+        const auto defaultPrecon = LinearSolverOp<TData>::PreconSide::Left;
+        this->template SetLinearSolver<ExecSpace>(defaultPrecon);
         this->template SetMask<ExecSpace>();
 
         auto session = this->m_expansionList->GetSession();
 
         // Set parameters.
-        this->m_leftPreconditioner =
-            session->DefinesParameter("LinSysLeftPrecon")
-                ? session->GetParameter("LinSysLeftPrecon")
-                : true;
-        this->m_rightPreconditioner =
-            session->DefinesParameter("LinSysRightPrecon")
-                ? session->GetParameter("LinSysRightPrecon")
-                : false;
-        this->m_LinSysMaxStorage =
-            session->DefinesParameter("LinSysMaxStorage")
-                ? session->GetParameter("LinSysMaxStorage")
-                : 50;
+        this->LoadSetting(session, "LinSysMaxStorage", m_LinSysMaxStorage, 50u);
 
         ASSERTL0(!this->m_rightPreconditioner,
                  "GCROpImpl: Only left preconditioner is supported");
@@ -87,6 +77,7 @@ public:
             LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
         m_scale =
             LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
+
         // Every column starts aligned, as the vectorised kernels writing it
         // require.
         constexpr unsigned int width =
@@ -94,6 +85,7 @@ public:
         m_orthStride = (m_LinSysMaxStorage + width - 1) / width * width;
         m_orthCoeffs = LibUtilities::MemoryRegion<TData>(
             m_LinSysMaxStorage * m_orthStride, eHostPinned);
+
         // Allocated here, in MemSpace, since they are only ever updated in
         // place and read.
         m_scale.template Initialize<MemSpace>(0);
@@ -236,11 +228,7 @@ protected:
 
             if (this->m_niter > this->m_maxIter)
             {
-                std::stringstream msg;
-                msg << "Exceeded max iterations: " << this->m_niter
-                    << ". Increase NekLinSysMaxIterations in the session "
-                       "PARAMETERS section to allow more iterations.";
-                NEKERROR(ErrorUtil::efatal, msg.str());
+                this->ReportNotConverged();
 
                 return;
             }

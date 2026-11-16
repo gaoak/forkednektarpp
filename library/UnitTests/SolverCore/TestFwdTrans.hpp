@@ -163,6 +163,7 @@ public:
             this->m_expList, this->m_session->GetVariables(), "Diagonal");
         auto linsolve = LinearSolverOp<TData>::Create(
             this->m_expList, this->m_session->GetVariables(), method);
+        linsolve->SetVerboseOutput(true);
         op->SetLinearSolver(linsolve);
         op->SetPrecon(precon);
         op->UpdatePrecon();

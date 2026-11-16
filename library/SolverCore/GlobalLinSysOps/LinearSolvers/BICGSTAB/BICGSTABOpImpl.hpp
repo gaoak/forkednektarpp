@@ -66,20 +66,9 @@ public:
               "BICGSTABOp rtilde", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(3, eHostPinned))
     {
-        this->template SetLinearSolver<ExecSpace>();
+        const auto defaultPrecon = LinearSolverOp<TData>::PreconSide::Right;
+        this->template SetLinearSolver<ExecSpace>(defaultPrecon);
         this->template SetMask<ExecSpace>();
-
-        auto session = this->m_expansionList->GetSession();
-
-        // Set parameters.
-        this->m_leftPreconditioner =
-            session->DefinesParameter("LinSysLeftPrecon")
-                ? session->GetParameter("LinSysLeftPrecon")
-                : false;
-        this->m_rightPreconditioner =
-            session->DefinesParameter("LinSysRightPrecon")
-                ? session->GetParameter("LinSysRightPrecon")
-                : true;
     }
 
     // className - for OperatorFactory
@@ -168,11 +157,7 @@ protected:
         {
             if (this->m_niter > this->m_maxIter)
             {
-                std::stringstream msg;
-                msg << "Exceeded max iterations: " << this->m_niter
-                    << ". Increase NekLinSysMaxIterations in the session "
-                       "PARAMETERS section to allow more iterations.";
-                NEKERROR(ErrorUtil::efatal, msg.str());
+                this->ReportNotConverged();
 
                 return;
             }

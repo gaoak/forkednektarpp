@@ -87,29 +87,18 @@ public:
           m_V("GMRESLowSync V", this->m_blockAttr, components),
           m_Z("GMRESLowSync Z", this->m_blockAttr, components)
     {
-        this->template SetLinearSolver<ExecSpace>();
+        const auto defaultPrecon = LinearSolverOp<TData>::PreconSide::Right;
+        this->template SetLinearSolver<ExecSpace>(defaultPrecon);
         this->template SetMask<ExecSpace>();
 
         auto session = this->m_expansionList->GetSession();
 
-        this->m_leftPreconditioner =
-            session->DefinesParameter("LinSysLeftPrecon")
-                ? session->GetParameter("LinSysLeftPrecon")
-                : false;
-        this->m_rightPreconditioner =
-            session->DefinesParameter("LinSysRightPrecon")
-                ? session->GetParameter("LinSysRightPrecon")
-                : true;
-        m_LinSysMaxStorage = session->DefinesParameter("LinSysMaxStorage")
-                                 ? session->GetParameter("LinSysMaxStorage")
-                                 : 100;
-        m_flexible         = session->DefinesParameter("FlexibleGMRES")
-                                 ? session->GetParameter("FlexibleGMRES")
-                                 : false;
-        m_isModifiedGramSchmidt =
-            session->DefinesParameter("ModifiedGramSchmidt")
-                ? session->GetParameter("ModifiedGramSchmidt")
-                : true;
+        this->LoadSetting(session, "LinSysMaxStorage", m_LinSysMaxStorage,
+                          100u);
+
+        session->LoadParameter("FlexibleGMRES", m_flexible, false);
+        session->LoadParameter("ModifiedGramSchmidt", m_isModifiedGramSchmidt,
+                               true);
 
         ASSERTL0(!(m_flexible && this->m_leftPreconditioner),
                  "Flexible GMRES only avaible with right preconditioner");
@@ -222,11 +211,7 @@ protected:
         {
             if (this->m_niter == this->m_maxIter)
             {
-                std::stringstream msg;
-                msg << "Exceeded max iterations: " << this->m_niter
-                    << ". Increase NekLinSysMaxIterations in the session "
-                       "PARAMETERS section to allow more iterations.";
-                NEKERROR(ErrorUtil::efatal, msg.str());
+                this->ReportNotConverged();
 
                 break;
             }
@@ -567,7 +552,7 @@ protected:
         }
 
         // Print output.
-        if (this->IsVerboseOutputEnabled())
+        if (this->m_verboseOutput)
         {
             TData eps_real;
 

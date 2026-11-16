@@ -41,16 +41,51 @@ namespace Nektar::SolverCore::detail
 {
 
 /**
- * @brief The new search direction p0 and the solution update out += d p0, in
- * one pass.
- *
- * p0 = b w at the first iteration (ITER 0), b w + a p1 at the second (ITER 1)
- * and a p1 + b w + c p0 after (ITER 2); p1 and p0 are read only when used.
+ * @brief The first search direction p0 = b w and the solution update
+ * out += d p0, in one pass.
  */
-template <typename ExecSpace, unsigned int ITER, typename TData>
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void InitMINRESSolution(
+    const TData b, const TData d,
+    LibUtilities::Field<TData, FieldState::Coeff> &w,
+    LibUtilities::Field<TData, FieldState::Coeff> &p0,
+    LibUtilities::Field<TData, FieldState::Coeff> &out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
+    {
+        const unsigned int streamID = blk + 1;
+
+        auto size = out.GetBlocks()[blk].CompSize() * out.GetNumComponents() *
+                    out.GetNumHomoModes();
+        auto wptr =
+            w.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto p0ptr =
+            p0.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
+        auto outptr =
+            out.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+
+        Nektar::LoopExecutionSetStreamID(streamID);
+        Nektar::parallel_for<ExecSpace>(
+            0, size, NEKTAR_LAMBDA(const size_t idx) {
+                auto q0 = b * wptr[idx];
+
+                p0ptr[idx]  = q0;
+                outptr[idx] = d * q0 + outptr[idx];
+            });
+    }
+
+    Nektar::LoopExecutionSetStreamID(0);
+}
+
+/**
+ * @brief The search direction p0 = a p1 + b w + c p0 and the solution update
+ * out += d p0, in one pass.
+ */
+template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void UpdateMINRESSolution(
-    [[maybe_unused]] const TData a, const TData b,
-    [[maybe_unused]] const TData c, const TData d,
+    const TData a, const TData b, const TData c, const TData d,
     LibUtilities::Field<TData, FieldState::Coeff> &w,
     LibUtilities::Field<TData, FieldState::Coeff> &p1,
     LibUtilities::Field<TData, FieldState::Coeff> &p0,
@@ -66,56 +101,21 @@ NEK_FORCE_INLINE static void UpdateMINRESSolution(
                     out.GetNumHomoModes();
         auto wptr =
             w.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto p1ptr =
+            p1.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto p0ptr =
+            p0.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
         auto outptr =
             out.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
 
         Nektar::LoopExecutionSetStreamID(streamID);
+        Nektar::parallel_for<ExecSpace>(
+            0, size, NEKTAR_LAMBDA(const size_t idx) {
+                auto q0 = a * p1ptr[idx] + b * wptr[idx] + c * p0ptr[idx];
 
-        if constexpr (ITER == 0)
-        {
-            auto p0ptr =
-                p0.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(
-                    streamID);
-            Nektar::parallel_for<ExecSpace>(
-                0, size, NEKTAR_LAMBDA(const size_t idx) {
-                    auto q0 = b * wptr[idx];
-
-                    p0ptr[idx]  = q0;
-                    outptr[idx] = d * q0 + outptr[idx];
-                });
-        }
-        else if constexpr (ITER == 1)
-        {
-            auto p1ptr =
-                p1.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(
-                    streamID);
-            auto p0ptr =
-                p0.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(
-                    streamID);
-            Nektar::parallel_for<ExecSpace>(
-                0, size, NEKTAR_LAMBDA(const size_t idx) {
-                    auto q0 = b * wptr[idx] + a * p1ptr[idx];
-
-                    p0ptr[idx]  = q0;
-                    outptr[idx] = d * q0 + outptr[idx];
-                });
-        }
-        else
-        {
-            auto p1ptr =
-                p1.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(
-                    streamID);
-            auto p0ptr =
-                p0.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(
-                    streamID);
-            Nektar::parallel_for<ExecSpace>(
-                0, size, NEKTAR_LAMBDA(const size_t idx) {
-                    auto q0 = a * p1ptr[idx] + b * wptr[idx] + c * p0ptr[idx];
-
-                    p0ptr[idx]  = q0;
-                    outptr[idx] = d * q0 + outptr[idx];
-                });
-        }
+                p0ptr[idx]  = q0;
+                outptr[idx] = d * q0 + outptr[idx];
+            });
     }
 
     Nektar::LoopExecutionSetStreamID(0);

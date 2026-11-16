@@ -37,6 +37,12 @@ is written as one file per process. If \nekpp is compiled with HDF5 support,
 then an alternative option is \inlsh{Hdf5}, which will write one file for all
 processes and can be more efficient for very large-scale parallel jobs.
 
+\lstinline[style=BashInputStyle]{--linsys-allow-not-converged}\\
+\hangindent=1.5cm
+Make a redesign iterative linear solver that reaches
+\inltt{NekLinSysMaxIterations} print a warning and continue with its last
+iterate, instead of stopping with an error.
+
 \lstinline[style=BashInputStyle]{--no-exp-opt}\\
 \hangindent=1.5cm
 This option will disable the optimisation of the expansion list ordering for collection type operations using the default definition of what is in the input mesh file. 

@@ -229,6 +229,7 @@ public:
             this->m_expList, this->m_session->GetVariables(), m_preconName);
         auto linsolve = LinearSolverOp<TData>::Create(
             this->m_expList, this->m_session->GetVariables(), method);
+        linsolve->SetVerboseOutput(true);
         op->SetLambda(m_lambda);
         op->SetDiffCoeff(m_diffCoeff);
         op->SetAdvVel(vel);

@@ -889,6 +889,36 @@ const ParameterMap &SessionReader::GetParameters()
 /**
  *
  */
+void SessionReader::LoadParameter(const std::string &pName, bool &pVar) const
+{
+    std::string vName = StringUtils::ToUpperCopy(pName);
+    auto paramIter    = m_parameters.find(vName);
+    ASSERTL0(paramIter != m_parameters.end(),
+             "Required parameter '" + pName + "' not specified in session.");
+    pVar = paramIter->second != 0.0;
+}
+
+/**
+ *
+ */
+void SessionReader::LoadParameter(const std::string &pName, bool &pVar,
+                                  const bool &pDefault) const
+{
+    std::string vName = StringUtils::ToUpperCopy(pName);
+    auto paramIter    = m_parameters.find(vName);
+    if (paramIter != m_parameters.end())
+    {
+        pVar = paramIter->second != 0.0;
+    }
+    else
+    {
+        pVar = pDefault;
+    }
+}
+
+/**
+ *
+ */
 void SessionReader::LoadParameter(const std::string &pName, int &pVar) const
 {
     std::string vName = StringUtils::ToUpperCopy(pName);
@@ -999,19 +1029,6 @@ void SessionReader::LoadParameter(const std::string &pName,
 /**
  *
  */
-void SessionReader::LoadParameter(const std::string &pName,
-                                  NekDouble &pVar) const
-{
-    std::string vName = StringUtils::ToUpperCopy(pName);
-    auto paramIter    = m_parameters.find(vName);
-    ASSERTL0(paramIter != m_parameters.end(),
-             "Required parameter '" + pName + "' not specified in session.");
-    pVar = paramIter->second;
-}
-
-/**
- *
- */
 void SessionReader::LoadParameter(const std::string &pName, NekSingle &pVar,
                                   const NekSingle &pDefault) const
 {
@@ -1025,6 +1042,19 @@ void SessionReader::LoadParameter(const std::string &pName, NekSingle &pVar,
     {
         pVar = pDefault;
     }
+}
+
+/**
+ *
+ */
+void SessionReader::LoadParameter(const std::string &pName,
+                                  NekDouble &pVar) const
+{
+    std::string vName = StringUtils::ToUpperCopy(pName);
+    auto paramIter    = m_parameters.find(vName);
+    ASSERTL0(paramIter != m_parameters.end(),
+             "Required parameter '" + pName + "' not specified in session.");
+    pVar = paramIter->second;
 }
 
 /**

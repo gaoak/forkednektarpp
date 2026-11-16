@@ -145,6 +145,12 @@ public:
         return m_niter;
     }
 
+    /// Enable or disable the per-solve output; overrides --verbose.
+    void SetVerboseOutput(const bool verboseOutput)
+    {
+        m_verboseOutput = verboseOutput;
+    }
+
 protected:
     LibUtilities::CommSharedPtr m_rowComm = nullptr;
     std::shared_ptr<LHSOp<TData>> m_lhs;
@@ -163,6 +169,7 @@ protected:
     bool m_leftPreconditioner  = false;
     bool m_rightPreconditioner = false;
     bool m_verboseOutput       = false;
+    bool m_allowNotConverged   = false;
 
     LinearSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
@@ -179,8 +186,17 @@ protected:
         LibUtilities::Field<TData, FieldState::Coeff> &in,
         LibUtilities::Field<TData, FieldState::Coeff> &out) = 0;
 
-    std::string GetVerboseName(const std::string &solverName) const
+    template <typename TExtraPrinter>
+    void PrintVerboseOutput(const std::string &solverName,
+                            const std::string &residualName,
+                            const TData residual, const TData rhsMagnitude,
+                            TExtraPrinter extraPrinter) const
     {
+        if (!m_verboseOutput || !m_root)
+        {
+            return;
+        }
+
         std::stringstream msg;
         msg << solverName;
 
@@ -198,27 +214,7 @@ protected:
             msg << "]";
         }
 
-        return msg.str();
-    }
-
-    bool IsVerboseOutputEnabled(void) const
-    {
-        return m_verboseOutput;
-    }
-
-    template <typename TExtraPrinter>
-    void PrintVerboseOutput(const std::string &solverName,
-                            const std::string &residualName,
-                            const TData residual, const TData rhsMagnitude,
-                            TExtraPrinter extraPrinter) const
-    {
-        if (!m_verboseOutput || !m_root)
-        {
-            return;
-        }
-
-        std::cout << GetVerboseName(solverName)
-                  << " iterations made = " << m_niter << " using "
+        std::cout << msg.str() << " iterations made = " << m_niter << " using "
                   << (m_absoluteTolerance ? "absolute" : "relative")
                   << " tolerance of " << m_tol << " " << residualName << " = "
                   << residual << " rhs_mag = " << std::sqrt(rhsMagnitude);
@@ -233,6 +229,16 @@ protected:
     {
         PrintVerboseOutput(solverName, residualName, residual, rhsMagnitude,
                            [](std::ostream &) {});
+    }
+
+    /// Report a solve that did not converge within NekLinSysMaxIterations: a
+    /// warning with --linsys-allow-not-converged, a fatal error otherwise.
+    void ReportNotConverged(void) const
+    {
+        NEKERROR(m_allowNotConverged ? ErrorUtil::ewarning : ErrorUtil::efatal,
+                 "Exceeded max iterations: " + std::to_string(m_niter) +
+                     ". Increase NekLinSysMaxIterations in the session "
+                     "PARAMETERS section to allow more iterations.");
     }
 
     /**
@@ -254,7 +260,16 @@ protected:
         return (inMagnitude > 1.0e-6) ? inMagnitude : 1.0;
     }
 
-    template <typename ExecSpace> void SetLinearSolver(void)
+    /// Side the preconditioner is applied on unless the session sets
+    /// LinSysLeftPrecon or LinSysRightPrecon.
+    enum class PreconSide
+    {
+        Left,
+        Right
+    };
+
+    template <typename ExecSpace>
+    void SetLinearSolver(const PreconSide defaultPrecon)
     {
         auto session = this->m_expansionList->GetSession();
 
@@ -264,11 +279,17 @@ protected:
         this->m_rowComm       = session->GetComm()->GetRowComm();
         this->m_root          = this->m_rowComm->GetRank() == 0;
         this->m_verboseOutput = session->DefinesCmdLineArgument("verbose");
+        this->m_allowNotConverged =
+            session->DefinesCmdLineArgument("linsys-allow-not-converged");
 
         // Set parameters.
         LoadSetting(session, "NekLinSysMaxIterations", this->m_maxIter, 5000u);
         LoadSetting(session, "IterativeSolverTolerance", this->m_tol,
                     static_cast<TData>(1.0E-09));
+        session->LoadParameter("LinSysLeftPrecon", this->m_leftPreconditioner,
+                               defaultPrecon == PreconSide::Left);
+        session->LoadParameter("LinSysRightPrecon", this->m_rightPreconditioner,
+                               defaultPrecon == PreconSide::Right);
         auto absoluteTolerance =
             GetGlobalSysSolnInfo(session, "AbsoluteTolerance");
         this->m_absoluteTolerance =

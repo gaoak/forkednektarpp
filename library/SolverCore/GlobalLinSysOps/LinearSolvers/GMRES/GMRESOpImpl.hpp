@@ -62,23 +62,17 @@ public:
           m_Z("GMRES Z", this->m_blockAttr, components),
           m_delta("GMRES delta", this->m_blockAttr, components)
     {
-        this->template SetLinearSolver<ExecSpace>();
+        const auto defaultPrecon = LinearSolverOp<TData>::PreconSide::Right;
+        this->template SetLinearSolver<ExecSpace>(defaultPrecon);
         this->template SetMask<ExecSpace>();
 
         auto session = this->m_expansionList->GetSession();
 
-        this->m_leftPreconditioner =
-            session->DefinesParameter("LinSysLeftPrecon")
-                ? session->GetParameter("LinSysLeftPrecon")
-                : false;
-        this->m_rightPreconditioner =
-            session->DefinesParameter("LinSysRightPrecon")
-                ? session->GetParameter("LinSysRightPrecon")
-                : true;
-        this->m_LinSysMaxStorage =
-            session->DefinesParameter("LinSysMaxStorage")
-                ? session->GetParameter("LinSysMaxStorage")
-                : 100;
+        this->LoadSetting(session, "LinSysMaxStorage", m_LinSysMaxStorage,
+                          100u);
+        this->LoadSetting(session, "GMRESMaxHessMatBand",
+                          m_KrylovMaxHessMatBand, m_LinSysMaxStorage + 1);
+
         // LGMRES parameter
         // Reference:
         // Baker, Allison H., Elizabeth R. Jessup, and Thomas Manteuffel. "A
@@ -87,20 +81,13 @@ public:
         // 962-984.
         session->LoadParameter("GMRESDeltaDirection", m_GMRESDeltaDirection, 0);
 
-        session->LoadParameter("GMRESMaxHessMatBand", m_KrylovMaxHessMatBand,
-                               m_LinSysMaxStorage + 1);
+        session->LoadParameter("FlexibleGMRES", m_flexible, false);
+        session->LoadParameter("ModifiedGramSchmidt", m_isModifiedGramSchmidt,
+                               true);
+        session->LoadParameter("GMRESReorthogonalize", m_reorthogonalize,
+                               false);
         session->MatchSolverInfo("GMRESCentralDifference", "True",
                                  m_GMRESCentralDifference, false);
-        m_flexible = session->DefinesParameter("FlexibleGMRES")
-                         ? session->GetParameter("FlexibleGMRES")
-                         : false;
-        m_isModifiedGramSchmidt =
-            session->DefinesParameter("ModifiedGramSchmidt")
-                ? session->GetParameter("ModifiedGramSchmidt")
-                : true;
-        m_reorthogonalize = session->DefinesParameter("GMRESReorthogonalize")
-                                ? session->GetParameter("GMRESReorthogonalize")
-                                : false;
 
         ASSERTL0(!(m_flexible && this->m_leftPreconditioner),
                  "Flexible GMRES only avaible with right preconditioner");
@@ -244,11 +231,7 @@ protected:
         {
             if (this->m_niter == this->m_maxIter)
             {
-                std::stringstream msg;
-                msg << "Exceeded max iterations: " << this->m_niter
-                    << ". Increase NekLinSysMaxIterations in the session "
-                       "PARAMETERS section to allow more iterations.";
-                NEKERROR(ErrorUtil::efatal, msg.str());
+                this->ReportNotConverged();
 
                 break;
             }
@@ -570,7 +553,7 @@ protected:
         }
 
         // Print output.
-        if (this->IsVerboseOutputEnabled())
+        if (this->m_verboseOutput)
         {
             TData eps_real;
 

@@ -173,6 +173,7 @@ v5.11.0
 - Remove the unused FlagType enumeration, FlagTypeMap and FlagList class, the unused GeomTol and CoinTol constants, and duplicate integer typedefs (!2917)
 - Fix the trace normals of deformed quadrilaterals with one Gauss point in a direction, such as order-0 orthogonal expansions, which read past the edge values (!2932)
 - Compute the block attributes of the redesign linear solvers once in the LinearSolverOp base class instead of once per allocated field (!2935)
+- LinearSolver: Various tidy-up and allow for warning when max iteration is reached (!2936)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

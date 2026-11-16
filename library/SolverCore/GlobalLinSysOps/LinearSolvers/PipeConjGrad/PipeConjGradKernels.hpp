@@ -42,22 +42,18 @@ namespace Nektar::SolverCore::detail
 {
 
 /**
- * @brief Update the search directions and the solution:
+ * @brief Initialise the search directions and update the solution:
  *
- *   z = beta z + n, q = beta q + m, s = beta s + w, p = beta p + u,
+ *   z = n, q = m, s = w, p = u,
  *   out += alpha p, r -= alpha s, u -= alpha q, w -= alpha z,
  *
  * and, in the same pass, the products of the next iteration:
  * dots[0] = (u, u), dots[1] = (u, r) and dots[2] = (w, u), in the memory
  * space of ExecSpace.
- *
- * @p STAGE is 0 on the first update, where z, q, s and p are not read:
- * z = n, q = m, s = w and p = u. It is 1 on every later update.
  */
-template <typename ExecSpace, unsigned int STAGE, typename TData>
-NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
-    const TData alpha, [[maybe_unused]] const TData beta,
-    LibUtilities::Field<TData, FieldState::Coeff> &n,
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void InitPipeConjGradSearchDirection(
+    const TData alpha, LibUtilities::Field<TData, FieldState::Coeff> &n,
     LibUtilities::Field<TData, FieldState::Coeff> &m,
     LibUtilities::Field<TData, FieldState::Coeff> &z,
     LibUtilities::Field<TData, FieldState::Coeff> &q,
@@ -69,8 +65,6 @@ NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
     LibUtilities::Field<TData, FieldState::Coeff> &out, TData *dots)
 {
     using MemSpace = typename ExecSpace::memory_space;
-    using DirAccess =
-        typename std::conditional<STAGE == 0, WriteOnly, ReadWrite>::type;
 
     Math::zeroKernel<ExecSpace>(3, dots);
 
@@ -85,13 +79,13 @@ NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
         auto mptr =
             m.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto zptr =
-            z.GetBlocks()[blk].template GetPtr<MemSpace, DirAccess>(streamID);
+            z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto qptr =
-            q.GetBlocks()[blk].template GetPtr<MemSpace, DirAccess>(streamID);
+            q.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto sptr =
-            s.GetBlocks()[blk].template GetPtr<MemSpace, DirAccess>(streamID);
+            s.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto pptr =
-            p.GetBlocks()[blk].template GetPtr<MemSpace, DirAccess>(streamID);
+            p.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
         auto uptr =
             u.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
         auto wptr =
@@ -102,81 +96,130 @@ NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
             out.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
 
         Nektar::LoopExecutionSetStreamID(streamID);
+        Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>, 3>(
+            0, size,
+            NEKTAR_LAMBDA(const size_t idx, TData *vals) {
+                auto z0 = nptr[idx];
+                auto q0 = mptr[idx];
+                auto s0 = wptr[idx];
+                auto p0 = uptr[idx];
 
-        if constexpr (STAGE == 0)
-        {
-            Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>,
-                                    3>(
-                0, size,
-                NEKTAR_LAMBDA(const size_t idx, TData *vals) {
-                    auto z0 = nptr[idx];
-                    auto q0 = mptr[idx];
-                    auto s0 = wptr[idx];
-                    auto p0 = uptr[idx];
+                const auto r1 = rptr[idx] - alpha * s0;
+                const auto u1 = p0 - alpha * q0;
+                const auto w1 = s0 - alpha * z0;
 
-                    const auto r1 = rptr[idx] - alpha * s0;
-                    const auto u1 = p0 - alpha * q0;
-                    const auto w1 = s0 - alpha * z0;
+                outptr[idx] += alpha * p0;
+                rptr[idx] = r1;
+                uptr[idx] = u1;
+                wptr[idx] = w1;
 
-                    outptr[idx] += alpha * p0;
-                    rptr[idx] = r1;
-                    uptr[idx] = u1;
-                    wptr[idx] = w1;
+                zptr[idx] = z0;
+                qptr[idx] = q0;
+                sptr[idx] = s0;
+                pptr[idx] = p0;
 
-                    zptr[idx] = z0;
-                    qptr[idx] = q0;
-                    sptr[idx] = s0;
-                    pptr[idx] = p0;
+                vals[0] = u1 * u1;
+                vals[1] = u1 * r1;
+                vals[2] = w1 * u1;
+            },
+            dots);
 
-                    vals[0] = u1 * u1;
-                    vals[1] = u1 * r1;
-                    vals[2] = w1 * u1;
-                },
-                dots);
-        }
-        else
-        {
-            Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>,
-                                    3>(
-                0, size,
-                NEKTAR_LAMBDA(const size_t idx, TData *vals) {
-                    auto u0 = uptr[idx];
-                    auto w0 = wptr[idx];
+        const auto width = u.GetBlocks()[blk].GetInterleaveWidth();
+        z.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
+        q.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
+        s.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
+        p.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
+    }
 
-                    auto z0 = beta * zptr[idx] + nptr[idx];
-                    auto q0 = beta * qptr[idx] + mptr[idx];
-                    auto s0 = beta * sptr[idx] + w0;
-                    auto p0 = beta * pptr[idx] + u0;
+    Nektar::LoopExecutionSetStreamID(0);
+}
 
-                    const auto r1 = rptr[idx] - alpha * s0;
-                    const auto u1 = u0 - alpha * q0;
-                    const auto w1 = w0 - alpha * z0;
+/**
+ * @brief Update the search directions and the solution:
+ *
+ *   z = beta z + n, q = beta q + m, s = beta s + w, p = beta p + u,
+ *   out += alpha p, r -= alpha s, u -= alpha q, w -= alpha z,
+ *
+ * and, in the same pass, the products of the next iteration:
+ * dots[0] = (u, u), dots[1] = (u, r) and dots[2] = (w, u), in the memory
+ * space of ExecSpace.
+ */
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
+    const TData alpha, const TData beta,
+    LibUtilities::Field<TData, FieldState::Coeff> &n,
+    LibUtilities::Field<TData, FieldState::Coeff> &m,
+    LibUtilities::Field<TData, FieldState::Coeff> &z,
+    LibUtilities::Field<TData, FieldState::Coeff> &q,
+    LibUtilities::Field<TData, FieldState::Coeff> &s,
+    LibUtilities::Field<TData, FieldState::Coeff> &p,
+    LibUtilities::Field<TData, FieldState::Coeff> &u,
+    LibUtilities::Field<TData, FieldState::Coeff> &w,
+    LibUtilities::Field<TData, FieldState::Coeff> &r,
+    LibUtilities::Field<TData, FieldState::Coeff> &out, TData *dots)
+{
+    using MemSpace = typename ExecSpace::memory_space;
 
-                    outptr[idx] += alpha * p0;
-                    rptr[idx] = r1;
-                    uptr[idx] = u1;
-                    wptr[idx] = w1;
+    Math::zeroKernel<ExecSpace>(3, dots);
 
-                    zptr[idx] = z0;
-                    qptr[idx] = q0;
-                    sptr[idx] = s0;
-                    pptr[idx] = p0;
+    for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
+    {
+        const unsigned int streamID = blk + 1;
 
-                    vals[0] = u1 * u1;
-                    vals[1] = u1 * r1;
-                    vals[2] = w1 * u1;
-                },
-                dots);
-        }
+        auto size = out.GetBlocks()[blk].CompSize() * out.GetNumComponents() *
+                    out.GetNumHomoModes();
+        auto nptr =
+            n.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto mptr =
+            m.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+        auto qptr =
+            q.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+        auto sptr =
+            s.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+        auto pptr =
+            p.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+        auto uptr =
+            u.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+        auto wptr =
+            w.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+        auto rptr =
+            r.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
+        auto outptr =
+            out.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
 
-        if constexpr (STAGE == 0)
-        {
-            const auto width = u.GetBlocks()[blk].GetInterleaveWidth();
-            z.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
-            q.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
-            s.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
-            p.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
-        }
+        Nektar::LoopExecutionSetStreamID(streamID);
+        Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>, 3>(
+            0, size,
+            NEKTAR_LAMBDA(const size_t idx, TData *vals) {
+                auto u0 = uptr[idx];
+                auto w0 = wptr[idx];
+
+                auto z0 = beta * zptr[idx] + nptr[idx];
+                auto q0 = beta * qptr[idx] + mptr[idx];
+                auto s0 = beta * sptr[idx] + w0;
+                auto p0 = beta * pptr[idx] + u0;
+
+                const auto r1 = rptr[idx] - alpha * s0;
+                const auto u1 = u0 - alpha * q0;
+                const auto w1 = w0 - alpha * z0;
+
+                outptr[idx] += alpha * p0;
+                rptr[idx] = r1;
+                uptr[idx] = u1;
+                wptr[idx] = w1;
+
+                zptr[idx] = z0;
+                qptr[idx] = q0;
+                sptr[idx] = s0;
+                pptr[idx] = p0;
+
+                vals[0] = u1 * u1;
+                vals[1] = u1 * r1;
+                vals[2] = w1 * u1;
+            },
+            dots);
     }
 
     Nektar::LoopExecutionSetStreamID(0);
