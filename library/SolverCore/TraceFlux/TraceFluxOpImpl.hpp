@@ -1329,8 +1329,11 @@ protected:
     std::vector<GloTraceOffsetDeviceData> m_intGloTraceDev;
 
     /// Per interior and per partition block, whether the in-place kernels
-    /// take it: both sides collocated with the global trace, and the point
-    /// maps built. Decided by SetUpInPlaceBlocks().
+    /// take it: both sides collocated with the global trace in every
+    /// direction and both ways, so neither interpolates, and the point maps
+    /// built. Decided by SetUpInPlaceBlocks(); the kernels' own state for a
+    /// block (the group-trace plan on AVX; nothing on Device) addresses a
+    /// field's layout and lives in its FieldLayout.
     std::vector<bool> m_intInPlace, m_parInPlace;
 
     /**
@@ -1380,8 +1383,9 @@ protected:
      * @brief The element-local trace layout of a field at one set of block
      * interleave widths, one width per element block: per trace of every
      * family and block, its point offset and stride at the width of the
-     * element block it lies in (LayoutOffset()), and the same per parallel
-     * send entry. Built by BuildLayout() the first
+     * element block it lies in (LayoutOffset()); the same per parallel send
+     * entry; and the in-place kernels' state for each block they take, which
+     * addresses the field through them. Built by BuildLayout() the first
      * time a field with these widths is seen (LayoutFor()) and kept, keyed on
      * the width vector as AssmbScatr keys its tables, so a field's blocks may
      * carry any widths, alike or not, and a change of widths costs one
@@ -1391,6 +1395,7 @@ protected:
     {
         std::vector<BlockLayout> intT0, intT1, parT0, bndT0;
         BlockLayout parSend;
+        std::vector<InteriorInPlaceBlock<ExecSpace, TData>> intInPlace;
     };
     std::map<std::vector<unsigned>, FieldLayout> m_layouts;
     /// Element blocks of the expansion list, which a trace field's blocks
@@ -1476,6 +1481,21 @@ protected:
         build(m_parSendElmtBlk, m_parSendElmtInBlk, m_parSendTptsTot,
               m_parSendPtInElmt, L.parSend);
 
+        // The in-place kernels' state, which addresses this layout: the
+        // group-trace plan of each interior block on AVX. Serial and Device
+        // keep nothing between calls, nor do partition blocks.
+        L.intInPlace.resize(m_intInPlace.size());
+        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+        {
+            for (unsigned b = 0; b < m_intInPlace.size(); ++b)
+            {
+                if (m_intInPlace[b])
+                {
+                    BuildInteriorInPlaceBlock(InPlaceBlockViews<false>(b, L),
+                                              L.intInPlace[b]);
+                }
+            }
+        }
         return L;
     }
 
@@ -2817,56 +2837,69 @@ protected:
     /**
      * @brief Decide which interior and partition blocks the in-place kernels
      * take: a block whose two sides are both collocated with the global
-     * trace, so that the point maps were built; a partition block is not
-     * taken on Device, where it keeps the packed path. Run once at
+     * trace in every direction and both ways, so that neither side
+     * interpolates, and whose point maps were built; a partition block is
+     * not taken on Device, where it keeps the packed path. Run once at
      * construction; the kernels' state for a block is built per field layout
      * (BuildLayout()).
+     *
+     * The maps alone do not say a block is collocated: PackPointMaps() builds
+     * them for every oriented block, because the device gathers read through
+     * them whether or not a side interpolates. A side that interpolates has
+     * a matrix in `interpFwd` or `interpBwd`, and the in-place kernels, which
+     * read both sides at side 0's point count and apply no matrix, must leave
+     * such a block to the packed path.
      */
     void SetUpInPlaceBlocks()
     {
-        const auto collocated = [](const TraceDeviceData &T) {
-            return T.ptMapFwd != nullptr;
+        const auto isNull     = [](const TData *m) { return m == nullptr; };
+        const auto collocated = [&](const TraceDetails &T,
+                                    const TraceDeviceData &D) {
+            return D.ptMapFwd != nullptr &&
+                   std::all_of(T.interpFwd.begin(), T.interpFwd.end(),
+                               isNull) &&
+                   std::all_of(T.interpBwd.begin(), T.interpBwd.end(), isNull);
         };
         m_intInPlace.resize(m_intT0.size());
         for (unsigned b = 0; b < m_intT0.size(); ++b)
         {
-            m_intInPlace[b] =
-                collocated(m_intT0Dev[b]) && collocated(m_intT1Dev[b]);
+            m_intInPlace[b] = collocated(m_intT0[b], m_intT0Dev[b]) &&
+                              collocated(m_intT1[b], m_intT1Dev[b]);
         }
         m_parInPlace.resize(m_parT0.size());
         if constexpr (!std::is_same_v<ExecSpace, NektarSpaces::Device>)
         {
             for (unsigned b = 0; b < m_parT0.size(); ++b)
             {
-                m_parInPlace[b] =
-                    collocated(m_parT0Dev[b]) && collocated(m_parT1Dev[b]);
+                m_parInPlace[b] = collocated(m_parT0[b], m_parT0Dev[b]) &&
+                                  collocated(m_parT1[b], m_parT1Dev[b]);
             }
         }
     }
 
     /**
-     * @brief Interior block @p b (or partition block @p b when @p PARALLEL)
+     * @brief Interior block @p b (or partition block @p b when @p PARTITION)
      * as the in-place kernels read it, its sides through the field layout
      * @p L, a partition block's far side, the receive buffer, at stride 1.
      */
-    template <bool PARALLEL>
+    template <bool PARTITION>
     InteriorBlockViews InPlaceBlockViews(const unsigned b, FieldLayout &L)
     {
-        auto &T0Dev = PARALLEL ? m_parT0Dev[b] : m_intT0Dev[b];
-        auto &T1Dev = PARALLEL ? m_parT1Dev[b] : m_intT1Dev[b];
+        auto &T0Dev = PARTITION ? m_parT0Dev[b] : m_intT0Dev[b];
+        auto &T1Dev = PARTITION ? m_parT1Dev[b] : m_intT1Dev[b];
         InteriorBlockViews views;
         views.side0 =
-            GetTraceBlockView(T0Dev, PARALLEL ? L.parT0[b] : L.intT0[b]);
-        views.side1 = PARALLEL ? GetTraceBlockView(T1Dev)
-                               : GetTraceBlockView(T1Dev, L.intT1[b]);
-        views.glo   = GetGloTraceOffsetView(PARALLEL ? m_parGloTraceDev[b]
-                                                     : m_intGloTraceDev[b]);
+            GetTraceBlockView(T0Dev, PARTITION ? L.parT0[b] : L.intT0[b]);
+        views.side1 = PARTITION ? GetTraceBlockView(T1Dev)
+                                : GetTraceBlockView(T1Dev, L.intT1[b]);
+        views.glo   = GetGloTraceOffsetView(PARTITION ? m_parGloTraceDev[b]
+                                                      : m_intGloTraceDev[b]);
         return views;
     }
 
     /**
      * @brief Take interior block @p b, or partition block @p b when
-     * @p PARALLEL, through the in-place kernels with the point flux
+     * @p PARTITION, through the in-place kernels with the point flux
      * @p pointFlux, if the block is one they take (SetUpInPlaceBlocks()) and
      * the fields share a layout, @p layout (SharedLayout(), null where they
      * do not).
@@ -2876,27 +2909,31 @@ protected:
      * far side from the receive buffers of exchange channels 0 and 1, the
      * trace normals from @p normPtr and the penalty factors from the data
      * warehouse, and write the flux to @p fluxPtr, adding to it under the
-     * operator's append setting.
+     * operator's append setting. On AVX the well-filled group traces of an
+     * interior block's group-trace plan (BuildInteriorInPlaceBlock(), kept in
+     * the layout) go through InteriorBlockGroupTraceKernel() and the block's
+     * remaining traces through the per-trace kernel as a block of their
+     * own.
      *
      * @tparam NDIM Spatial dimension, `TRACEDIM + 1`.
      * @return Whether the block was taken; otherwise it is the caller's, on
      *         the packed path.
      */
-    template <unsigned NDIM, bool PARALLEL, typename PointFlux>
+    template <unsigned NDIM, bool PARTITION, typename PointFlux>
     bool TakeBlockInPlace(const unsigned b, const PointFlux &pointFlux,
                           FieldLayout *layout,
                           [[maybe_unused]] const unsigned numflux,
                           const TData *inPtr, const TData *secondPtr,
                           TData *fluxPtr, const TData *normPtr)
     {
-        if constexpr (PARALLEL &&
+        if constexpr (PARTITION &&
                       std::is_same_v<ExecSpace, NektarSpaces::Device>)
         {
             return false;
         }
         else
         {
-            const bool use = PARALLEL ? m_parInPlace[b] : m_intInPlace[b];
+            const bool use = PARTITION ? m_parInPlace[b] : m_intInPlace[b];
             if (!use || layout == nullptr)
             {
                 return false;
@@ -2904,9 +2941,9 @@ protected:
             ASSERTL1(numflux == PointFlux::numVar,
                      "The fields have the components of the point flux.");
 
-            const auto views = InPlaceBlockViews<PARALLEL>(b, *layout);
+            const auto views = InPlaceBlockViews<PARTITION>(b, *layout);
             const TData *in1 = inPtr, *second1 = secondPtr;
-            if constexpr (PARALLEL)
+            if constexpr (PARTITION)
             {
                 in1 = m_parChannel[0]
                           .recvBuffer.template GetPtr<MemSpace, ReadOnly>(
@@ -2929,19 +2966,53 @@ protected:
                         0, MultiRegions::IPTraceScalarData::IPPenaltyFactor));
             }
 
+            // The across-group form is chosen here rather than in the launcher,
+            // whose per-trace loop lost 2.7 % in cycles to the dispatch
+            // (see InteriorBlockInPlaceKernelLauncher()). Interior blocks
+            // take it in a parallel run as in serial; only a partition
+            // block stays along-trace, since its far side is the receive
+            // buffer, at stride 1, which the along-trace kernel loads as
+            // whole vectors already. The per-trace kernel then takes the
+            // traces the kept group traces leave, or the whole block.
+            InteriorBlockViews perTraceViews = views;
+            if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX> &&
+                          !PARTITION)
+            {
+                const auto &plan = layout->intInPlace[b];
+                if (plan.numGroupTrace > 0)
+                {
+                    if (this->m_append)
+                    {
+                        InteriorBlockGroupTraceKernel<NDIM, true>(
+                            plan, pointFlux, inPtr, secondPtr, fluxPtr, normPtr,
+                            penPtr);
+                    }
+                    else
+                    {
+                        InteriorBlockGroupTraceKernel<NDIM, false>(
+                            plan, pointFlux, inPtr, secondPtr, fluxPtr, normPtr,
+                            penPtr);
+                    }
+                    if (plan.rest.numTrace == 0)
+                    {
+                        return true;
+                    }
+                    perTraceViews = plan.rest.Views(views);
+                }
+            }
             if (this->m_append)
             {
-                InteriorBlockInPlaceKernelLauncher<NDIM, true, PARALLEL,
+                InteriorBlockInPlaceKernelLauncher<NDIM, true, PARTITION,
                                                    ExecSpace>(
-                    views, pointFlux, inPtr, in1, secondPtr, second1, fluxPtr,
-                    normPtr, penPtr, this->m_opStreamID);
+                    perTraceViews, pointFlux, inPtr, in1, secondPtr, second1,
+                    fluxPtr, normPtr, penPtr, this->m_opStreamID);
             }
             else
             {
-                InteriorBlockInPlaceKernelLauncher<NDIM, false, PARALLEL,
+                InteriorBlockInPlaceKernelLauncher<NDIM, false, PARTITION,
                                                    ExecSpace>(
-                    views, pointFlux, inPtr, in1, secondPtr, second1, fluxPtr,
-                    normPtr, penPtr, this->m_opStreamID);
+                    perTraceViews, pointFlux, inPtr, in1, secondPtr, second1,
+                    fluxPtr, normPtr, penPtr, this->m_opStreamID);
             }
             return true;
         }

@@ -229,6 +229,8 @@ v5.11.0
 - Form the viscous volume and interior-penalty trace fluxes through one stress-tensor kernel per dimension, replacing the per-direction-pair bilinear form (!2890)
 - Read and write the interior and partition trace flux of collocated trace blocks in place, through the trace point maps, with the trace normals and penalty factors read from the data warehouse: in-place kernels in SolverCore for any point flux, in 1D, 2D and 3D, with a Device sibling, taken by the Euler and the Navier-Stokes trace fluxes (!2890)
 - Fix the trace setup for faces whose two sides both differ from the global trace: the trace's own extents, an interpolation back to a side with as many or more points, and blocks grouped by the global trace and orientation too (!2890)
+- Keep interpolating trace blocks off the in-place interior flux path: the in-place gate now also requires no interpolation on either side, as the packed path's documentation says; add a prism/hex Taylor-Green test at variable order (!2927)
+- Restore the across-group form of the in-place interior trace flux on AVX, the vector running across an element group's copies of one local trace (a group trace) rather than along a trace, taken where a group trace's other sides lie in few memory streams and its lanes are well filled, the block's remaining traces per trace, chosen in `TakeBlockInPlace()` (!2927)
 - Set the interleave width of the output of the Courant-velocity operator (!2886)
 - Fix NaN fluxes on padded elements in the Euler volume flux (!2891)
 - Update `TimeDependent` boundary conditions at every right-hand-side evaluation, which were left at their initial value, and add a test ported from the legacy solver (!2902)
