@@ -338,6 +338,8 @@ NEK_DEVICE_INLINE static void AddAdvectionApplyMetric3DSumFacTOPKernel(
  * @param   nhomo           Homogeneous planes of the field.
  * @param   isModified      First-direction basis is eModified_A; unused
  *                          for segments.
+ * @param   useSharedMemoryWsp       Unused: SumFacTOP always stages in shared
+ *                          memory.
  * @param   basis0          1D basis table.
  * @param   D0              1D collocation derivative matrix.
  * @param   w0              1D quadrature weights.
@@ -375,6 +377,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
         const size_t nelmt, const unsigned int nhomo,
         [[maybe_unused]] const bool isModified,
+        [[maybe_unused]] const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
@@ -489,6 +492,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   nelmt           Elements in the block, padding included.
  * @param   nhomo           Homogeneous planes of the field.
  * @param   isModified      First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp       Unused: SumFacTOP always stages in shared
+ *                          memory.
  * @param   index0          Mode-index table of the triangular shapes,
  *                          mapping a flat mode index to its direction-0
  *                          mode.
@@ -524,6 +529,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LinAdvDiffReactionKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
         const size_t nelmt, const unsigned int nhomo, const bool isModified,
+        [[maybe_unused]] const bool useSharedMemoryWsp,
         const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -714,6 +720,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   nhomo           Homogeneous planes; unused, a 3D field has
  *                          one.
  * @param   isModified      First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp       Unused: SumFacTOP always stages in shared
+ *                          memory.
  * @param   index0,index1,index2,index3     Mode-index tables of the
  *                                          collapsed shapes, mapping a
  *                                          flat mode index back to the
@@ -755,6 +763,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TSizeParameter3D sizeParam3D,
         [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
         [[maybe_unused]] const unsigned int nhomo, const bool isModified,
+        [[maybe_unused]] const bool useSharedMemoryWsp,
         const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,

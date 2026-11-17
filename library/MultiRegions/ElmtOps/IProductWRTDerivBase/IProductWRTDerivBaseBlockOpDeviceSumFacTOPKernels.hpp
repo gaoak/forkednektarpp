@@ -179,6 +179,8 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
  *                           (see ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Sizes of the expansion.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Shared-memory requirement in elements of TData.
  */
@@ -190,7 +192,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter1D sizeParam1D)
+    const TSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam1D.nq0();
 
@@ -233,6 +236,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *                           Phys or Coeff variant.
  *
  * @param   sizeParam2D  Sizes per direction.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Shared-memory requirement in elements of TData.
  */
@@ -244,7 +249,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter2D sizeParam2D)
+    const TSizeParameter2D sizeParam2D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     // Padded rows of the inner product's input and intermediate stages.
     const unsigned int pad =
@@ -314,6 +320,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *                           Phys or Coeff variant.
  *
  * @param   sizeParam3D  Sizes per direction.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Shared-memory requirement in elements of TData.
  */
@@ -325,7 +333,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter3D sizeParam3D)
+    const TSizeParameter3D sizeParam3D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     // Padded rows of the inner product's input and intermediate stages.
     const unsigned int pad =
@@ -709,6 +718,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
  * @param   nelmt       Elements in the block, padding included.
  * @param   inoffset    Stride between the input's coordinate components.
  * @param   isModified  First-direction basis is eModified_A; unused in 1D.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   basis0      One-dimensional basis table of the expansion.
  * @param   D0          One-dimensional derivative matrix.
  * @param   w0          Quadrature weights of the expansion.
@@ -734,6 +745,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
         const size_t nelmt, const size_t inoffset,
         [[maybe_unused]] const bool isModified,
+        [[maybe_unused]] const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
@@ -815,6 +827,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam1D Sizes of the expansion.
  * @param   nelmt       Elements in the block, padding included.
  * @param   inoffset    Stride between the input's coordinate components.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   D0          One-dimensional derivative matrix.
  * @param   w0          Quadrature weights of the expansion.
  * @param   df          Derivative factors of the block.
@@ -835,11 +849,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter1D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-        const size_t inoffset, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        TData scale, unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const size_t inoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
@@ -927,6 +942,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   inoffset        Stride between the input's coordinate
  *                          components.
  * @param   isModified      First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp       Unused: SumFacTOP always stages in shared
+ *                          memory.
  * @param   index0          Mode-index table of the collapsed ordering
  *                          (triangles).
  * @param   basis0,basis1   One-dimensional basis tables per direction.
@@ -954,6 +971,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTDerivBaseKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
         const size_t nelmt, const size_t inoffset, const bool isModified,
+        [[maybe_unused]] const bool useSharedMemoryWsp,
         const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -1096,6 +1114,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam2D Sizes per direction.
  * @param   nelmt       Elements in the block, padding included.
  * @param   inoffset    Stride between the input's coordinate components.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   D0,D1       One-dimensional derivative matrices per direction.
  * @param   w0,w1       Quadrature weights per direction.
  * @param   f0,f1       Collapsed-coordinate factor tables (triangles).
@@ -1117,13 +1137,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter2D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-        const size_t inoffset, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT w0,
-        const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT f0,
-        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        TData scale, unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const size_t inoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -1217,6 +1238,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   inoffset                Stride between the input's coordinate
  *                                  components.
  * @param   isModified              First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp               Unused: SumFacTOP always stages in
+ *                                  shared memory.
  * @param   index0,index1,index2    Mode-index tables of the collapsed
  *                                  ordering.
  * @param   basis0,basis1,basis2    One-dimensional basis tables per
@@ -1247,6 +1270,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TSizeParameter3D sizeParam3D,
         [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
         const size_t inoffset, const bool isModified,
+        [[maybe_unused]] const bool useSharedMemoryWsp,
         const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
@@ -1427,6 +1451,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   nelmt           Elements in the block, padding included.
  * @param   inoffset        Stride between the input's coordinate
  *                          components.
+ * @param   useSharedMemoryWsp       Unused: SumFacTOP always stages in shared
+ *                          memory.
  * @param   D0,D1,D2        One-dimensional derivative matrices per
  *                          direction.
  * @param   w0,w1,w2        Quadrature weights per direction.
@@ -1449,15 +1475,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter3D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-        const size_t inoffset, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
-        const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-        const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        TData scale, unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const size_t inoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+        const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT w0,
+        const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+        const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+        const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+        const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,

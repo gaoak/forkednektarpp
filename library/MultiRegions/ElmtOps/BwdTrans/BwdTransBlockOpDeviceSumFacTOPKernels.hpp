@@ -177,6 +177,8 @@ inline constexpr size_t BwdTransWorkSpaceSize(
  * @tparam TSizeParameter1D  1D size parameter, runtime or templated.
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Number of TData values of shared memory per thread block.
  */
@@ -187,7 +189,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    const TSizeParameter1D sizeParam1D)
+    const TSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nm0 = sizeParam1D.nm0();
     const unsigned int nq0 = sizeParam1D.nq0();
@@ -210,6 +213,8 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
  * @tparam TSizeParameter2D  2D size parameter, runtime or templated.
  *
  * @param   sizeParam2D  Modal and quadrature sizes per direction.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Number of TData values of shared memory per thread block.
  */
@@ -220,7 +225,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    const TSizeParameter2D sizeParam2D)
+    const TSizeParameter2D sizeParam2D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
@@ -266,6 +272,8 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
  * @tparam TSizeParameter3D  3D size parameter, runtime or templated.
  *
  * @param   sizeParam3D  Modal and quadrature sizes per direction.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Number of TData values of shared memory per thread block.
  */
@@ -276,7 +284,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    const TSizeParameter3D sizeParam3D)
+    const TSizeParameter3D sizeParam3D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -1320,6 +1329,8 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A; the segment
  *                      kernel needs no correction, so unused.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   basis0      Basis table in device memory.
  * @param   nodToMod    Nodal-to-modal matrix; no 1D nodal shape, so
  *                      unused.
@@ -1340,6 +1351,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     BwdTransKernelLauncher(const TSizeParameter1D sizeParam1D,
                            const size_t nelmt,
                            [[maybe_unused]] const bool isModified,
+                           [[maybe_unused]] const bool useSharedMemoryWsp,
                            const TData *NEK_RESTRICT basis0,
                            [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
                            const TData *NEK_RESTRICT in,
@@ -1400,6 +1412,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam2D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   basis0,basis1   Per-direction basis tables.
  * @param   nodToMod    Nodal-to-modal matrix; nodal shapes only.
  * @param   in          Block's coefficients for every component.
@@ -1417,11 +1431,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     BwdTransKernelLauncher(
         const TSizeParameter2D sizeParam2D, const size_t nelmt,
-        const bool isModified, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT nodToMod,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -1517,6 +1531,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam3D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   index0,index1   Mode-index tables; tetrahedra only.
  * @param   basis0,basis1,basis2    Per-direction basis tables.
  * @param   nodToMod    Nodal-to-modal matrix; nodal shapes only.
@@ -1535,12 +1551,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     BwdTransKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *index0,
-        const unsigned int *index1, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
-        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const unsigned int *index0, const unsigned int *index1,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT nodToMod,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
                   "Template argument must be either of type "

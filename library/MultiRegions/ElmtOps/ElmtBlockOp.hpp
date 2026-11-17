@@ -540,6 +540,54 @@ NEK_FORCE_INLINE static unsigned int GetDeviceGridSize(
         return 0;
     }
 }
+
+/**
+ * @brief Whether a kernel holds its stage intermediates in shared
+ * memory rather than in the global-memory workspace.
+ *
+ * Always true for SumFacTOP. For SumFac, true when the thread block's
+ * share of the workspace fits in the device's shared memory per block
+ * and leaves at least `1 / minOccupancyDivisor` of the multiprocessor's
+ * threads resident. Always false for the other implementations.
+ *
+ * @tparam Implementation   Implementation tag.
+ *
+ * @param   shmemsize   Workspace of one thread block in bytes.
+ *
+ * @return Whether to place the workspace in shared memory.
+ */
+template <typename Implementation>
+NEK_FORCE_INLINE static bool UseSharedWorkSpace(const size_t shmemsize)
+{
+    constexpr size_t minOccupancyDivisor = 4u;
+
+    if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
+    {
+        if (shmemsize == 0 ||
+            shmemsize > GetDeviceProperties::SharedMemoryPerBlock())
+        {
+            return false;
+        }
+
+        constexpr size_t warpsize = NektarSpaces::Device::warpSize;
+
+        const size_t maxThreads = static_cast<size_t>(
+            GetDeviceProperties::MaxThreadsPerMultiprocessor());
+        const size_t threadsByShared =
+            GetDeviceProperties::SharedMemoryPerMultiprocessor() / shmemsize *
+            warpsize;
+
+        return threadsByShared * minOccupancyDivisor >= maxThreads;
+    }
+    else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
 #endif
 
 } // namespace Nektar::MultiRegions

@@ -312,17 +312,30 @@ protected:
             }
         }
 
-        // Get static workspace pointer. Each plane has its own slab, less
-        // the part block-local memory holds.
         const unsigned int nvar  = inblock.GetNumComponents();
         const unsigned int nhomo = inblock.GetNumHomoModes();
         const unsigned int ncomp = nvar * nhomo;
+
+        // Stage intermediates in shared memory if they fit.
+        const unsigned int shmemsizeWithSharedWsp =
+            sizeof(TData) *
+            AdvectionDealiasSharedMemorySize<SHAPE_TYPE, Implementation>(
+                m_coordDim, nvar, sizeParam, localPipeline, sharedScratch,
+                true);
+        const bool useSharedMemoryWsp =
+            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+
+        // Get static workspace pointer. Each plane has its own slab, less
+        // the part block-local memory holds.
         const size_t wspSize =
-            AdvectionDealiasWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                nelmt, m_coordDim, nvar, sizeParam, localPipeline) -
-            nelmt *
-                AdvectionDealiasSharedWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                    sizeParam, localPipeline, sharedScratch);
+            (std::is_same_v<Implementation, SumFac> && useSharedMemoryWsp)
+                ? 0
+                : AdvectionDealiasWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      nelmt, m_coordDim, nvar, sizeParam, localPipeline) -
+                      nelmt *
+                          AdvectionDealiasSharedWorkSpaceSize<SHAPE_TYPE,
+                                                              Implementation>(
+                              sizeParam, localPipeline, sharedScratch);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * nhomo, m_streamID);
@@ -333,9 +346,13 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) *
-            AdvectionDealiasSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam, localPipeline, sharedScratch);
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      AdvectionDealiasSharedMemorySize<SHAPE_TYPE,
+                                                       Implementation>(
+                          m_coordDim, nvar, sizeParam, localPipeline,
+                          sharedScratch, false);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(nqTotFine);
         const unsigned int gridsize =
@@ -364,8 +381,8 @@ protected:
                                                         Implementation, true,
                                                         DEFORMED, true, true>),
                         gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                        sizeParam, nelmt, nvar, nhomo, m_D[ind0]...,
-                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
+                        m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
                         m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
                         advVelPtr, advVelPlaneStride, outptr, outCompStride,
                         wspptr);
@@ -381,8 +398,8 @@ protected:
                                                         Implementation, true,
                                                         DEFORMED, false, true>),
                         gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                        sizeParam, nelmt, nvar, nhomo, m_D[ind0]...,
-                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
+                        m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
                         m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
                         advVelPtr, advVelPlaneStride, outptr, outCompStride,
                         wspptr);
@@ -395,10 +412,11 @@ protected:
                                                     true, DEFORMED, false,
                                                     false>),
                     gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam, nelmt, nvar, nhomo, m_D[ind0]..., m_f[ind1]...,
-                    m_dfptr, m_Binterp[ind0]..., m_Bproject[ind0]...,
-                    this->m_scale, inptr, inCompStride, advVelPtr,
-                    advVelPlaneStride, outptr, outCompStride, wspptr);
+                    sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
+                    m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                    m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
+                    advVelPtr, advVelPlaneStride, outptr, outCompStride,
+                    wspptr);
             }
         }
         else
@@ -413,8 +431,8 @@ protected:
                                                         Implementation, false,
                                                         DEFORMED, true, true>),
                         gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                        sizeParam, nelmt, nvar, nhomo, m_D[ind0]...,
-                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
+                        m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
                         m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
                         advVelPtr, advVelPlaneStride, outptr, outCompStride,
                         wspptr);
@@ -430,8 +448,8 @@ protected:
                                                         Implementation, false,
                                                         DEFORMED, false, true>),
                         gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                        sizeParam, nelmt, nvar, nhomo, m_D[ind0]...,
-                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
+                        m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
                         m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
                         advVelPtr, advVelPlaneStride, outptr, outCompStride,
                         wspptr);
@@ -444,10 +462,11 @@ protected:
                                                     false, DEFORMED, false,
                                                     false>),
                     gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam, nelmt, nvar, nhomo, m_D[ind0]..., m_f[ind1]...,
-                    m_dfptr, m_Binterp[ind0]..., m_Bproject[ind0]...,
-                    this->m_scale, inptr, inCompStride, advVelPtr,
-                    advVelPlaneStride, outptr, outCompStride, wspptr);
+                    sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
+                    m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                    m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
+                    advVelPtr, advVelPlaneStride, outptr, outCompStride,
+                    wspptr);
             }
         }
 

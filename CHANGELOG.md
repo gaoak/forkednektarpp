@@ -158,6 +158,7 @@ v5.11.0
 - Remove the duplicate double-only BLAS wrappers (`Dgemv`, `Dgemm`, ...) and the unused `Cdgemm`; use the overloaded versions instead (!2915)
 - Store the per-element inverse mass matrices of deformed blocks in the geometric data warehouse (`ElmtInvMassKey`), so MultiplyByElmtInvMass and PhysLiftProject share one copy in place of each operator holding its own (!2914)
 - Add variable diffusion coefficients to the Helmholtz, Laplacian and LinAdvDiffReaction operators and their linear systems (!2916)
+- Hold the intermediate stages of the device SumFac element operators in shared memory instead of the global workspace when they fit and leave at least a quarter of the multiprocessor's threads resident (`ElmtBlockOp::UseSharedWorkSpace`) (!2937)
 - Replace the `HostToHost`, `DeviceToHost`, `HostToDevice` and `DeviceToDevice` tag structs of `deviceMemcpy` with the `MemCopyType` enum, so that an invalid copy direction no longer compiles (!2919)
 - Add per-block interleave width helpers to `Field` and use them in place of duplicated block loops (!2918)
 - Fix `BlockAccessor::ReshapeStorage()` ignoring its stream (!2918)

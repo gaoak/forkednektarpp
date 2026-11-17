@@ -396,7 +396,10 @@ protected:
      * time. The global-memory workspace is the static per-stream buffer
      * shared by all block operators, sized by BwdTransWorkSpaceSize()
      * times ncomp -- the stage intermediates under SumFac, and zero
-     * under SumFacTOP, which stages them in shared memory instead.
+     * under SumFacTOP, which stages them in shared memory instead. Under
+     * SumFac the intermediates go in shared memory as well when
+     * UseSharedWorkSpace() accepts the size BwdTransSharedMemorySize()
+     * gives for one warp of elements; the global workspace is then zero.
      *
      * The storage for all nelmt * ncomp elements is reshaped once to
      * #m_implInterleaveWidth, a single launch covers every component on
@@ -434,11 +437,22 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Stage intermediates in shared memory if they fit.
+        const unsigned int shmemsizeWithSharedWsp =
+            sizeof(TData) *
+            BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam,
+                                                                 true);
+        const bool useSharedMemoryWsp =
+            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt,
+                                                                    sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -449,8 +463,11 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) *
-            BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
+                          sizeParam, false);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
@@ -470,8 +487,8 @@ protected:
             DEVICE_2DGRID_KERNEL_LAUNCHER(
                 (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, true>),
                 gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                nelmt, m_isModified, m_index[ind1]..., m_B[ind0]..., m_nodToMod,
-                inptr, outptr, wspptr);
+                nelmt, m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr);
         }
         else
         {
@@ -479,8 +496,8 @@ protected:
             DEVICE_2DGRID_KERNEL_LAUNCHER(
                 (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, false>),
                 gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                nelmt, m_isModified, m_index[ind1]..., m_B[ind0]..., m_nodToMod,
-                inptr, outptr, wspptr);
+                nelmt, m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr);
         }
 
         // Reshape back, if necessary.

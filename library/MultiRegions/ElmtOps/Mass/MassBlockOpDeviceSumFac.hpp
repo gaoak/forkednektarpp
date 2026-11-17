@@ -49,9 +49,9 @@
  * and shared-memory size helpers resolve:
  * - SumFac (MassBlockOpDeviceSumFacKernels.hpp): one element per thread. The
  *   lanes of a warp advance through warpSize elements in lock-step on
- *   warp-interleaved data; the inter-stage intermediates live in a
- *   global-memory workspace and the quadrature metric is applied inside
- *   the inner-product shape kernel.
+ *   warp-interleaved data; the inter-stage intermediates live in shared
+ *   memory when they fit, otherwise in a global-memory workspace, and the
+ *   quadrature metric is applied inside the inner-product shape kernel.
  * - SumFacTOP (MassBlockOpDeviceSumFacTOPKernels.hpp): one element per thread
  *   block. The block's threads are indexed over the element's per-stage
  *   output entries, with the basis tables and the intermediates staged in
@@ -411,10 +411,13 @@ protected:
      * count, so that one launch covers every component and mode and each
      * kernel recovers its component from its block index. The dynamic
      * shared memory request is MassSharedMemorySize for the shape and
-     * strategy at hand, in bytes (zero under SumFac); the global workspace
-     * request is MassWorkSpaceSize scaled by ncomp (zero under SumFacTOP),
-     * taken from the static per-stream buffer. Both helpers have one overload
-     * per strategy and dimension, documented in the kernel headers.
+     * strategy at hand, in bytes; the global workspace request is
+     * MassWorkSpaceSize scaled by ncomp (zero under SumFacTOP), taken from
+     * the static per-stream buffer. Under SumFac the intermediates go in
+     * shared memory when UseSharedWorkSpace() accepts the size
+     * MassSharedMemorySize() gives for one warp of elements; the global
+     * workspace is then zero. Both helpers have one overload per strategy
+     * and dimension, documented in the kernel headers.
      *
      * The launch goes through DEVICE_2DGRID_KERNEL_LAUNCHER to the
      * MassKernelLauncher overload of this dimension and strategy, the index
@@ -467,11 +470,21 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Stage intermediates in shared memory if they fit.
+        const unsigned int shmemsizeWithSharedWsp =
+            sizeof(TData) *
+            MassSharedMemorySize<SHAPE_TYPE, Implementation, TData>(sizeParam,
+                                                                    true);
+        const bool useSharedMemoryWsp =
+            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            MassWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam);
+            useSharedMemoryWsp ? 0
+                               : MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                                     nelmt, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -482,8 +495,11 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) *
-            MassSharedMemorySize<SHAPE_TYPE, Implementation, TData>(sizeParam);
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      MassSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
+                          sizeParam, false);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
@@ -507,9 +523,9 @@ protected:
                 (MassKernelLauncher<SHAPE_TYPE, Implementation, false, APPEND,
                                     DEFORMED>),
                 gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                nelmt, m_isModified, m_index[ind1]..., m_B[ind0]...,
-                m_W[ind0]..., m_nodToMod, m_jacptr, inptr, outptr, wspptr,
-                (TData)1.0);
+                nelmt, m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr, outptr,
+                wspptr, (TData)1.0);
         }
         else
         {
@@ -517,9 +533,9 @@ protected:
                 (MassKernelLauncher<SHAPE_TYPE, Implementation, true, APPEND,
                                     DEFORMED>),
                 gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                nelmt, m_isModified, m_index[ind1]..., m_B[ind0]...,
-                m_W[ind0]..., m_nodToMod, m_jacptr, inptr, outptr, wspptr,
-                this->m_scale);
+                nelmt, m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr, outptr,
+                wspptr, this->m_scale);
         }
 
         // Reshape back, if necessary.

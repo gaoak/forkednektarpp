@@ -50,7 +50,9 @@ namespace Nektar::MultiRegions::detail
 // Per-warp-group workspace, in TData elements: the reference derivatives, the
 // fine-grid fields, the products, then one tensor-contraction intermediate per
 // contracted direction. The launchers below lay the regions out in that order,
-// and the host sizes its static allocation with the same call.
+// and the host sizes its static allocation with the same call: zero with
+// useSharedMemoryWsp, where AdvectionDealiasSharedMemorySize holds one warp
+// group's.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
@@ -121,8 +123,9 @@ NEK_HOSTDEVICE_INLINE constexpr size_t AdvectionDealiasWorkSpaceSize(
            nelmt;
 }
 
-// SumFac keeps its whole workspace in the static allocation - shared memory
-// there holds the collapsed-coordinate broadcast tables instead.
+// SumFac has no per-element shared tier: the workspace lives either wholly
+// in the static allocation or, with useSharedMemoryWsp, wholly in shared
+// memory.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
@@ -136,17 +139,27 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int AdvectionDealiasSharedWorkSpaceSize
 }
 
 // Shared memory holds the collapsed-coordinate broadcast tables the reused
-// PhysDeriv kernels read, so the requirement is PhysDeriv's own.
+// PhysDeriv kernels read, PhysDeriv's own requirement, followed with
+// useSharedMemoryWsp by the workspace of the thread block's single warp group.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 inline constexpr unsigned int AdvectionDealiasSharedMemorySize(
-    const TPhysSizeParameter sizeParam,
-    [[maybe_unused]] const bool localPipeline,
-    [[maybe_unused]] const bool sharedScratch)
+    const unsigned int ncoord, const unsigned int ncomp,
+    const TPhysSizeParameter sizeParam, const bool localPipeline,
+    [[maybe_unused]] const bool sharedScratch, const bool useSharedMemoryWsp)
 {
-    return PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
+    const unsigned int wspSize =
+        useSharedMemoryWsp
+            ? static_cast<unsigned int>(
+                  AdvectionDealiasWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      NektarSpaces::Device::warpSize, ncoord, ncomp, sizeParam,
+                      localPipeline))
+            : 0u;
+
+    return PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam) +
+           wspSize;
 }
 
 // Stage C: advVel/grad/out are already offset to this warp-group's data;
@@ -193,18 +206,21 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     const unsigned int ncomp, const unsigned int nhomo,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT Binterp0, const TData *NEK_RESTRICT Bproject0,
-    const TData scale, const TData *NEK_RESTRICT in, const size_t inCompStride,
+    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT Binterp0,
+    const TData *NEK_RESTRICT Bproject0, const TData scale,
+    const TData *NEK_RESTRICT in, const size_t inCompStride,
     const TData *NEK_RESTRICT advVel, const size_t advVelPlaneStride,
     TData *NEK_RESTRICT out, const size_t outCompStride,
-    TData *NEK_RESTRICT elmtWsp, [[maybe_unused]] unsigned char *shmemptr,
+    TData *NEK_RESTRICT elmtWsp, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
         "Template argument must be either of type "
         "NonTemplatedPhysSizeParameter1D or TemplatedPhysSizeParameter1D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
 
     const unsigned int coordDim = sizeParam1D.ncoord();
     const unsigned int nq0      = sizeParam1D.nq0();
@@ -222,77 +238,84 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
         AdvectionDealiasWorkSpaceSize<SHAPE_TYPE, Implementation>(
             1u, coordDim, ncomp, sizeParam1D, LOCAL_PIPELINE));
 
-    size_t e             = getGlobalIdx<0>(threadBlock);
-    const unsigned int p = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane = e % warpsize;
-        const size_t iwarp = e / warpsize;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Workspace extent: the whole launch, or the thread block's warp group.
+        TData *wspbase = isShared ? (TData *)shmemptr : elmtWsp;
 
-        const TData *dfptr   = df + coordDim * dfsize * warpsize * iwarp;
-        const TData *inGroup = in + nqTot * warpsize * iwarp;
-        const TData *advVelGroup =
-            advVel + p * advVelPlaneStride + nqTot * warpsize * iwarp;
-        TData *outGroup = out + nqTot * warpsize * iwarp;
-        // Per-warp-group workspace, laid out in this order by both the host
-        // and the kernel: the reference derivatives, the fine-grid fields,
-        // the products, then one tensor-contraction intermediate per
-        // contracted direction.
-        TData *wsp        = elmtWsp + wspSize * (nelmt * p + warpsize * iwarp);
-        TData *derivGroup = wsp;
-        TData *fineGroup  = derivGroup + ncomp * coordDim * nqTot * warpsize;
-        TData *combinedGroup =
-            fineGroup + (coordDim + ncomp * coordDim) * nqTotFine * warpsize;
-
-        for (unsigned int d = 0u; d < coordDim; ++d)
+        size_t e             = getGlobalIdx<0>(threadBlock);
+        const unsigned int p = getBlockIdx<1>(threadBlock);
+        while (e < nelmt)
         {
-            BwdTransSegSumFacKernel<false>(ilane, nq0, nq0Fine, Binterp0,
-                                           advVelGroup + d * advVelCompStride,
-                                           fineGroup +
-                                               d * nqTotFine * warpsize);
-        }
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
 
-        // One pass per component: reference derivatives on the native grid,
-        // interpolation of those derivatives to the fine grid, the advection
-        // product there, and the Galerkin projection back.
-        for (unsigned int c = 0u; c < ncomp; ++c)
-        {
-            TData *derivOut = derivGroup + c * coordDim * nqTot * warpsize;
-            TData *gradFine =
-                fineGroup + (coordDim + c * coordDim) * nqTotFine * warpsize;
-            TData *combinedOut = combinedGroup + c * nqTotFine * warpsize;
-
-            PhysDeriv1DSumFacKernel<DEFORMED>(
-                ilane, coordDim, nq0, nqTot * warpsize, D0, dfptr,
-                inGroup + (c * nhomo + p) * inCompStride, derivOut);
+            const TData *dfptr   = df + coordDim * dfsize * warpsize * iwarp;
+            const TData *inGroup = in + nqTot * warpsize * iwarp;
+            const TData *advVelGroup =
+                advVel + p * advVelPlaneStride + nqTot * warpsize * iwarp;
+            TData *outGroup = out + nqTot * warpsize * iwarp;
+            // Per-warp-group workspace, laid out in this order by both the host
+            // and the kernel: the reference derivatives, the fine-grid fields,
+            // the products, then one tensor-contraction intermediate per
+            // contracted direction.
+            const size_t wspOffset =
+                isShared ? 0 : nelmt * p + warpsize * iwarp;
+            TData *wsp        = wspbase + wspSize * wspOffset;
+            TData *derivGroup = wsp;
+            TData *fineGroup = derivGroup + ncomp * coordDim * nqTot * warpsize;
+            TData *combinedGroup = fineGroup + (coordDim + ncomp * coordDim) *
+                                                   nqTotFine * warpsize;
 
             for (unsigned int d = 0u; d < coordDim; ++d)
             {
-                BwdTransSegSumFacKernel<false>(ilane, nq0, nq0Fine, Binterp0,
-                                               derivOut + d * nqTot * warpsize,
-                                               gradFine +
-                                                   d * nqTotFine * warpsize);
+                BwdTransSegSumFacKernel<false>(
+                    ilane, nq0, nq0Fine, Binterp0,
+                    advVelGroup + d * advVelCompStride,
+                    fineGroup + d * nqTotFine * warpsize);
             }
 
-            AdvectionDealiasCombineSumFacKernel<false>(
-                ilane, nqTotFine, coordDim, fineGroup, nqTotFine * warpsize,
-                gradFine, nqTotFine * warpsize, combinedOut, scale);
+            // One pass per component: reference derivatives on the native grid,
+            // interpolation of those derivatives to the fine grid, the
+            // advection product there, and the Galerkin projection back.
+            for (unsigned int c = 0u; c < ncomp; ++c)
+            {
+                TData *derivOut = derivGroup + c * coordDim * nqTot * warpsize;
+                TData *gradFine = fineGroup + (coordDim + c * coordDim) *
+                                                  nqTotFine * warpsize;
+                TData *combinedOut = combinedGroup + c * nqTotFine * warpsize;
 
-            TData *outptr = outGroup + (c * nhomo + p) * outCompStride;
-            if constexpr (APPEND)
-            {
-                BwdTransSegSumFacKernel<true>(ilane, nq0Fine, nq0, Bproject0,
-                                              combinedOut, outptr);
+                PhysDeriv1DSumFacKernel<DEFORMED>(
+                    ilane, coordDim, nq0, nqTot * warpsize, D0, dfptr,
+                    inGroup + (c * nhomo + p) * inCompStride, derivOut);
+
+                for (unsigned int d = 0u; d < coordDim; ++d)
+                {
+                    BwdTransSegSumFacKernel<false>(
+                        ilane, nq0, nq0Fine, Binterp0,
+                        derivOut + d * nqTot * warpsize,
+                        gradFine + d * nqTotFine * warpsize);
+                }
+
+                AdvectionDealiasCombineSumFacKernel<false>(
+                    ilane, nqTotFine, coordDim, fineGroup, nqTotFine * warpsize,
+                    gradFine, nqTotFine * warpsize, combinedOut, scale);
+
+                TData *outptr = outGroup + (c * nhomo + p) * outCompStride;
+                if constexpr (APPEND)
+                {
+                    BwdTransSegSumFacKernel<true>(
+                        ilane, nq0Fine, nq0, Bproject0, combinedOut, outptr);
+                }
+                else
+                {
+                    BwdTransSegSumFacKernel<false>(
+                        ilane, nq0Fine, nq0, Bproject0, combinedOut, outptr);
+                }
             }
-            else
-            {
-                BwdTransSegSumFacKernel<false>(ilane, nq0Fine, nq0, Bproject0,
-                                               combinedOut, outptr);
-            }
+
+            e += getGlobalRange<0>(threadBlock);
         }
-
-        e += getGlobalRange<0>(threadBlock);
-    }
+    });
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
@@ -303,15 +326,15 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const unsigned int ncomp, const unsigned int nhomo,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT Binterp0,
-    const TData *NEK_RESTRICT Binterp1, const TData *NEK_RESTRICT Bproject0,
-    const TData *NEK_RESTRICT Bproject1, const TData scale,
-    const TData *NEK_RESTRICT in, const size_t inCompStride,
+    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT Binterp0, const TData *NEK_RESTRICT Binterp1,
+    const TData *NEK_RESTRICT Bproject0, const TData *NEK_RESTRICT Bproject1,
+    const TData scale, const TData *NEK_RESTRICT in, const size_t inCompStride,
     const TData *NEK_RESTRICT advVel, const size_t advVelPlaneStride,
     TData *NEK_RESTRICT out, const size_t outCompStride,
-    TData *NEK_RESTRICT elmtWsp, [[maybe_unused]] unsigned char *shmemptr,
+    TData *NEK_RESTRICT elmtWsp, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     static_assert(
@@ -333,8 +356,9 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const unsigned int ndf          = 2u * coordDim;
     const unsigned int dfsize       = DEFORMED ? nqTot : 1u;
 
-    TData *s_f0 = nullptr;
-    TData *s_f1 = nullptr;
+    TData *s_f0  = nullptr;
+    TData *s_f1  = nullptr;
+    TData *s_wsp = (TData *)shmemptr;
 
     // Precompute geometric factors.
     if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
@@ -346,6 +370,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
         // Copy to shared memory.
         LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
         LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
+        s_wsp = s_f1 + nq1;
 
         localBarrier(threadBlock);
     }
@@ -357,80 +382,88 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
         AdvectionDealiasWorkSpaceSize<SHAPE_TYPE, Implementation>(
             1u, coordDim, ncomp, sizeParam2D, LOCAL_PIPELINE));
 
-    size_t e             = getGlobalIdx<0>(threadBlock);
-    const unsigned int p = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane = e % warpsize;
-        const size_t iwarp = e / warpsize;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Workspace extent: the whole launch, or the thread block's warp group.
+        TData *wspbase = isShared ? s_wsp : elmtWsp;
 
-        const TData *dfptr   = df + ndf * dfsize * warpsize * iwarp;
-        const TData *inGroup = in + nqTot * warpsize * iwarp;
-        const TData *advVelGroup =
-            advVel + p * advVelPlaneStride + nqTot * warpsize * iwarp;
-        TData *outGroup = out + nqTot * warpsize * iwarp;
-        // Per-warp-group workspace, laid out in this order by both the host
-        // and the kernel: the reference derivatives, the fine-grid fields,
-        // the products, then one tensor-contraction intermediate per
-        // contracted direction.
-        TData *wsp        = elmtWsp + wspSize * (nelmt * p + warpsize * iwarp);
-        TData *derivGroup = wsp;
-        TData *fineGroup  = derivGroup + ncomp * coordDim * nqTot * warpsize;
-        TData *combinedGroup =
-            fineGroup + (coordDim + ncomp * coordDim) * nqTotFine * warpsize;
-        TData *wsp0 = combinedGroup + ncomp * nqTotFine * warpsize;
-
-        for (unsigned int d = 0u; d < coordDim; ++d)
+        size_t e             = getGlobalIdx<0>(threadBlock);
+        const unsigned int p = getBlockIdx<1>(threadBlock);
+        while (e < nelmt)
         {
-            BwdTransQuadSumFacKernel<false>(
-                ilane, nq0, nq1, nq0Fine, nq1Fine, Binterp0, Binterp1,
-                advVelGroup + d * advVelCompStride,
-                fineGroup + d * nqTotFine * warpsize, wsp0);
-        }
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
 
-        // One pass per component: reference derivatives on the native grid,
-        // interpolation of those derivatives to the fine grid, the advection
-        // product there, and the Galerkin projection back.
-        for (unsigned int c = 0u; c < ncomp; ++c)
-        {
-            TData *derivOut = derivGroup + c * coordDim * nqTot * warpsize;
-            TData *gradFine =
-                fineGroup + (coordDim + c * coordDim) * nqTotFine * warpsize;
-            TData *combinedOut = combinedGroup + c * nqTotFine * warpsize;
-
-            PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-                ilane, coordDim, nq0, nq1, nqTot * warpsize, D0, D1, s_f0, s_f1,
-                dfptr, inGroup + (c * nhomo + p) * inCompStride, derivOut);
+            const TData *dfptr   = df + ndf * dfsize * warpsize * iwarp;
+            const TData *inGroup = in + nqTot * warpsize * iwarp;
+            const TData *advVelGroup =
+                advVel + p * advVelPlaneStride + nqTot * warpsize * iwarp;
+            TData *outGroup = out + nqTot * warpsize * iwarp;
+            // Per-warp-group workspace, laid out in this order by both the host
+            // and the kernel: the reference derivatives, the fine-grid fields,
+            // the products, then one tensor-contraction intermediate per
+            // contracted direction.
+            const size_t wspOffset =
+                isShared ? 0 : nelmt * p + warpsize * iwarp;
+            TData *wsp        = wspbase + wspSize * wspOffset;
+            TData *derivGroup = wsp;
+            TData *fineGroup = derivGroup + ncomp * coordDim * nqTot * warpsize;
+            TData *combinedGroup = fineGroup + (coordDim + ncomp * coordDim) *
+                                                   nqTotFine * warpsize;
+            TData *wsp0 = combinedGroup + ncomp * nqTotFine * warpsize;
 
             for (unsigned int d = 0u; d < coordDim; ++d)
             {
                 BwdTransQuadSumFacKernel<false>(
                     ilane, nq0, nq1, nq0Fine, nq1Fine, Binterp0, Binterp1,
-                    derivOut + d * nqTot * warpsize,
-                    gradFine + d * nqTotFine * warpsize, wsp0);
+                    advVelGroup + d * advVelCompStride,
+                    fineGroup + d * nqTotFine * warpsize, wsp0);
             }
 
-            AdvectionDealiasCombineSumFacKernel<false>(
-                ilane, nqTotFine, coordDim, fineGroup, nqTotFine * warpsize,
-                gradFine, nqTotFine * warpsize, combinedOut, scale);
+            // One pass per component: reference derivatives on the native grid,
+            // interpolation of those derivatives to the fine grid, the
+            // advection product there, and the Galerkin projection back.
+            for (unsigned int c = 0u; c < ncomp; ++c)
+            {
+                TData *derivOut = derivGroup + c * coordDim * nqTot * warpsize;
+                TData *gradFine = fineGroup + (coordDim + c * coordDim) *
+                                                  nqTotFine * warpsize;
+                TData *combinedOut = combinedGroup + c * nqTotFine * warpsize;
 
-            TData *outptr = outGroup + (c * nhomo + p) * outCompStride;
-            if constexpr (APPEND)
-            {
-                BwdTransQuadSumFacKernel<true>(ilane, nq0Fine, nq1Fine, nq0,
-                                               nq1, Bproject0, Bproject1,
-                                               combinedOut, outptr, wsp0);
+                PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+                    ilane, coordDim, nq0, nq1, nqTot * warpsize, D0, D1, s_f0,
+                    s_f1, dfptr, inGroup + (c * nhomo + p) * inCompStride,
+                    derivOut);
+
+                for (unsigned int d = 0u; d < coordDim; ++d)
+                {
+                    BwdTransQuadSumFacKernel<false>(
+                        ilane, nq0, nq1, nq0Fine, nq1Fine, Binterp0, Binterp1,
+                        derivOut + d * nqTot * warpsize,
+                        gradFine + d * nqTotFine * warpsize, wsp0);
+                }
+
+                AdvectionDealiasCombineSumFacKernel<false>(
+                    ilane, nqTotFine, coordDim, fineGroup, nqTotFine * warpsize,
+                    gradFine, nqTotFine * warpsize, combinedOut, scale);
+
+                TData *outptr = outGroup + (c * nhomo + p) * outCompStride;
+                if constexpr (APPEND)
+                {
+                    BwdTransQuadSumFacKernel<true>(ilane, nq0Fine, nq1Fine, nq0,
+                                                   nq1, Bproject0, Bproject1,
+                                                   combinedOut, outptr, wsp0);
+                }
+                else
+                {
+                    BwdTransQuadSumFacKernel<false>(
+                        ilane, nq0Fine, nq1Fine, nq0, nq1, Bproject0, Bproject1,
+                        combinedOut, outptr, wsp0);
+                }
             }
-            else
-            {
-                BwdTransQuadSumFacKernel<false>(ilane, nq0Fine, nq1Fine, nq0,
-                                                nq1, Bproject0, Bproject1,
-                                                combinedOut, outptr, wsp0);
-            }
+
+            e += getGlobalRange<0>(threadBlock);
         }
-
-        e += getGlobalRange<0>(threadBlock);
-    }
+    });
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
@@ -441,17 +474,18 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     const unsigned int ncomp, const unsigned int nhomo,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT Binterp0, const TData *NEK_RESTRICT Binterp1,
-    const TData *NEK_RESTRICT Binterp2, const TData *NEK_RESTRICT Bproject0,
-    const TData *NEK_RESTRICT Bproject1, const TData *NEK_RESTRICT Bproject2,
-    const TData scale, const TData *NEK_RESTRICT in, const size_t inCompStride,
+    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT Binterp0,
+    const TData *NEK_RESTRICT Binterp1, const TData *NEK_RESTRICT Binterp2,
+    const TData *NEK_RESTRICT Bproject0, const TData *NEK_RESTRICT Bproject1,
+    const TData *NEK_RESTRICT Bproject2, const TData scale,
+    const TData *NEK_RESTRICT in, const size_t inCompStride,
     const TData *NEK_RESTRICT advVel, const size_t advVelPlaneStride,
     TData *NEK_RESTRICT out, const size_t outCompStride,
-    TData *NEK_RESTRICT elmtWsp, [[maybe_unused]] unsigned char *shmemptr,
+    TData *NEK_RESTRICT elmtWsp, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     static_assert(
@@ -480,6 +514,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     TData *s_f1  = nullptr;
     TData *s_f1m = nullptr;
     TData *s_f2  = nullptr;
+    TData *s_wsp = (TData *)shmemptr;
 
     // Precompute geometric factors.
     if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
@@ -495,6 +530,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
         LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
         LoadToSharedMemory(nq1, f1m, s_f1m, threadBlock);
         LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
+        s_wsp = s_f2 + nq2;
 
         localBarrier(threadBlock);
     }
@@ -507,6 +543,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
         // Copy to shared memory.
         LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
         LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
+        s_wsp = s_f2 + nq2;
 
         localBarrier(threadBlock);
     }
@@ -521,6 +558,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
         LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
         LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
         LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
+        s_wsp = s_f2 + nq2;
 
         localBarrier(threadBlock);
     }
@@ -532,86 +570,100 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
         AdvectionDealiasWorkSpaceSize<SHAPE_TYPE, Implementation>(
             1u, coordDim3D, ncomp, sizeParam3D, LOCAL_PIPELINE));
 
-    size_t e             = getGlobalIdx<0>(threadBlock);
-    const unsigned int p = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane = e % warpsize;
-        const size_t iwarp = e / warpsize;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Workspace extent: the whole launch, or the thread block's warp group.
+        TData *wspbase = isShared ? s_wsp : elmtWsp;
 
-        const TData *dfptr   = df + ndf * dfsize * warpsize * iwarp;
-        const TData *inGroup = in + nqTot * warpsize * iwarp;
-        const TData *advVelGroup =
-            advVel + p * advVelPlaneStride + nqTot * warpsize * iwarp;
-        TData *outGroup = out + nqTot * warpsize * iwarp;
-        // Per-warp-group workspace, laid out in this order by both the host
-        // and the kernel: the reference derivatives, the fine-grid fields,
-        // the products, then one tensor-contraction intermediate per
-        // contracted direction.
-        TData *wsp        = elmtWsp + wspSize * (nelmt * p + warpsize * iwarp);
-        TData *derivGroup = wsp;
-        TData *fineGroup  = derivGroup + ncomp * coordDim3D * nqTot * warpsize;
-        TData *combinedGroup = fineGroup + (coordDim3D + ncomp * coordDim3D) *
-                                               nqTotFine * warpsize;
-        TData *wsp0 = combinedGroup + ncomp * nqTotFine * warpsize;
-        TData *wsp1 = wsp0 + (nq1 * nq2 + nq1Fine * nq2Fine) * warpsize;
-
-        // The direction count is a compile time constant, so this is
-        // unrolled rather than run.
-#pragma unroll
-        for (unsigned int d = 0u; d < coordDim3D; ++d)
+        size_t e             = getGlobalIdx<0>(threadBlock);
+        const unsigned int p = getBlockIdx<1>(threadBlock);
+        while (e < nelmt)
         {
-            BwdTransHexSumFacKernel<false>(
-                ilane, nq0, nq1, nq2, nq0Fine, nq1Fine, nq2Fine, Binterp0,
-                Binterp1, Binterp2, advVelGroup + d * advVelCompStride,
-                fineGroup + d * nqTotFine * warpsize, wsp0, wsp1);
-        }
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
 
-        // One pass per component: reference derivatives on the native grid,
-        // interpolation of those derivatives to the fine grid, the advection
-        // product there, and the Galerkin projection back.
-        for (unsigned int c = 0u; c < ncomp; ++c)
-        {
-            TData *derivOut = derivGroup + c * coordDim3D * nqTot * warpsize;
-            TData *gradFine = fineGroup + (coordDim3D + c * coordDim3D) *
-                                              nqTotFine * warpsize;
-            TData *combinedOut = combinedGroup + c * nqTotFine * warpsize;
+            const TData *dfptr   = df + ndf * dfsize * warpsize * iwarp;
+            const TData *inGroup = in + nqTot * warpsize * iwarp;
+            const TData *advVelGroup =
+                advVel + p * advVelPlaneStride + nqTot * warpsize * iwarp;
+            TData *outGroup = out + nqTot * warpsize * iwarp;
+            // Per-warp-group workspace, laid out in this order by both the host
+            // and the kernel: the reference derivatives, the fine-grid fields,
+            // the products, then one tensor-contraction intermediate per
+            // contracted direction.
+            const size_t wspOffset =
+                isShared ? 0 : nelmt * p + warpsize * iwarp;
+            TData *wsp        = wspbase + wspSize * wspOffset;
+            TData *derivGroup = wsp;
+            TData *fineGroup =
+                derivGroup + ncomp * coordDim3D * nqTot * warpsize;
+            TData *combinedGroup =
+                fineGroup +
+                (coordDim3D + ncomp * coordDim3D) * nqTotFine * warpsize;
+            TData *wsp0 = combinedGroup + ncomp * nqTotFine * warpsize;
+            TData *wsp1 = wsp0 + (nq1 * nq2 + nq1Fine * nq2Fine) * warpsize;
 
-            PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
-                ilane, nq0, nq1, nq2, nqTot * warpsize, D0, D1, D2, s_f0, s_f1,
-                s_f1m, s_f2, dfptr, inGroup + (c * nhomo + p) * inCompStride,
-                derivOut);
-
+            // The direction count is a compile time constant, so this is
+            // unrolled rather than run.
 #pragma unroll
             for (unsigned int d = 0u; d < coordDim3D; ++d)
             {
                 BwdTransHexSumFacKernel<false>(
                     ilane, nq0, nq1, nq2, nq0Fine, nq1Fine, nq2Fine, Binterp0,
-                    Binterp1, Binterp2, derivOut + d * nqTot * warpsize,
-                    gradFine + d * nqTotFine * warpsize, wsp0, wsp1);
+                    Binterp1, Binterp2, advVelGroup + d * advVelCompStride,
+                    fineGroup + d * nqTotFine * warpsize, wsp0, wsp1);
             }
 
-            AdvectionDealiasCombineSumFacKernel<false>(
-                ilane, nqTotFine, coordDim3D, fineGroup, nqTotFine * warpsize,
-                gradFine, nqTotFine * warpsize, combinedOut, scale);
+            // One pass per component: reference derivatives on the native grid,
+            // interpolation of those derivatives to the fine grid, the
+            // advection product there, and the Galerkin projection back.
+            for (unsigned int c = 0u; c < ncomp; ++c)
+            {
+                TData *derivOut =
+                    derivGroup + c * coordDim3D * nqTot * warpsize;
+                TData *gradFine = fineGroup + (coordDim3D + c * coordDim3D) *
+                                                  nqTotFine * warpsize;
+                TData *combinedOut = combinedGroup + c * nqTotFine * warpsize;
 
-            TData *outptr = outGroup + (c * nhomo + p) * outCompStride;
-            if constexpr (APPEND)
-            {
-                BwdTransHexSumFacKernel<true>(
-                    ilane, nq0Fine, nq1Fine, nq2Fine, nq0, nq1, nq2, Bproject0,
-                    Bproject1, Bproject2, combinedOut, outptr, wsp0, wsp1);
+                PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+                    ilane, nq0, nq1, nq2, nqTot * warpsize, D0, D1, D2, s_f0,
+                    s_f1, s_f1m, s_f2, dfptr,
+                    inGroup + (c * nhomo + p) * inCompStride, derivOut);
+
+#pragma unroll
+                for (unsigned int d = 0u; d < coordDim3D; ++d)
+                {
+                    BwdTransHexSumFacKernel<false>(
+                        ilane, nq0, nq1, nq2, nq0Fine, nq1Fine, nq2Fine,
+                        Binterp0, Binterp1, Binterp2,
+                        derivOut + d * nqTot * warpsize,
+                        gradFine + d * nqTotFine * warpsize, wsp0, wsp1);
+                }
+
+                AdvectionDealiasCombineSumFacKernel<false>(
+                    ilane, nqTotFine, coordDim3D, fineGroup,
+                    nqTotFine * warpsize, gradFine, nqTotFine * warpsize,
+                    combinedOut, scale);
+
+                TData *outptr = outGroup + (c * nhomo + p) * outCompStride;
+                if constexpr (APPEND)
+                {
+                    BwdTransHexSumFacKernel<true>(
+                        ilane, nq0Fine, nq1Fine, nq2Fine, nq0, nq1, nq2,
+                        Bproject0, Bproject1, Bproject2, combinedOut, outptr,
+                        wsp0, wsp1);
+                }
+                else
+                {
+                    BwdTransHexSumFacKernel<false>(
+                        ilane, nq0Fine, nq1Fine, nq2Fine, nq0, nq1, nq2,
+                        Bproject0, Bproject1, Bproject2, combinedOut, outptr,
+                        wsp0, wsp1);
+                }
             }
-            else
-            {
-                BwdTransHexSumFacKernel<false>(
-                    ilane, nq0Fine, nq1Fine, nq2Fine, nq0, nq1, nq2, Bproject0,
-                    Bproject1, Bproject2, combinedOut, outptr, wsp0, wsp1);
-            }
+
+            e += getGlobalRange<0>(threadBlock);
         }
-
-        e += getGlobalRange<0>(threadBlock);
-    }
+    });
 }
 
 #endif

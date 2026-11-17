@@ -414,7 +414,10 @@ protected:
      * applied, in bytes; the global workspace request is
      * IProductWRTBaseWorkSpaceSize scaled by ncomp. Both helpers have one
      * overload per strategy and dimension, documented in the kernel
-     * headers.
+     * headers. Under SumFac the intermediates go in shared memory when
+     * UseSharedWorkSpace() accepts the size
+     * IProductWRTBaseSharedMemorySize() gives for one warp of elements; the
+     * global workspace is then zero.
      *
      * Which of the four launcher instantiations runs is decided per call
      * from the two settings of IProductWRTBaseBlockOp: the
@@ -469,12 +472,22 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Stage intermediates in shared memory if they fit.
+        const unsigned int shmemsizeWithSharedWsp =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
+                sizeParam, this->m_integration, true);
+        const bool useSharedMemoryWsp =
+            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt,
-                                                                     sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      nelmt, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -485,9 +498,12 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
-                sizeParam, this->m_integration);
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      IProductWRTBaseSharedMemorySize<SHAPE_TYPE,
+                                                      Implementation, TData>(
+                          sizeParam, this->m_integration, false);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
@@ -515,9 +531,9 @@ protected:
                     (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
                                                    Scale, APPEND, DEFORMED>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam, nelmt, m_isModified, m_index[ind1]...,
-                    m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr,
-                    outptr, wspptr, (TData)1.0);
+                    sizeParam, nelmt, m_isModified, useSharedMemoryWsp,
+                    m_index[ind1]..., m_B[ind0]..., m_W[ind0]..., m_nodToMod,
+                    m_jacptr, inptr, outptr, wspptr, (TData)1.0);
             }
             else
             {
@@ -527,9 +543,9 @@ protected:
                     (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
                                                    Scale, APPEND, DEFORMED>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam, nelmt, m_isModified, m_index[ind1]...,
-                    m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr,
-                    outptr, wspptr, this->m_scale);
+                    sizeParam, nelmt, m_isModified, useSharedMemoryWsp,
+                    m_index[ind1]..., m_B[ind0]..., m_W[ind0]..., m_nodToMod,
+                    m_jacptr, inptr, outptr, wspptr, this->m_scale);
             }
         }
         else
@@ -543,9 +559,9 @@ protected:
                     (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
                                                    Scale, APPEND>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam, nelmt, m_isModified, m_index[ind1]...,
-                    m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr,
-                    (TData)1.0);
+                    sizeParam, nelmt, m_isModified, useSharedMemoryWsp,
+                    m_index[ind1]..., m_B[ind0]..., m_nodToMod, inptr, outptr,
+                    wspptr, (TData)1.0);
             }
             else
             {
@@ -555,9 +571,9 @@ protected:
                     (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
                                                    Scale, APPEND>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam, nelmt, m_isModified, m_index[ind1]...,
-                    m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr,
-                    this->m_scale);
+                    sizeParam, nelmt, m_isModified, useSharedMemoryWsp,
+                    m_index[ind1]..., m_B[ind0]..., m_nodToMod, inptr, outptr,
+                    wspptr, this->m_scale);
             }
         }
 

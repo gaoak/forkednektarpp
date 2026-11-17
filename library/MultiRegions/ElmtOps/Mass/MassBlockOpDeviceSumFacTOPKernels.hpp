@@ -164,6 +164,8 @@ inline constexpr size_t MassWorkSpaceSize(
  * @tparam TSizeParameter1D  1D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Shared memory per thread block, in TData values.
  */
@@ -174,7 +176,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter1D sizeParam1D)
+    const TSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam1D.nq0();
 
@@ -200,6 +203,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @tparam TSizeParameter2D  2D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Modal and quadrature sizes per direction.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Shared memory per thread block, in TData values.
  */
@@ -210,7 +215,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter2D sizeParam2D)
+    const TSizeParameter2D sizeParam2D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     // Padded rows of the inner product's input and intermediate stages.
     const unsigned int pad =
@@ -258,6 +264,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @tparam TSizeParameter3D  3D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Modal and quadrature sizes per direction.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Shared memory per thread block, in TData values.
  */
@@ -268,7 +276,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter3D sizeParam3D)
+    const TSizeParameter3D sizeParam3D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     // Padded rows of the inner product's input and intermediate stages.
     const unsigned int pad =
@@ -346,6 +355,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @param   sizeParam1D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A; unused in 1D.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   basis0      Basis table (nm0 rows of nq0).
  * @param   w0          Quadrature weights.
  * @param   nodToMod    Nodal-to-modal matrix; unused in 1D.
@@ -370,6 +381,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     MassKernelLauncher(const TSizeParameter1D sizeParam1D, const size_t nelmt,
                        [[maybe_unused]] const bool isModified,
+                       [[maybe_unused]] const bool useSharedMemoryWsp,
                        const TData *NEK_RESTRICT basis0,
                        const TData *NEK_RESTRICT w0,
                        [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
@@ -454,6 +466,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam2D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   index0      Table giving p for each flat (p,q) mode of the
  *                      triangles, read by the inner-product shape kernel;
  *                      unused for the quadrilateral.
@@ -482,7 +496,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     MassKernelLauncher(
         const TSizeParameter2D sizeParam2D, const size_t nelmt,
-        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
@@ -635,6 +650,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam3D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   index0,index1,index2,index3   Mode-index tables of the
  *                      collapsed shapes; which of them a shape's two
  *                      kernels read follows from the calls below, and
@@ -664,7 +681,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     MassKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
         const unsigned int *NEK_RESTRICT index3,

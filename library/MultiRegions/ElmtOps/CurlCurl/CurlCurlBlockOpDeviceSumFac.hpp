@@ -56,8 +56,8 @@
  * resolve:
  * - SumFac (CurlCurlBlockOpDeviceSumFacKernels.hpp): one element per thread.
  * The lanes of a warp advance through warpSize elements in lock-step on
- *   warp-interleaved data; omega is held in a global workspace, each lane
- *   reading back what it wrote.
+ *   warp-interleaved data; omega is held in shared memory when it fits and
+ *   in a global workspace otherwise, each lane reading back what it wrote.
  * - SumFacTOP (CurlCurlBlockOpDeviceSumFacTOPKernels.hpp): one element per
  *   thread block. The block's threads are indexed over the element's
  *   quadrature points and both the input components and omega are staged
@@ -380,6 +380,10 @@ protected:
      * for SumFacTOP (nothing for segments). The global workspace request
      * is CurlCurlWorkSpaceSize: the block's vorticity planes for SumFac,
      * nothing for SumFacTOP, whose kernels keep omega in shared memory.
+     * Under SumFac the vorticity goes in shared memory as well, after the
+     * factor tables, when UseSharedWorkSpace() accepts the size
+     * CurlCurlSharedMemorySize gives for one warp of elements; the global
+     * workspace is then zero.
      *
      * The launch goes through DEVICE_1DGRID_KERNEL_LAUNCHER to the
      * CurlCurlKernelLauncher overload of this dimension and strategy, with
@@ -456,10 +460,21 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Stage intermediates in shared memory if they fit.
+        const unsigned int shmemsizeWithSharedWsp =
+            sizeof(TData) *
+            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam,
+                                                                 true);
+        const bool useSharedMemoryWsp =
+            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+
         // Get static workspace pointer. The fused kernel only needs storage
         // for the intermediate omega = curl(u).
         const size_t wspSize =
-            CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt,
+                                                                    sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -469,8 +484,11 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) *
-            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
+                          sizeParam, false);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
         const unsigned int gridsize =
@@ -487,8 +505,8 @@ protected:
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (CurlCurlKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
             gridsize, blocksize, shmemsize, m_streamID, sizeParam, nelmt,
-            inoffset, m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr, wspptr,
-            outptr);
+            inoffset, useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]..., m_dfptr,
+            inptr, wspptr, outptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
@@ -541,7 +559,8 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
-            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
+            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam,
+                                                                 false);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
         const unsigned int gridsize =

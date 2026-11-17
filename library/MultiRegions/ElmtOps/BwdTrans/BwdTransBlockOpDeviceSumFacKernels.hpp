@@ -37,7 +37,7 @@
  * @file BwdTransBlockOpDeviceSumFacKernels.hpp
  * @brief Device SumFac kernels of the backward transform: one element
  * per thread, with the sum-factorisation intermediates held in a
- * global-memory workspace.
+ * global-memory workspace or, when it fits, in shared memory.
  *
  * These are the kernels the Device/SumFac block implementation launches
  * (see BwdTransBlockOpDeviceSumFac.hpp); the SumFacTOP counterparts, where a
@@ -71,18 +71,19 @@
  * Each shape kernel contracts the coefficients against one direction's
  * 1D basis table at a time, holding the intermediates in the workspace
  * slices (`wsp` in two dimensions, a pair of slices in three) that
- * BwdTransWorkSpaceSize accounts for. A basis table `basisN` holds one
- * row of nqN values per mode, so that `basisN[m * nqN + i]` is mode `m`
- * evaluated at point `i`; along the collapsed directions of the
- * triangle, tetrahedron, prism and pyramid the row index `m` is the
- * shape's combined mode index rather than a single-direction mode
- * number. Coefficients are read in that same mode ordering: for the
- * tensor-product shapes (quadrilateral, hexahedron) the direction-0 mode
- * index runs fastest, whereas along a collapsed direction it is the
- * innermost index of the combined ordering that does -- q for the
- * triangle, r for the tetrahedron, prism and pyramid. Physical values
- * are written in point order, with the direction-0 point running
- * fastest.
+ * BwdTransWorkSpaceSize accounts for, in global memory or, with
+ * useSharedMemoryWsp, in the shared memory BwdTransSharedMemorySize sizes. A
+ * basis table `basisN` holds one row of nqN values per mode, so that `basisN[m
+ * * nqN
+ * + i]` is mode `m` evaluated at point `i`; along the collapsed directions of
+ * the triangle, tetrahedron, prism and pyramid the row index `m` is the shape's
+ * combined mode index rather than a single-direction mode number. Coefficients
+ * are read in that same mode ordering: for the tensor-product shapes
+ * (quadrilateral, hexahedron) the direction-0 mode index runs fastest, whereas
+ * along a collapsed direction it is the innermost index of the combined
+ * ordering that does -- q for the triangle, r for the tetrahedron, prism and
+ * pyramid. Physical values are written in point order, with the direction-0
+ * point running fastest.
  *
  * ### Modified bases and nodal shapes
  * @p isModified marks a first-direction eModified_A basis, for which the
@@ -150,11 +151,10 @@ inline constexpr size_t BwdTransWorkSpaceSize(
  * @brief Workspace a 2D SumFac backward transform needs, in TData
  * values.
  *
- * One flat global-memory region serves the whole launch: a stage needing
- * `s` values per element occupies `s * nelmt` consecutive values,
- * warp-interleaved exactly like the field data, and the stages follow
- * one another (BwdTransKernelLauncher does the slicing). Per element
- * that is
+ * One flat region serves all @p nelmt elements: a stage needing `s` values per
+ * element occupies `s * nelmt` consecutive values, warp-interleaved exactly
+ * like the field data, and the stages follow one another
+ * (BwdTransKernelLauncher does the slicing). Per element that is
  * - Quad: nm1 values -- the direction-0 sums of one direction-0 point;
  * - Tri: nm0 values -- the direction-1 sums of one direction-1 point;
  * - NodalTri: the nmTot values of the modal-converted coefficients,
@@ -282,21 +282,23 @@ inline constexpr size_t BwdTransWorkSpaceSize(
 
 /**
  * @brief Dynamic shared memory a 1D SumFac backward transform needs, in
- * TData values: none.
+ * TData values.
  *
- * The SumFac kernels hold their intermediates in the global-memory
- * workspace and read the basis tables straight from global memory, so
- * nothing is staged per thread block. The SumFacTOP overloads of the
- * same name (BwdTransBlockOpDeviceSumFacTOPKernels.hpp) return the size of the
- * staging area that strategy does use.
+ * The SumFac kernels read the basis tables straight from global memory, so the
+ * only thing held per thread block is, with @p useSharedMemoryWsp, the
+ * workspace of its single warp of elements, laid out as BwdTransWorkSpaceSize
+ * gives for warpSize elements. The SumFacTOP overloads of the same name
+ * (BwdTransBlockOpDeviceSumFacTOPKernels.hpp) return the size of the staging
+ * area that strategy uses.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
  * @tparam Implementation    MultiRegions::SumFac.
  * @tparam TSizeParameter1D  1D size parameter, runtime or templated.
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
+ * @param   useSharedMemoryWsp    Stage intermediates in shared memory.
  *
- * @return 0.
+ * @return Number of TData values of shared memory per thread block.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
@@ -305,13 +307,17 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    [[maybe_unused]] const TSizeParameter1D sizeParam1D)
+    const TSizeParameter1D sizeParam1D, const bool useSharedMemoryWsp)
 {
-    return 0;
+    return useSharedMemoryWsp
+               ? static_cast<unsigned int>(
+                     BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                         NektarSpaces::Device::warpSize, sizeParam1D))
+               : 0u;
 }
 
-/// @brief Dynamic shared memory a 2D SumFac backward transform needs:
-/// none, for the reason given in the 1D overload.
+/// @brief Dynamic shared memory a 2D SumFac backward transform needs,
+/// as the 1D overload.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
@@ -319,13 +325,17 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    [[maybe_unused]] const TSizeParameter2D sizeParam2D)
+    const TSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
 {
-    return 0;
+    return useSharedMemoryWsp
+               ? static_cast<unsigned int>(
+                     BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                         NektarSpaces::Device::warpSize, sizeParam2D))
+               : 0u;
 }
 
-/// @brief Dynamic shared memory a 3D SumFac backward transform needs:
-/// none, for the reason given in the 1D overload.
+/// @brief Dynamic shared memory a 3D SumFac backward transform needs,
+/// as the 1D overload.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
@@ -333,9 +343,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    [[maybe_unused]] const TSizeParameter3D sizeParam3D)
+    const TSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
 {
-    return 0;
+    return useSharedMemoryWsp
+               ? static_cast<unsigned int>(
+                     BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                         NektarSpaces::Device::warpSize, sizeParam3D))
+               : 0u;
 }
 
 /**
@@ -1108,6 +1122,8 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacKernel(
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A; the
  *                      segment kernel needs no correction, so unused.
+ * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr; the segment
+ *                      kernel keeps none, so unused.
  * @param   basis0      Basis table in device memory.
  * @param   nodToMod    Nodal-to-modal matrix; no 1D nodal shape, so
  *                      unused.
@@ -1129,6 +1145,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     BwdTransKernelLauncher(const TSizeParameter1D sizeParam1D,
                            const size_t nelmt,
                            [[maybe_unused]] const bool isModified,
+                           [[maybe_unused]] const bool useSharedMemoryWsp,
                            const TData *NEK_RESTRICT basis0,
                            [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
                            const TData *NEK_RESTRICT in,
@@ -1174,7 +1191,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * values for warp `iwarp` start at
  * `stage size * (nelmt * c + warpSize * iwarp)`, and the regions of
  * successive stages are `stage size * nelmt * ncomp` apart, matching
- * BwdTransWorkSpaceSize times ncomp. For NodalTri the element's
+ * BwdTransWorkSpaceSize times ncomp. With @p useSharedMemoryWsp the regions
+ * are those of @p shmemptr for the thread block's single warp, so `c`
+ * and `iwarp` drop out of the offsets; each lane uses only its own
+ * column, so no barrier is needed. For NodalTri the element's
  * coefficients are converted to the modified modal basis by MatVecKernel
  * into the first region, and the triangular kernel then runs on the
  * converted values with the second region as its workspace.
@@ -1190,14 +1210,18 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam2D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
+ *                      in @p wsp.
  * @param   basis0,basis1   Per-direction basis tables.
  * @param   nodToMod    Nodal-to-modal matrix; nodal shapes only.
  * @param   in          Block's coefficients for every component.
  * @param   out         Block's physical values for every component.
  * @param   wsp         Block's workspace, sized by
- *                      BwdTransWorkSpaceSize times ncomp.
+ *                      BwdTransWorkSpaceSize times ncomp; unused if
+ *                      @p useSharedMemoryWsp.
  * @param   shmemptr    Shared-memory base, appended by the launcher;
- *                      unused by SumFac.
+ *                      sized by BwdTransSharedMemorySize; used only
+ *                      if @p useSharedMemoryWsp.
  * @param   threadBlock Thread-block handle, appended by the launcher.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
@@ -1209,6 +1233,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     BwdTransKernelLauncher(const TSizeParameter2D sizeParam2D,
                            const size_t nelmt, const bool isModified,
+                           const bool useSharedMemoryWsp,
                            const TData *NEK_RESTRICT basis0,
                            const TData *NEK_RESTRICT basis1,
                            const TData *NEK_RESTRICT nodToMod,
@@ -1249,28 +1274,36 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     size_t e                 = getGlobalIdx<0>(threadBlock);
     const unsigned int c     = getBlockIdx<1>(threadBlock);
     const unsigned int ncomp = getBlockRange<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane = e % warpsize;
-        const size_t iwarp = e / warpsize;
-        const TData *inptr = in + nmTot * (nelmt * c + warpsize * iwarp);
-        TData *outptr      = out + nqTot * (nelmt * c + warpsize * iwarp);
 
-        TData *modal = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-        TData *wsp0  = wsp + (isNodal ? nmTot : 0u) * nelmt * ncomp +
-                      wsp0Size * (nelmt * c + warpsize * iwarp);
-
-        if constexpr (isNodal)
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Workspace extent: the whole launch, or the thread block's warp.
+        TData *wspbase        = isShared ? (TData *)shmemptr : wsp;
+        const size_t wspNelmt = isShared ? warpsize : nelmt * ncomp;
+        while (e < nelmt)
         {
-            MatVecKernel(ilane, nmTot, nodToMod, inptr, modal);
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
+            const TData *inptr = in + nmTot * (nelmt * c + warpsize * iwarp);
+            TData *outptr      = out + nqTot * (nelmt * c + warpsize * iwarp);
+
+            const size_t wspOffset =
+                isShared ? 0 : nelmt * c + warpsize * iwarp;
+            TData *modal = wspbase + nmTot * wspOffset;
+            TData *wsp0  = wspbase + (isNodal ? nmTot : 0u) * wspNelmt +
+                          wsp0Size * wspOffset;
+
+            if constexpr (isNodal)
+            {
+                MatVecKernel(ilane, nmTot, nodToMod, inptr, modal);
+            }
+
+            BwdTrans2DSumFacKernel<SHAPE_TYPE, APPEND>(
+                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1,
+                isNodal ? modal : inptr, outptr, wsp0);
+
+            e += getGlobalRange<0>(threadBlock);
         }
-
-        BwdTrans2DSumFacKernel<SHAPE_TYPE, APPEND>(
-            ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1,
-            isNodal ? modal : inptr, outptr, wsp0);
-
-        e += getGlobalRange<0>(threadBlock);
-    }
+    });
 }
 
 /**
@@ -1300,15 +1333,19 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam3D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
+ *                      in @p wsp.
  * @param   index0,index1   Mode-index tables; unused here.
  * @param   basis0,basis1,basis2    Per-direction basis tables.
  * @param   nodToMod    Nodal-to-modal matrix; nodal shapes only.
  * @param   in          Block's coefficients for every component.
  * @param   out         Block's physical values for every component.
  * @param   wsp         Block's workspace, sized by
- *                      BwdTransWorkSpaceSize times ncomp.
+ *                      BwdTransWorkSpaceSize times ncomp; unused if
+ *                      @p useSharedMemoryWsp.
  * @param   shmemptr    Shared-memory base, appended by the launcher;
- *                      unused by SumFac.
+ *                      sized by BwdTransSharedMemorySize; used only
+ *                      if @p useSharedMemoryWsp.
  * @param   threadBlock Thread-block handle, appended by the launcher.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
@@ -1320,7 +1357,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     BwdTransKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
-        const bool isModified, [[maybe_unused]] const unsigned int *index0,
+        const bool isModified, const bool useSharedMemoryWsp,
+        [[maybe_unused]] const unsigned int *index0,
         [[maybe_unused]] const unsigned int *index1,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT nodToMod,
@@ -1374,31 +1412,39 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     size_t e = getGlobalIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c     = getBlockIdx<1>(threadBlock);
     const unsigned int ncomp = getBlockRange<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane = e % warpsize;
-        const size_t iwarp = e / warpsize;
-        const TData *inptr = in + nmTot * (nelmt * c + warpsize * iwarp);
-        TData *outptr      = out + nqTot * (nelmt * c + warpsize * iwarp);
 
-        TData *modal = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-        TData *wsp0  = wsp + (isNodal ? nmTot : 0u) * nelmt * ncomp +
-                      wsp0Size * (nelmt * c + warpsize * iwarp);
-        TData *wsp1 = wsp +
-                      ((isNodal ? nmTot : 0u) + wsp0Size) * nelmt * ncomp +
-                      wsp1Size * (nelmt * c + warpsize * iwarp);
-
-        if constexpr (isNodal)
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Workspace extent: the whole launch, or the thread block's warp.
+        TData *wspbase        = isShared ? (TData *)shmemptr : wsp;
+        const size_t wspNelmt = isShared ? warpsize : nelmt * ncomp;
+        while (e < nelmt)
         {
-            MatVecKernel(ilane, nmTot, nodToMod, inptr, modal);
+            const size_t ilane = e % warpsize;
+            const size_t iwarp = e / warpsize;
+            const TData *inptr = in + nmTot * (nelmt * c + warpsize * iwarp);
+            TData *outptr      = out + nqTot * (nelmt * c + warpsize * iwarp);
+
+            const size_t wspOffset =
+                isShared ? 0 : nelmt * c + warpsize * iwarp;
+            TData *modal = wspbase + nmTot * wspOffset;
+            TData *wsp0  = wspbase + (isNodal ? nmTot : 0u) * wspNelmt +
+                          wsp0Size * wspOffset;
+            TData *wsp1 = wspbase +
+                          ((isNodal ? nmTot : 0u) + wsp0Size) * wspNelmt +
+                          wsp1Size * wspOffset;
+
+            if constexpr (isNodal)
+            {
+                MatVecKernel(ilane, nmTot, nodToMod, inptr, modal);
+            }
+
+            BwdTrans3DSumFacKernel<SHAPE_TYPE, APPEND>(
+                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+                basis2, isNodal ? modal : inptr, outptr, wsp0, wsp1);
+
+            e += getGlobalRange<0>(threadBlock);
         }
-
-        BwdTrans3DSumFacKernel<SHAPE_TYPE, APPEND>(
-            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-            basis2, isNodal ? modal : inptr, outptr, wsp0, wsp1);
-
-        e += getGlobalRange<0>(threadBlock);
-    }
+    });
 }
 
 #endif

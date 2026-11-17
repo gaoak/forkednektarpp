@@ -109,6 +109,8 @@ namespace Nektar::MultiRegions::detail
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Element sizes; unused.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Zero.
  */
@@ -119,7 +121,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
-    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D)
+    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     return 0;
 }
@@ -141,6 +144,8 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return 3 * nq0 * nq1.
  */
@@ -151,7 +156,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
-    const TPhysSizeParameter2D sizeParam2D)
+    const TPhysSizeParameter2D sizeParam2D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam2D.nq0();
     const unsigned int nq1 = sizeParam2D.nq1();
@@ -175,6 +181,8 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return 6 * nq0 * nq1 * nq2.
  */
@@ -185,7 +193,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
-    const TPhysSizeParameter3D sizeParam3D)
+    const TPhysSizeParameter3D sizeParam3D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
@@ -693,6 +702,8 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
  *                       quadrature points.
  * @param   nelmt        Elements in the block, including padding.
  * @param   inoffset     Component stride; unused in one dimension.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   D0           1D derivative matrix of the direction.
  * @param   df           Derivative factors of the block, transposed
  *                       layout.
@@ -711,10 +722,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-    [[maybe_unused]] const size_t inoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    [[maybe_unused]] TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out,
-    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    [[maybe_unused]] const size_t inoffset,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, [[maybe_unused]] TData *NEK_RESTRICT wsp,
+    TData *NEK_RESTRICT out, [[maybe_unused]] unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
@@ -767,6 +780,8 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
  * @param   nelmt        Elements in the block, including padding.
  * @param   inoffset     Stride between the components of @p in, also used
  *                       between those of @p out.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   D0           1D derivative matrix of direction 0.
  * @param   D1           1D derivative matrix of direction 1.
  * @param   f0           Collapsed-coordinate factor of direction 0.
@@ -790,12 +805,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const size_t inoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-    TData *NEK_RESTRICT out, unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    const size_t inoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    [[maybe_unused]] TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -945,6 +960,8 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
  * @param   nelmt        Elements in the block, including padding.
  * @param   inoffset     Stride between the components of @p in, also used
  *                       between those of @p out.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   D0           1D derivative matrix of direction 0.
  * @param   D1           1D derivative matrix of direction 1.
  * @param   D2           1D derivative matrix of direction 2.
@@ -975,13 +992,14 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const size_t inoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    [[maybe_unused]] TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    const size_t inoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, [[maybe_unused]] TData *NEK_RESTRICT wsp,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
