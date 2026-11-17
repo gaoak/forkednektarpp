@@ -123,7 +123,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int HelmholtzSharedMemorySize(
-    const TSizeParameter1D sizeParam1D)
+    [[maybe_unused]] const unsigned int ncoord,
+    const TSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam1D.nq0();
 
@@ -140,7 +142,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int HelmholtzSharedMemorySize(
-    const TSizeParameter2D sizeParam2D)
+    [[maybe_unused]] const unsigned int ncoord,
+    const TSizeParameter2D sizeParam2D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     // Padding of the inner product's intermediate stage.
     const unsigned int wspPadSize =
@@ -184,7 +188,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int HelmholtzSharedMemorySize(
-    const TSizeParameter3D sizeParam3D)
+    [[maybe_unused]] const unsigned int ncoord,
+    const TSizeParameter3D sizeParam3D,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     // Padding of the inner product's intermediate stages.
     const unsigned int wspPadSize =
@@ -1010,6 +1016,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     HelmholtzKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
         const size_t nelmt, [[maybe_unused]] const bool isModified,
+        [[maybe_unused]] const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
@@ -1081,6 +1088,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     HelmholtzKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
         const size_t nelmt, const bool isModified,
+        [[maybe_unused]] const bool useSharedMemoryWsp,
         const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -1233,7 +1241,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     HelmholtzKernelLauncher(
         const TSizeParameter3D sizeParam3D,
         [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
-        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
         const unsigned int *NEK_RESTRICT index3,

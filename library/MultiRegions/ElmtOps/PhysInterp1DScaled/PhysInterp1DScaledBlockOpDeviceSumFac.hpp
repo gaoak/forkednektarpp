@@ -47,7 +47,8 @@
  * size helpers resolve:
  * - SumFac: one element per thread, the lanes of a warp processing
  *   warpSize elements in lock-step on warp-interleaved data, with the
- *   inter-stage intermediates in a global-memory workspace.
+ *   inter-stage intermediates in a global-memory workspace, or in shared
+ *   memory when they fit.
  * - SumFacTOP: one element per thread block, the block's threads indexed
  *   over the element's per-stage output entries, with the tables and
  *   intermediates staged in shared memory.
@@ -336,13 +337,14 @@ protected:
      * component and mode and each kernel recovers its component from its
      * block index. The dynamic shared memory request is
      * BwdTransSharedMemorySize for the shape and strategy at hand, in
-     * bytes -- zero under SumFac; under SumFacTOP room for the
+     * bytes -- under SumFac one warp's stage intermediates when they fit
+     * in shared memory, zero otherwise; under SumFacTOP room for the
      * interpolation matrices, the element's input values and the
      * inter-stage intermediates -- and the global workspace request is
      * BwdTransWorkSpaceSize scaled by ncomp, taken from the static
      * per-stream buffer: under SumFac nm1 values per element in 2D and
-     * nm1 * nm2 + nm2 in 3D for the stage intermediates, none in 1D and
-     * none under SumFacTOP.
+     * nm1 * nm2 + nm2 in 3D for the stage intermediates unless they are
+     * in shared memory, none in 1D and none under SumFacTOP.
      *
      * The launch goes through DEVICE_2DGRID_KERNEL_LAUNCHER to the
      * BwdTransKernelLauncher overload of this dimension and strategy,
@@ -392,11 +394,22 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Stage intermediates in shared memory if they fit.
+        const unsigned int shmemsizeWithSharedWsp =
+            sizeof(TData) *
+            BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam,
+                                                                 true);
+        const bool useSharedMemoryWsp =
+            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt,
+                                                                    sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -411,8 +424,11 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) *
-            BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
+                          sizeParam, false);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
@@ -427,8 +443,8 @@ protected:
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, false>),
             gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            nelmt, false, m_index[ind1]..., m_B[ind0]..., nodToMod, inptr,
-            outptr, wspptr);
+            nelmt, false, useSharedMemoryWsp, m_index[ind1]..., m_B[ind0]...,
+            nodToMod, inptr, outptr, wspptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

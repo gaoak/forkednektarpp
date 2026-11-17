@@ -1285,6 +1285,30 @@ static constexpr unsigned int GetMaxThreadPerBlock(void)
         return 0;
     }
 }
+
+/**
+ * @brief Call @p func with `std::true_type` if @p useSharedMemoryWsp and
+ * `std::false_type` otherwise.
+ *
+ * A SumFac kernel body selects its workspace from that compile-time
+ * flag, so that each branch addresses one memory space only.
+ *
+ * @param   useSharedMemoryWsp    Stage intermediates in shared memory.
+ * @param   func            Kernel body, called with the flag.
+ */
+template <typename TFunc>
+NEK_HOSTDEVICE_INLINE void DispatchWorkSpace(const bool useSharedMemoryWsp,
+                                             TFunc &&func)
+{
+    if (useSharedMemoryWsp)
+    {
+        func(std::true_type{});
+    }
+    else
+    {
+        func(std::false_type{});
+    }
+}
 #endif
 
 } // namespace Nektar::MultiRegions::detail

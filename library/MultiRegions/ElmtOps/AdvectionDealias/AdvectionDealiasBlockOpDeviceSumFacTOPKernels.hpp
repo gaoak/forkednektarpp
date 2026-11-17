@@ -76,7 +76,7 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int AdvectionDealiasScratchSize(
 // advection product, so it carries one derivative, one fine-grid buffer and
 // one accumulator per element; unfused, every component and direction needs
 // its own. Only the pipeline changes the sizes - which tier of memory the
-// regions then come from does not.
+// regions then come from does not, so useSharedMemoryWsp is unused here.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -244,14 +244,17 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int AdvectionDealiasSharedWorkSpaceSize
 
 // SumFacTOP assigns one element to each thread block, so block-local memory
 // holds part of that element's workspace - and nothing else. The host picks
-// the tier; this is what the pick costs.
+// the tier; this is what the pick costs, so ncoord, ncomp and
+// useSharedMemoryWsp are unused.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 inline constexpr unsigned int AdvectionDealiasSharedMemorySize(
+    [[maybe_unused]] const unsigned int ncoord,
+    [[maybe_unused]] const unsigned int ncomp,
     const TPhysSizeParameter sizeParam, const bool localPipeline,
-    const bool sharedScratch)
+    const bool sharedScratch, [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     return AdvectionDealiasSharedWorkSpaceSize<SHAPE_TYPE, Implementation>(
         sizeParam, localPipeline, sharedScratch);
@@ -589,6 +592,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     const unsigned int ncomp, const unsigned int nhomo,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT Binterp0, const TData *NEK_RESTRICT Bproject0,
     const TData scale, const TData *NEK_RESTRICT in, const size_t inCompStride,
@@ -742,6 +746,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const unsigned int ncomp, const unsigned int nhomo,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT Binterp0,
@@ -918,6 +923,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     const unsigned int ncomp, const unsigned int nhomo,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,

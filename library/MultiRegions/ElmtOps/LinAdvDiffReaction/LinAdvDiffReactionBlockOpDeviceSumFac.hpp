@@ -48,7 +48,7 @@
  * - SumFac (LinAdvDiffReactionBlockOpDeviceSumFacKernels.hpp): one element per
  *   thread. The lanes of a warp advance through warpSize elements in
  *   lock-step on warp-interleaved data, with the stage intermediates in
- *   a global-memory workspace.
+ *   a global-memory workspace or, when it fits, in shared memory.
  * - SumFacTOP (LinAdvDiffReactionBlockOpDeviceSumFacTOPKernels.hpp): one
  *   element per thread block. The block's threads are indexed over the
  *   work items of each stage, with the basis tables, the coefficients
@@ -476,7 +476,10 @@ protected:
      * multiplied by ncomp = GetNumComponents() * GetNumHomoModes(), since
      * it must hold every component's intermediates at once; the dynamic
      * shared-memory request is HelmholtzSharedMemorySize, in bytes, and
-     * is not scaled by ncomp. Threads per block come from
+     * is not scaled by ncomp. Under SumFac the intermediates go in shared
+     * memory as well when UseSharedWorkSpace() accepts the size
+     * HelmholtzSharedMemorySize gives for one warp of elements; the
+     * global workspace is then zero. Threads per block come from
      * GetDeviceBlockSize: a warp for SumFac; for SumFacTOP the element's
      * total mode count rounded up to whole warps and capped at the
      * default block size. The grid's first dimension comes from
@@ -599,12 +602,22 @@ protected:
             this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto advVelSize = nelmt * sizeParam.nqTot() * nhomo;
 
+        // Stage intermediates in shared memory if they fit.
+        const unsigned int shmemsizeWithSharedWsp =
+            sizeof(TData) *
+            HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
+                m_coordDim, sizeParam, true);
+        const bool useSharedMemoryWsp =
+            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                nelmt, m_coordDim, sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      nelmt, m_coordDim, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -614,9 +627,12 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) *
-            HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
-                sizeParam);
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation,
+                                                TData>(m_coordDim, sizeParam,
+                                                       false);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
@@ -632,11 +648,11 @@ protected:
             (LinAdvDiffReactionKernelLauncher<SHAPE_TYPE, Implementation,
                                               DEFORMED, VARCOEFF>),
             gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            m_coordDim, nelmt, nhomo, m_isModified, m_index[ind1]...,
-            m_B[ind0]..., m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_nodToMod,
-            m_dfptr, m_jacptr, diffCoeffPtr, varDiffCoeffSize, advVelPtr,
-            advVelPtr + advVelSize, advVelPtr + 2 * advVelSize, inptr, outptr,
-            wspptr, this->m_lambda);
+            m_coordDim, nelmt, nhomo, m_isModified, useSharedMemoryWsp,
+            m_index[ind1]..., m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
+            m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr, diffCoeffPtr,
+            varDiffCoeffSize, advVelPtr, advVelPtr + advVelSize,
+            advVelPtr + 2 * advVelSize, inptr, outptr, wspptr, this->m_lambda);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

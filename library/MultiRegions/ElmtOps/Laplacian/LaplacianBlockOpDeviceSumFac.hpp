@@ -447,12 +447,22 @@ protected:
                 ? this->m_varDiffCoeff->CompSize() * inblock.GetNumHomoModes()
                 : 0;
 
+        // Stage intermediates in shared memory if they fit.
+        const unsigned int shmemsizeWithSharedWsp =
+            sizeof(TData) *
+            LaplacianSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
+                m_coordDim, sizeParam, true);
+        const bool useSharedMemoryWsp =
+            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                nelmt, m_coordDim, sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      nelmt, m_coordDim, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -462,9 +472,12 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) *
-            LaplacianSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
-                sizeParam);
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      LaplacianSharedMemorySize<SHAPE_TYPE, Implementation,
+                                                TData>(m_coordDim, sizeParam,
+                                                       false);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
@@ -480,10 +493,10 @@ protected:
             (LaplacianKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
                                      VARCOEFF>),
             gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            m_coordDim, nelmt, m_isModified, m_index[ind1]..., m_B[ind0]...,
-            m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_nodToMod, m_dfptr,
-            m_jacptr, diffCoeffPtr, varDiffCoeffSize, inblock.GetNumHomoModes(),
-            inptr, outptr, wspptr);
+            m_coordDim, nelmt, m_isModified, useSharedMemoryWsp,
+            m_index[ind1]..., m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
+            m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr, diffCoeffPtr,
+            varDiffCoeffSize, inblock.GetNumHomoModes(), inptr, outptr, wspptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

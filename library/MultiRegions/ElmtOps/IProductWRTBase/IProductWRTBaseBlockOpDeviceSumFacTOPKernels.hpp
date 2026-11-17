@@ -416,6 +416,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTBaseFusedDerivWorkSpaceS
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
  * @param   padded       Unused.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Shared-memory size in TData values.
  */
@@ -426,8 +428,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
-    const TSizeParameter1D sizeParam1D,
-    [[maybe_unused]] const bool padded = false)
+    const TSizeParameter1D sizeParam1D, [[maybe_unused]] const bool padded,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam1D.nq0();
 
@@ -454,6 +456,8 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
  * @param   sizeParam2D  Modal and quadrature sizes per direction.
  * @param   padded       Add IProductWRTBaseSharedMemoryPadding, for the
  *                       launcher with the quadrature metric.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Shared-memory size in TData values.
  */
@@ -464,7 +468,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
-    const TSizeParameter2D sizeParam2D, const bool padded = false)
+    const TSizeParameter2D sizeParam2D, const bool padded,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     // Rows padded by the launcher with the quadrature metric.
     const unsigned int pad =
@@ -513,6 +518,8 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
  * @param   sizeParam3D  Modal and quadrature sizes per direction.
  * @param   padded       Add IProductWRTBaseSharedMemoryPadding, for the
  *                       launcher with the quadrature metric.
+ * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
+ *                       memory.
  *
  * @return Shared-memory size in TData values.
  */
@@ -523,7 +530,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
-    const TSizeParameter3D sizeParam3D, const bool padded = false)
+    const TSizeParameter3D sizeParam3D, const bool padded,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     // Rows padded by the launcher with the quadrature metric.
     const unsigned int pad =
@@ -2110,6 +2118,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
  * @param   sizeParam1D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A; unused in 1D.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   basis0      Basis table.
  * @param   w0          Quadrature weights.
  * @param   nodToMod    Nodal-to-modal matrix; unused in 1D.
@@ -2133,6 +2143,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTBaseKernelLauncher(
         const TSizeParameter1D sizeParam1D, const size_t nelmt,
         [[maybe_unused]] const bool isModified,
+        [[maybe_unused]] const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
@@ -2195,6 +2206,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam1D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A; unused in 1D.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   basis0      Basis table.
  * @param   nodToMod    Nodal-to-modal matrix; unused in 1D.
  * @param   in          Block's physical values, every component
@@ -2215,6 +2228,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTBaseKernelLauncher(
         const TSizeParameter1D sizeParam1D, const size_t nelmt,
         [[maybe_unused]] const bool isModified,
+        [[maybe_unused]] const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
@@ -2283,6 +2297,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam2D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   index0      Mode-index table of the collapsed shapes.
  * @param   basis0,basis1   Basis tables per direction.
  * @param   w0,w1       Quadrature weights per direction.
@@ -2306,7 +2322,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     IProductWRTBaseKernelLauncher(
         const TSizeParameter2D sizeParam2D, const size_t nelmt,
-        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
@@ -2417,6 +2434,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam2D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   index0      Mode-index table of the collapsed shapes.
  * @param   basis0,basis1   Basis tables per direction.
  * @param   nodToMod    Nodal-to-modal matrix; nodal shapes only.
@@ -2437,7 +2456,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     IProductWRTBaseKernelLauncher(
         const TSizeParameter2D sizeParam2D, const size_t nelmt,
-        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
         TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
@@ -2550,6 +2570,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam3D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   index0,index1,index2    Mode-index tables of the collapsed
  *                      shapes.
  * @param   basis0,basis1,basis2    Basis tables per direction.
@@ -2574,7 +2596,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     IProductWRTBaseKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
@@ -2722,6 +2745,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam3D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
+ * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
+ * memory.
  * @param   index0,index1,index2    Mode-index tables of the collapsed
  *                      shapes.
  * @param   basis0,basis1,basis2    Basis tables per direction.
@@ -2743,7 +2768,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     IProductWRTBaseKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
-        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,

@@ -493,7 +493,11 @@ protected:
      * for the shape, strategy and output state at hand, in bytes; the
      * global workspace request is IProductWRTDerivBaseWorkSpaceSize scaled
      * by the number of (mode, component) pairs. Both helpers have one
-     * overload per strategy, documented in the kernel headers.
+     * overload per strategy, documented in the kernel headers. Under
+     * SumFac the intermediates go in shared memory instead when
+     * UseSharedWorkSpace() accepts the size
+     * IProductWRTDerivBaseSharedMemorySize gives for one warp of elements;
+     * the global workspace is then zero.
      *
      * The launch goes through DEVICE_3DGRID_KERNEL_LAUNCHER to the
      * IProductWRTDerivBasePhysKernelLauncher (Phys output) or
@@ -554,12 +558,22 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Stage intermediates in shared memory if they fit.
+        const unsigned int shmemsizeWithSharedWsp =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
+                                                 TData>(sizeParam, true);
+        const bool useSharedMemoryWsp =
+            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             outblock.GetNumComponents() * outblock.GetNumHomoModes();
         const size_t wspSize =
-            IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                nelmt, sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      nelmt, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -570,9 +584,11 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
-                                                 TData>(sizeParam);
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      IProductWRTDerivBaseSharedMemorySize<
+                          SHAPE_TYPE, Implementation, TData>(sizeParam, false);
         unsigned int blocksize;
         if constexpr (TFieldOut == FieldState::Phys)
         {
@@ -611,9 +627,9 @@ protected:
                         SHAPE_TYPE, Implementation, true, DEFORMED>),
                     gridsize, outblock.GetNumHomoModes(),
                     outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam, nelmt, inoffset, m_D[ind0]...,
-                    m_W[ind0]..., m_f[ind2]..., m_dfptr, m_jacptr, inptr,
-                    outptr, wspptr, this->m_scale);
+                    m_streamID, sizeParam, nelmt, inoffset, useSharedMemoryWsp,
+                    m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_dfptr, m_jacptr,
+                    inptr, outptr, wspptr, this->m_scale);
             }
             else
             {
@@ -622,9 +638,9 @@ protected:
                         SHAPE_TYPE, Implementation, false, DEFORMED>),
                     gridsize, outblock.GetNumHomoModes(),
                     outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam, nelmt, inoffset, m_D[ind0]...,
-                    m_W[ind0]..., m_f[ind2]..., m_dfptr, m_jacptr, inptr,
-                    outptr, wspptr, this->m_scale);
+                    m_streamID, sizeParam, nelmt, inoffset, useSharedMemoryWsp,
+                    m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_dfptr, m_jacptr,
+                    inptr, outptr, wspptr, this->m_scale);
             }
         }
         else // coeff version
@@ -642,9 +658,10 @@ protected:
                     gridsize, outblock.GetNumHomoModes(),
                     outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
                     m_streamID, sizeParam, m_coordDim, nelmt, inoffset,
-                    m_isModified, m_index[ind1]..., m_B[ind0]..., m_D[ind0]...,
-                    m_W[ind0]..., m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr,
-                    inptr, outptr, wspptr, this->m_scale);
+                    m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                    m_B[ind0]..., m_D[ind0]..., m_W[ind0]..., m_f[ind2]...,
+                    m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr,
+                    this->m_scale);
             }
             else
             {
@@ -654,9 +671,10 @@ protected:
                     gridsize, outblock.GetNumHomoModes(),
                     outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
                     m_streamID, sizeParam, m_coordDim, nelmt, inoffset,
-                    m_isModified, m_index[ind1]..., m_B[ind0]..., m_D[ind0]...,
-                    m_W[ind0]..., m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr,
-                    inptr, outptr, wspptr, this->m_scale);
+                    m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                    m_B[ind0]..., m_D[ind0]..., m_W[ind0]..., m_f[ind2]...,
+                    m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr,
+                    this->m_scale);
             }
         }
 
