@@ -141,7 +141,8 @@ static void CheckMeans(const MultiRegions::ExpListSharedPtr &explist,
     const double tol = 1.0e-12;
     const auto nComp = static_cast<unsigned int>(variables.size());
     const auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            explist, MultiRegions::UnitInterleaveWidths(explist));
     const unsigned int implInterleaveWidth =
         NektarSpaces::GetVectorWidth<double>(execStr);
 

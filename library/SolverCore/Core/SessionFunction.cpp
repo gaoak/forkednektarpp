@@ -162,9 +162,7 @@ void SessionFunction::Evaluate(
         auto coeffs = LibUtilities::Field<double, FieldState::Coeff>(
             "function coefficients",
             MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-                m_expList,
-                MultiRegions::Operator<double>::GetDefaultInterleaveWidth(
-                    m_session)),
+                m_expList),
             out.GetNumComponents(), out.GetNumHomoModes());
         auto bwdTransOp =
             MultiRegions::BwdTransOp<double>::Create(m_expList, m_variables);

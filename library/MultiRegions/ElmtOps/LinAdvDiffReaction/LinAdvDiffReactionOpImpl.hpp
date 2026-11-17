@@ -149,8 +149,9 @@ public:
             m_ipOp =
                 IProductWRTBaseOp<TData>::Create(expansionList, components);
             m_ipOp->SetAppend(true);
-            m_advZOp = std::make_shared<AdvectionZOpImpl<ExecSpace, TData>>(
-                expansionList);
+            m_advZOp =
+                std::make_shared<AdvectionZOpImpl<ExecSpace, TData, false>>(
+                    expansionList);
 
             auto physAttr =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
@@ -191,9 +192,9 @@ protected:
     /// Second z-derivative of the input, in coefficient space.
     LibUtilities::Field<TData, FieldState::Coeff> m_d2z;
 
-    /// The advection along the homogeneous direction, w du/dz, accumulated
-    /// at the quadrature points, then taken back to coefficients.
-    std::shared_ptr<AdvectionZOpImpl<ExecSpace, TData>> m_advZOp;
+    /// The advection along the homogeneous direction, w du/dz, formed at
+    /// the quadrature points, then taken back to coefficients.
+    std::shared_ptr<AdvectionZOpImpl<ExecSpace, TData, false>> m_advZOp;
     /// Takes the input to the quadrature points for #m_advZOp.
     std::shared_ptr<BwdTransOp<TData>> m_bwdTransOp;
     /// Takes the z advection back to coefficient space, accumulating onto
@@ -245,11 +246,8 @@ protected:
 
         // The advection along z is weak like the rest of the operator, so
         // w du/dz is formed at the quadrature points and taken back through
-        // the inner product, which adds it to the output. The z-op
-        // accumulates on top of whatever it is given, which here is nothing
-        // but this term.
+        // the inner product, which adds it to the output.
         m_bwdTransOp->Apply(in, m_u);
-        Math::zero<ExecSpace>(m_advZ);
         m_advZOp->Launch(m_u, m_advZ);
         m_ipOp->Apply(m_advZ, out);
     }

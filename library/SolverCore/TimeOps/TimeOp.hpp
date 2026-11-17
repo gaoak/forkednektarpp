@@ -325,9 +325,7 @@ protected:
             expansionList->GetSession()->GetParameter("TimeStep");
         this->m_blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                expansionList,
-                MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                    expansionList->GetSession()));
+                expansionList);
     }
 
     ~TimeOp() override = default;

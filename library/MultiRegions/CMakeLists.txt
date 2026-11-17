@@ -317,6 +317,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
     SET(MULTI_REGIONS_HEADERS
         ${MULTI_REGIONS_HEADERS}
         ./Common/BlockOperator.hpp
+        ./Common/DefaultOpImplTable.hpp
         ./Common/Operator.hpp
         ./DataWarehouse/LocalToGlobalDataWarehouse.hpp
         ./DataWarehouse/TraceDataWarehouse.hpp

@@ -213,24 +213,23 @@ void WriteInputFile(const LibUtilities::SessionReaderSharedPtr &session,
 // Reads the coefficients of a field in the element order of the expansion
 // list, component-major, through a reshape to interleave width 1 rather than
 // through the de-interleaving copy of ToVector(), and leaves the field at the
-// given interleave width.
+// given interleave widths.
 std::vector<double> FieldCoeffs(
     LibUtilities::Field<double, FieldState::Coeff> &field,
-    const unsigned int interleaveWidth, const std::string &execStr)
+    const std::vector<unsigned int> &interleaveWidths,
+    const std::string &execStr)
 {
     field.ReshapeStorage(1, execStr);
     auto coeffs = field.ToVector<double>();
-    field.ReshapeStorage(interleaveWidth, execStr);
+    field.ReshapeStorage(interleaveWidths, execStr);
     return coeffs;
 }
 
 void CheckInterleaveWidth(LibUtilities::Field<double, FieldState::Coeff> &field,
-                          const unsigned int interleaveWidth)
+                          const std::vector<unsigned int> &interleaveWidths)
 {
-    for (auto &block : field.GetBlocks())
-    {
-        BOOST_CHECK_EQUAL(block.GetInterleaveWidth(), interleaveWidth);
-    }
+    BOOST_TEST(field.GetInterleaveWidth() == interleaveWidths,
+               boost::test_tools::per_element());
 }
 
 void CheckEqual(const std::vector<double> &result,
@@ -269,11 +268,11 @@ void CheckEqual(const std::vector<double> &result,
     const auto &explist  = system->Expansion();
     const auto variables = session->GetVariables();
     const size_t ncoeffs = explist->GetNcoeffs();
-    const auto interleaveWidth =
-        MultiRegions::Operator<double>::GetDefaultInterleaveWidth(session);
+    const auto interleaveWidths =
+        MultiRegions::Operator<double>::GetDefaultInterleaveWidths(explist);
     auto &coeffs = system->Coeffs();
     auto &phys   = system->Phys();
-    CheckInterleaveWidth(coeffs, interleaveWidth);
+    CheckInterleaveWidth(coeffs, interleaveWidths);
 
     // Distinct values for every coefficient of every component.
     std::vector<double> expected(variables.size() * ncoeffs);
@@ -287,10 +286,10 @@ void CheckEqual(const std::vector<double> &result,
 
     // The coefficients of the file, and their backward transform.
     coeffs.CopyVector<NektarSpaces::HostSpace>(expected);
-    CheckInterleaveWidth(coeffs, interleaveWidth);
+    CheckInterleaveWidth(coeffs, interleaveWidths);
     BOOST_TEST_CONTEXT("CopyVector")
     {
-        CheckEqual(FieldCoeffs(coeffs, interleaveWidth, execStr), expected);
+        CheckEqual(FieldCoeffs(coeffs, interleaveWidths, execStr), expected);
     }
     system->SetPhysFromCoeffs();
     const auto expectedPhys = phys.ToVector<double>();
@@ -308,18 +307,18 @@ void CheckEqual(const std::vector<double> &result,
     BOOST_TEST_CONTEXT("ToVector")
     {
         CheckEqual(coeffs.ToVector<double>(), expected);
-        CheckInterleaveWidth(coeffs, interleaveWidth);
+        CheckInterleaveWidth(coeffs, interleaveWidths);
     }
 
     // Write. The file must hold the coefficients WriteFld() projected the
     // solution to, and the field must keep its interleave width.
     system->SetPhysFromCoeffs();
     system->WriteFld(outputFile);
-    CheckInterleaveWidth(coeffs, interleaveWidth);
+    CheckInterleaveWidth(coeffs, interleaveWidths);
     BOOST_TEST_CONTEXT("write")
     {
         CheckEqual(ReadFieldFile(session, explist, variables, outputFile),
-                   FieldCoeffs(coeffs, interleaveWidth, execStr));
+                   FieldCoeffs(coeffs, interleaveWidths, execStr));
     }
 
     fs::remove(FileName(execStr, ".xml"));

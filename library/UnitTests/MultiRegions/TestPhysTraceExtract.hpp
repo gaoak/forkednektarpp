@@ -71,10 +71,11 @@ public:
 
     void SetFixture(const unsigned int nhomo) override
     {
-        auto nin  = this->session->GetVariables().size();
-        auto nout = this->session->GetVariables().size();
-        auto inblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto nin         = this->session->GetVariables().size();
+        auto nout        = this->session->GetVariables().size();
+        auto inblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
         auto outblockAttr = GetLocTraceBlockAttributes<TData, FieldState::Phys>(
             this->fixt_explist, 1, m_useGLLTracePoints);
 
@@ -281,8 +282,9 @@ public:
     {
         const unsigned numComp = this->fixt_in->GetNumComponents();
 
-        auto inblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto inblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         size_t eid = 0;
         for (unsigned blk = 0; blk < inblockAttr.size(); ++blk)

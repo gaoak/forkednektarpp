@@ -77,10 +77,11 @@ public:
 
     void SetFixture(const unsigned int nhomo = 1) override
     {
-        auto nin  = this->session->GetVariables().size();
-        auto nout = this->session->GetVariables().size();
-        auto inblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto nin         = this->session->GetVariables().size();
+        auto nout        = this->session->GetVariables().size();
+        auto inblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
         auto outblockAttr = GetScaledBlockAttributes<TData, FieldState::Phys>(
             this->fixt_explist, this->scale);
 

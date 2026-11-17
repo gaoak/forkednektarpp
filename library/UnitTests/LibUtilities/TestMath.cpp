@@ -457,7 +457,9 @@ BOOST_FIXTURE_TEST_CASE(masked_ddot2kernel, TestMath<double>)
     SetTestCase();
 
     Field<std::uint8_t, FieldState::Phys> mask(
-        "mask", GetBlockAttributes<double, FieldState::Phys>(m_expList),
+        "mask",
+        GetBlockAttributes<double, FieldState::Phys>(
+            m_expList, MultiRegions::UnitInterleaveWidths(m_expList)),
         m_session->GetVariables(), 1);
     for (auto &block : mask.GetBlocks())
     {

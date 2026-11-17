@@ -136,7 +136,8 @@ public:
             // fields.
             const auto blockAttributes =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    bndExpLists[n]);
+                    bndExpLists[n],
+                    MultiRegions::UnitInterleaveWidths(bndExpLists[n]));
             for (unsigned int blk = 0; blk < blockAttributes.size(); ++blk)
             {
                 const unsigned int streamID = blk + 1;

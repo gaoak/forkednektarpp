@@ -159,8 +159,9 @@ public:
 
     void RunTestCase()
     {
-        auto advelblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto advelblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
         auto vel =
             Field<TData, FieldState::Phys>("vel", advelblockAttr, m_nVelComp,
                                            this->fixt_in->GetNumHomoModes());

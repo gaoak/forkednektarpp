@@ -77,7 +77,8 @@ template <typename TData> struct VariableDiffusion
         }
         field = std::make_unique<LibUtilities::Field<TData, FieldState::Phys>>(
             "diffusion",
-            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(exp),
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                exp, MultiRegions::UnitInterleaveWidths(exp)),
             nDiffCoeff, modes);
         CopyToField();
     }

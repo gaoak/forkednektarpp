@@ -51,6 +51,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
@@ -63,7 +64,9 @@
 #include "LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp"
 
 #include <LibUtilities/Backends/Backends.hpp>
+#include <LibUtilities/Backends/DeviceProperties.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <MultiRegions/Common/DefaultOpImplTable.hpp>
 
 namespace Nektar::MultiRegions
 {
@@ -174,17 +177,19 @@ public:
      *
      * The space comes from the command-line argument "opExecSpace". Without
      * it the operator takes the space the build provides, "Device" when a
-     * device is present and otherwise "AVX" or "Serial", and warns that it
-     * has done so.
+     * device is present and otherwise "AVX" or "Serial", and, if @p warn,
+     * warns that it has done so.
      *
      * @param session  Session reader to recover the relevant command-line
      * argument.
+     * @param warn     Whether to warn when the space is defaulted.
      *
      * @return std::string containing the implementation name (e.g. "Serial",
      * "Device").
      */
     static std::string GetOpExecSpace(
-        std::shared_ptr<LibUtilities::SessionReader> session)
+        std::shared_ptr<LibUtilities::SessionReader> session,
+        const bool warn = true)
     {
         std::string OpExec = (nekGetNumDevice()) ? "Device" :
 #if defined(NEKTAR_ENABLE_SIMD)
@@ -197,7 +202,7 @@ public:
         {
             OpExec = session->GetCmdLineArgument<std::string>("opExecSpace");
         }
-        else
+        else if (warn)
         {
             NEKERROR(ErrorUtil::ewarning,
                      "No execution space specified for operator. Defaulting "
@@ -208,34 +213,114 @@ public:
     }
 
     /**
-     * @brief Return the default interleave width that persistent Fields
-     * (e.g. solution storage, time-integration and linear-solver workspace)
-     * should be constructed with for the given session.
+     * @brief Return the row of the default implementation table
+     * (DefaultOpImplTable.hpp) that a block of elements takes, or null if
+     * none does.
      *
-     * Returns the vector width of the session's execution space when the
-     * requested implementation is SumFac or the execution space is AVX, so
-     * that Fields are created at that width rather than reshaped on every
-     * Apply; 1 for every other configuration. A DG projection takes the same
-     * width as a continuous one: the trace operators read a field at
-     * whatever width each of its blocks carries.
-     *
-     * @param session  Session reader to recover the relevant command-line
-     * arguments.
-     *
-     * @return unsigned int interleave width.
+     * @param exp        The block's representative element, whose shape and
+     *                   highest order over its directions are used, or null.
+     * @param execSpace  Execution space ("Serial", "AVX" or "Device").
      */
-    static unsigned int GetDefaultInterleaveWidth(
-        std::shared_ptr<LibUtilities::SessionReader> session)
+    static const DefaultOpImplRule *GetDefaultOpImplRule(
+        const StdRegions::StdExpansionSharedPtr &exp,
+        const std::string &execSpace)
     {
-        std::string execName = GetOpExecSpace(session);
-        std::string implName =
-            session->DefinesCmdLineArgument("opImpl")
-                ? session->GetCmdLineArgument<std::string>("opImpl")
-                : "";
+        const DefaultOpImplRule *rule = nullptr;
+        if (exp)
+        {
+            rule = FindDefaultOpImplRule(
+                execSpace, execSpace == "Device" ? GetDeviceArchitecture() : "",
+                exp->DetShapeType(), exp->EvalBasisNumModesMax() - 1);
+        }
+        return rule;
+    }
 
-        return (implName == "SumFac" || execName == "AVX")
-                   ? NektarSpaces::GetVectorWidth<TData>(execName)
-                   : 1u;
+    /**
+     * @brief Return the implementation a block of elements takes when
+     * neither the command line nor the session names one for its operator.
+     *
+     * This is the implementation of the block's row of the default
+     * implementation table (DefaultOpImplTable.hpp), by execution space,
+     * device architecture, element shape and expansion order, and SumFac
+     * where no row applies or without an expansion. On Device the table
+     * currently gives SumFacTOP from order three in 3D and order six in 1D
+     * and 2D. The default is taken per block, so the blocks of a mesh of
+     * mixed order or shape can take different implementations.
+     *
+     * @param exp        The block's representative element, or null.
+     * @param execSpace  Execution space ("Serial", "AVX" or "Device").
+     *
+     * @return std::string containing the implementation name.
+     */
+    static std::string GetDefaultOpImpl(
+        const StdRegions::StdExpansionSharedPtr &exp,
+        const std::string &execSpace)
+    {
+        const DefaultOpImplRule *rule = GetDefaultOpImplRule(exp, execSpace);
+        return rule ? std::string(rule->opImpl) : "SumFac";
+    }
+
+    /**
+     * @brief Return the default interleave widths, one per block of
+     * @p expansionList, that persistent Fields (e.g. solution storage,
+     * time-integration and linear-solver workspace) built on it should be
+     * constructed with.
+     *
+     * A block takes the vector width of the session's execution space when
+     * its implementation is SumFac or the execution space is AVX, so that
+     * Fields are created at that width rather than reshaped on every
+     * Apply; 1 otherwise. The implementation is the command line's
+     * "opImpl" or, without it, the block's default of GetDefaultOpImpl(),
+     * so that each block matches the operators' default for it; a session
+     * that names implementations per operator (a backend section) leaves
+     * that default out, since one width cannot follow a mix. A DG
+     * projection takes the same interleave widths as a continuous one: the
+     * trace operators read a field at whatever width each of its blocks
+     * carries.
+     *
+     * @param expansionList  Expansion list the fields are built on; its
+     *                       session supplies the command-line arguments
+     *                       and the backend sections.
+     *
+     * @return std::vector<unsigned int> of interleave widths, one per
+     * block, for GetBlockAttributes().
+     */
+    static std::vector<unsigned int> GetDefaultInterleaveWidths(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        const auto session = expansionList->GetSession();
+        std::vector<unsigned int> interleave_widths;
+        if (!session)
+        {
+            // Without a session there is no execution space to follow.
+            interleave_widths.assign(GetCollections(expansionList).size(), 1u);
+        }
+        else
+        {
+            const std::string execName = GetOpExecSpace(session, false);
+
+            const LibUtilities::BackendMap &backend =
+                session->GetBackendMap(execName);
+            const bool cmdLineImpl = session->DefinesCmdLineArgument("opImpl");
+            const std::string cmdLineImplName =
+                cmdLineImpl ? session->GetCmdLineArgument<std::string>("opImpl")
+                            : "";
+
+            for (auto &coll : GetCollections(expansionList))
+            {
+                const std::string implName =
+                    cmdLineImpl ? cmdLineImplName
+                    : backend.empty()
+                        ? GetDefaultOpImpl(coll.GetExpVector()[0], execName)
+                        : ""; // "" for now as different block operators might
+                              // use different implementations
+                interleave_widths.push_back(
+                    (implName == "SumFac" || execName == "AVX")
+                        ? NektarSpaces::GetVectorWidth<TData>(execName)
+                        : 1u);
+            }
+        }
+        return interleave_widths;
     }
 
     /**

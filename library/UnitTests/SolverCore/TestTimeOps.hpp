@@ -329,10 +329,7 @@ protected:
     void SetFixture()
     {
         const unsigned int ncomp = m_session->GetVariables().size();
-        const auto interleaveWidth =
-            Operator<TData>::GetDefaultInterleaveWidth(m_session);
-        auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
-            m_expList, interleaveWidth);
+        auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(m_expList);
 
         m_in  = Field<TData, FieldState::Phys>("f_in", blockAttr, ncomp, 1);
         m_out = Field<TData, FieldState::Phys>("f_out", blockAttr, ncomp, 1);

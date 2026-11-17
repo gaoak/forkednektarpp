@@ -107,8 +107,8 @@ public:
         // One component per session variable, so the reducers are exercised
         // over a field wider than a single component.
         const auto &components = this->m_session->GetVariables();
-        auto blocksAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(m_expList);
+        auto blocksAttr        = GetBlockAttributes<TData, FieldState::Phys>(
+            m_expList, MultiRegions::UnitInterleaveWidths(m_expList));
         auto f_in =
             Field<TData, FieldState::Phys>("f_in", blocksAttr, components, 1);
         m_in = new Field<TData, FieldState::Phys>(std::move(f_in));

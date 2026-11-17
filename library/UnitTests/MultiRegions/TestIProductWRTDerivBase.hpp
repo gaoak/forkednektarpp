@@ -70,12 +70,14 @@ public:
                 ? 3u
                 : static_cast<unsigned int>(this->fixt_explist->GetCoordim(0));
 
-        auto nin  = this->session->GetVariables().size() * m_coordDim;
-        auto nout = this->session->GetVariables().size();
-        auto inblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
-        auto outblockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(this->fixt_explist);
+        auto nin         = this->session->GetVariables().size() * m_coordDim;
+        auto nout        = this->session->GetVariables().size();
+        auto inblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
+        auto outblockAttr = GetBlockAttributes<TData, FieldState::Coeff>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         auto f_in =
             Field<TData, FieldState::Phys>("f_in", inblockAttr, nin, nhomo);

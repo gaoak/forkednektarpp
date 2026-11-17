@@ -67,7 +67,8 @@ public:
         std::vector<size_t> blockStart;
         auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                expansionList);
+                expansionList,
+                MultiRegions::UnitInterleaveWidths(expansionList));
         for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
             auto &block          = blockAttr[blk];

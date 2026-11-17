@@ -66,8 +66,9 @@ public:
         auto nout = this->session->GetVariables().size();
 
         // Native-sized blocks are the *output* of this operator.
-        auto outblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto outblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
         // The over-integrated blocks are its input.
         auto inblockAttr = GetScaledBlockAttributes<TData, FieldState::Phys>(
             this->fixt_explist, this->scale);

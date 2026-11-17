@@ -55,12 +55,14 @@ public:
 
     void SetFixture(const unsigned int nhomo) override
     {
-        auto nin  = this->session->GetVariables().size();
-        auto nout = this->session->GetVariables().size();
-        auto inblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
-        auto outblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto nin         = this->session->GetVariables().size();
+        auto nout        = this->session->GetVariables().size();
+        auto inblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
+        auto outblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         auto f_in =
             Field<TData, FieldState::Phys>("f_in", inblockAttr, nin, nhomo);
@@ -76,8 +78,9 @@ public:
 
     void RunTestCase(bool append)
     {
-        auto advelblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto advelblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
         auto vel =
             Field<TData, FieldState::Phys>("vel", advelblockAttr, m_nVelComp,
                                            this->fixt_in->GetNumHomoModes());

@@ -1229,8 +1229,7 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
         m_pressureBCVelocity = LibUtilities::Field<double, FieldState::Phys>(
             "pressure BC velocity",
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                m_expansionLists[0],
-                Operator<double>::GetDefaultInterleaveWidth(m_session)),
+                m_expansionLists[0]),
             m_variablesVel.size(), m_npointsZ);
     }
 
@@ -1244,8 +1243,7 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
         m_pressureBCExplicitRhs = LibUtilities::Field<double, FieldState::Phys>(
             "pressure BC explicit RHS",
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                m_expansionLists[0],
-                Operator<double>::GetDefaultInterleaveWidth(m_session)),
+                m_expansionLists[0]),
             m_variablesVel.size(), m_npointsZ);
     }
 
@@ -1264,14 +1262,14 @@ void VelocityCorrectionScheme::v_InitialiseFields()
     // EquationSystem initialises m_fields and m_fields_coeff
     EquationSystem::v_InitialiseFields();
 
-    // Get interleave width
-    auto interleaveWidth =
-        Operator<double>::GetDefaultInterleaveWidth(m_session);
+    // Each Field takes the default interleave widths of its own expansion
+    // list, since the default implementation, and so the width, follows the
+    // shape and order of its blocks.
 
     /// Create fields for velocity and passive scalars.
     // Get block attributes
     auto bAtr_phys = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-        m_expansionLists[0], interleaveWidth);
+        m_expansionLists[0]);
 
     // Create fields
     m_wsp_phys = LibUtilities::Field<double, FieldState::Phys>(
@@ -1299,10 +1297,10 @@ void VelocityCorrectionScheme::v_InitialiseFields()
     // Get block attributes
     auto bAtr_phys_pressure =
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            m_expansionLists[m_pressureIndex], interleaveWidth);
+            m_expansionLists[m_pressureIndex]);
     auto bAtr_coeff_pressure =
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            m_expansionLists[m_pressureIndex], interleaveWidth);
+            m_expansionLists[m_pressureIndex]);
     // Create fields
     m_pressure = LibUtilities::Field<double, FieldState::Phys>(
         "pressure", bAtr_phys_pressure, m_variablesPressure.size(), m_npointsZ);
@@ -1359,8 +1357,7 @@ void VelocityCorrectionScheme::v_SetInitialConditions(double initialTime)
     auto iprod = LibUtilities::Field<double, FieldState::Coeff>(
         "pressure inner product",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            m_expansionLists[m_pressureIndex],
-            Operator<double>::GetDefaultInterleaveWidth(m_session)),
+            m_expansionLists[m_pressureIndex]),
         m_variablesPressure.size(), m_npointsZ);
     IProductWRTBaseOp<double>::Create(m_expansionLists[m_pressureIndex],
                                       m_variablesPressure)
@@ -1384,16 +1381,15 @@ void VelocityCorrectionScheme::v_PrintNorms(std::ostream &out)
     EquationSystem::v_PrintNorms(out);
 
     /// Print norms for axuiliary pressure field
-    // Create workspace Field, matching the interleave width of m_pressure so
-    // that the subtraction below combines consistently laid-out data. This
-    // is recomputed from the session rather than read off m_pressure's
-    // blocks since GetBlocks() can be empty on a rank with no local elements.
-    const auto interleaveWidth =
-        Operator<double>::GetDefaultInterleaveWidth(m_session);
+    // Create workspace Field at the default interleave widths, those of
+    // m_pressure, so that the subtraction below combines consistently
+    // laid-out data. They are taken from the expansion list rather than read
+    // off m_pressure's blocks since GetBlocks() can be empty on a rank with no
+    // local elements.
     auto wsp_phys = LibUtilities::Field<double, FieldState::Phys>(
         "exact solution pressure",
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            m_expansionLists[m_pressureIndex], interleaveWidth),
+            m_expansionLists[m_pressureIndex]),
         m_variablesPressure.size(), m_npointsZ);
     m_math.zero(wsp_phys);
 

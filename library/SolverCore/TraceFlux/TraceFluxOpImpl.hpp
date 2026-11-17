@@ -652,9 +652,10 @@ public:
             AccumulateWorkSpaceBound(m_bndT0[b].offset.size());
         }
 
-        // Create global blocks.
+        // Create global blocks, at width 1.
         auto glo_blocks_trace =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(trace, 1);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                trace, MultiRegions::UnitInterleaveWidths(trace));
 
         // The mesh's trace normals, read where the data warehouse holds them.
         this->m_traceNormals =

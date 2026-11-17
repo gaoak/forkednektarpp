@@ -80,9 +80,7 @@ void ForcingBody::v_Apply(LibUtilities::Field<double, FieldState::Phys> &in,
             m_constantForcing = LibUtilities::Field<double, FieldState::Phys>(
                 "ForcingBody constant forcing",
                 MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                    m_expList,
-                    MultiRegions::Operator<double>::GetDefaultInterleaveWidth(
-                        m_session)),
+                    m_expList),
                 m_variables, out.GetNumHomoModes());
             m_function->Evaluate(m_constantForcing, 0.0);
         }

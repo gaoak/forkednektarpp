@@ -182,8 +182,9 @@ public:
             const unsigned int ncomp = m_session->GetVariables().size();
             Field<TData, FieldState::Coeff> first(
                 "f_first",
-                GetBlockAttributes<TData, FieldState::Coeff>(m_expList), ncomp,
-                1);
+                GetBlockAttributes<TData, FieldState::Coeff>(
+                    m_expList, MultiRegions::UnitInterleaveWidths(m_expList)),
+                ncomp, 1);
             op->SetLambda(2.0 * m_lambda + 1.0);
             precon->Configure(lhs);
             assmb->Apply(m_in, first);
@@ -398,8 +399,8 @@ protected:
     void SetFixture()
     {
         const unsigned int ncomp = m_session->GetVariables().size();
-        auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(m_expList);
+        auto blockAttr           = GetBlockAttributes<TData, FieldState::Coeff>(
+            m_expList, MultiRegions::UnitInterleaveWidths(m_expList));
 
         m_in  = Field<TData, FieldState::Coeff>("f_in", blockAttr, ncomp, 1);
         m_out = Field<TData, FieldState::Coeff>("f_out", blockAttr, ncomp, 1);

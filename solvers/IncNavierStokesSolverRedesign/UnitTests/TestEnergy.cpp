@@ -185,7 +185,8 @@ static void RunEnergyTest(const std::string &xml, const std::string &execStr,
     op->Configure(velocityComponents);
 
     const auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            explist, MultiRegions::UnitInterleaveWidths(explist));
     const unsigned int implInterleaveWidth =
         NektarSpaces::GetVectorWidth<double>(execStr);
     for (const bool rootOnly : {false, true})

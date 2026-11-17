@@ -168,8 +168,8 @@ static void RunMeanRemovalTest(const std::string &xml,
         }
     }
 
-    auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+    auto blockAttr = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+        explist, MultiRegions::UnitInterleaveWidths(explist));
 
     auto op = MeanRemovalOp<double>::Create(explist, vars, execStr);
 
@@ -270,8 +270,8 @@ static void RunMeanRemovalTest(const std::string &xml,
     FillField(explist, 1, npts, orig);
     const double integral = explist->Integral(orig);
 
-    auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+    auto blockAttr = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+        explist, MultiRegions::UnitInterleaveWidths(explist));
     auto poisson = PoissonSolveOp<double>::Create(explist, vars, execStr);
     auto op      = MeanRemovalOp<double>::Create(explist, vars, execStr);
 

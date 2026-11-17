@@ -205,8 +205,9 @@ public:
 
     void RunTestCase(const std::string &method)
     {
-        auto advelblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->m_expList);
+        auto advelblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->m_expList,
+            MultiRegions::UnitInterleaveWidths(this->m_expList));
         auto vel = Field<TData, FieldState::Phys>("vel", advelblockAttr,
                                                   m_coordDim, 1);
         vel.template CopyArray<NektarSpaces::HostSpace>(m_vel);

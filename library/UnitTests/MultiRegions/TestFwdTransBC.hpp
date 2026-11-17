@@ -96,10 +96,10 @@ public:
         {
             expList->SetDataWarehouse();
 
-            auto physBlocks =
-                GetBlockAttributes<TData, FieldState::Phys>(expList);
-            auto coeffBlocks =
-                GetBlockAttributes<TData, FieldState::Coeff>(expList);
+            auto physBlocks = GetBlockAttributes<TData, FieldState::Phys>(
+                expList, MultiRegions::UnitInterleaveWidths(expList));
+            auto coeffBlocks = GetBlockAttributes<TData, FieldState::Coeff>(
+                expList, MultiRegions::UnitInterleaveWidths(expList));
             Field<TData, FieldState::Phys> in("boundary phys", physBlocks,
                                               nComp, 1);
             Field<TData, FieldState::Coeff> out("boundary coeff", coeffBlocks,
@@ -282,13 +282,16 @@ private:
         size_t nBlocks = 0;
         for (const auto &expList : boundaryExp)
         {
-            nBlocks += GetBlockAttributes<TData, TState>(expList).size();
+            nBlocks += GetBlockAttributes<TData, TState>(
+                           expList, MultiRegions::UnitInterleaveWidths(expList))
+                           .size();
         }
 
         blockAttr.reserve(nBlocks);
         for (const auto &expList : boundaryExp)
         {
-            auto bcBlockAttr = GetBlockAttributes<TData, TState>(expList);
+            auto bcBlockAttr = GetBlockAttributes<TData, TState>(
+                expList, MultiRegions::UnitInterleaveWidths(expList));
             for (const auto &attr : bcBlockAttr)
             {
                 blockAttr.emplace_back(attr);

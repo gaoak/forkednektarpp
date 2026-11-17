@@ -212,7 +212,8 @@ static void RunClosedBoundaryTest(const std::string &xml,
     op->Configure(velocityComponents, explist, 0, selected, rho, mu, pivot);
 
     const auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            explist, MultiRegions::UnitInterleaveWidths(explist));
     const unsigned int implInterleaveWidth =
         NektarSpaces::GetVectorWidth<double>(execStr);
     for (const bool rootOnly : {false, true})
@@ -370,7 +371,8 @@ static void RunClosedBoundary3DH1Test(const std::string &xml,
     op->Configure({0, 1, 2}, explist, 0, selected, rho, mu, pivot);
 
     const auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            explist, MultiRegions::UnitInterleaveWidths(explist));
     const unsigned int implInterleaveWidth =
         NektarSpaces::GetVectorWidth<double>(execStr);
     for (const bool rootOnly : {false, true})

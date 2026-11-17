@@ -110,10 +110,21 @@ MULTI_REGIONS_EXPORT Collections::Collection GetCollection(
 MULTI_REGIONS_EXPORT Collections::CollectionVector GetCollections(
     MultiRegions::ExpListSharedPtr expansionList);
 
+/// The BlockAttributes of the blocks of @p explist, at the given interleave
+/// width of each block or, without them, at the defaults of
+/// Operator::GetDefaultInterleaveWidths().
 template <typename TPadding, FieldState TState>
 MULTI_REGIONS_EXPORT std::vector<LibUtilities::BlockAttributes<TState>>
 GetBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
-                   const unsigned interleave_width = 1);
+                   const std::vector<unsigned int> &interleave_widths = {});
+
+/// Interleave width 1 for every block of @p explist, for GetBlockAttributes()
+/// where a Field's storage is read or written element by element.
+inline std::vector<unsigned int> UnitInterleaveWidths(
+    const MultiRegions::ExpListSharedPtr &explist)
+{
+    return std::vector<unsigned int>(GetCollections(explist).size(), 1u);
+}
 
 /// As GetBlockAttributes(), but sized for the element-local traces: one
 /// block per collection, each element carrying every point of every one

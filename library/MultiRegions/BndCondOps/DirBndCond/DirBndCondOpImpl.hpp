@@ -149,7 +149,8 @@ public:
 
         auto domainBlocks =
             MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                this->m_expansionList);
+                this->m_expansionList,
+                MultiRegions::UnitInterleaveWidths(this->m_expansionList));
 
         // Stride of the compact per-component coefficient layout, computed
         // exactly the way Field::ToArray() computes it (real data only, no

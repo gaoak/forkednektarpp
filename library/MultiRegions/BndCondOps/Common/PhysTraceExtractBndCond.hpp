@@ -213,7 +213,7 @@ PhysTraceExtractBndCond<ExecSpace, TData>::PhysTraceExtractBndCond(
 
     const auto volumeBlocks =
         MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-            volumeExpList);
+            volumeExpList, MultiRegions::UnitInterleaveWidths(volumeExpList));
     for (unsigned int blk = 0; blk < volumeBlocks.size(); ++blk)
     {
         auto collection = MultiRegions::GetCollection(volumeExpList, blk);
@@ -258,7 +258,7 @@ PhysTraceExtractBndCond<ExecSpace, TData>::PhysTraceExtractBndCond(
         bcExpList->GetNumElmts() == 0
             ? std::vector<LibUtilities::BlockAttributes<FieldState::Phys>>{}
             : MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                  bcExpList);
+                  bcExpList, MultiRegions::UnitInterleaveWidths(bcExpList));
     for (unsigned int blk = 0; blk < bcBlocks.size(); ++blk)
     {
         auto collection        = MultiRegions::GetCollection(bcExpList, blk);
@@ -406,7 +406,8 @@ PhysTraceExtractBndCond<ExecSpace, TData>::PhysTraceExtractBndCond(
 
         const auto restrictedBlocks =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                restrictedExpList);
+                restrictedExpList,
+                MultiRegions::UnitInterleaveWidths(restrictedExpList));
         // The bucket's elements come from one volume block, so they share
         // what splits a collection (basis, deformation, MAXSIZE) and the
         // restricted list is one block. Apply() relies on this.

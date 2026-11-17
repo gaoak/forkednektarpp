@@ -367,7 +367,8 @@ protected:
     void SetFixture()
     {
         const unsigned int ncomp = m_session->GetVariables().size();
-        auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(m_expList);
+        auto blockAttr           = GetBlockAttributes<TData, FieldState::Phys>(
+            m_expList, MultiRegions::UnitInterleaveWidths(m_expList));
 
         m_in =
             Field<TData, FieldState::Phys>("f_in", blockAttr, ncomp, m_nhomo);
