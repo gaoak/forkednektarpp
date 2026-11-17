@@ -63,7 +63,8 @@ public:
 
         auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                expansionList);
+                expansionList,
+                MultiRegions::UnitInterleaveWidths(expansionList));
 
         // Loop over the blocks.
         for (unsigned int block_idx = 0; block_idx < blockAttr.size();

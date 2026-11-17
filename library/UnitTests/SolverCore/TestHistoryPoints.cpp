@@ -174,7 +174,8 @@ static void RunPointsTest(const std::string &xml, const std::string &execStr)
     op->Configure(points);
 
     const auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            explist, MultiRegions::UnitInterleaveWidths(explist));
     const unsigned int implInterleaveWidth =
         NektarSpaces::GetVectorWidth<double>(execStr);
     for (const bool rootOnly : {false, true})
@@ -284,7 +285,8 @@ static void RunPoints3DH1Test(const std::string &xml,
     op->Configure(points);
 
     const auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            explist, MultiRegions::UnitInterleaveWidths(explist));
     const unsigned int implInterleaveWidth =
         NektarSpaces::GetVectorWidth<double>(execStr);
     for (const bool rootOnly : {false, true})

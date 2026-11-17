@@ -59,7 +59,11 @@
 
 #pragma once
 
+#include <map>
+#include <utility>
+
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
+#include <MultiRegions/Common/BlockOperator.hpp>
 #include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::MultiRegions
@@ -150,7 +154,8 @@ public:
      * @param   implStr         Block implementation ("StdMat",
      *                          "SumFac", "SumFacTOP" or "Generic"); if
      *                          empty, the lookup rules of GetOpImpl()
-     *                          apply, keyed by `TOperator::name`.
+     *                          apply to each block, keyed by
+     *                          `TOperator::name`.
      *
      * @return The fully assembled operator, ready to Apply(). Creation
      * raises a fatal error (throws ErrorUtil::NekError) if no
@@ -169,17 +174,18 @@ public:
                                    ? Operator<TData>::GetOpExecSpace(session)
                                    : execStr;
 
-        std::string implStr0 =
-            (implStr == "")
-                ? GetOpImpl(TOperator<TData>::name, execStr0, session)
-                : implStr;
-
         auto op = Operator<TData>::template Create<TOperator>(
             expansionList, components, execStr0);
 
         auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                 expansionList);
+
+        // Without an explicit implementation each block takes its own, which
+        // depends on the block's shape and order only; look it up once per
+        // shape and order.
+        std::map<std::pair<LibUtilities::ShapeType, int>, std::string>
+            implByShapeOrder;
 
         // Loop over the blocks.
         for (unsigned int block_idx = 0; block_idx < blockAttr.size();
@@ -188,6 +194,21 @@ public:
             const auto exp =
                 MultiRegions::GetCollection(expansionList, block_idx)
                     .GetExpVector()[0];
+            std::string implStr0 = implStr;
+            if (implStr0 == "")
+            {
+                const auto key = std::make_pair(
+                    exp->DetShapeType(), exp->EvalBasisNumModesMax() - 1);
+                auto impl = implByShapeOrder.find(key);
+                if (impl == implByShapeOrder.end())
+                {
+                    impl = implByShapeOrder
+                               .emplace(key, GetOpImpl(TOperator<TData>::name,
+                                                       execStr0, session, exp))
+                               .first;
+                }
+                implStr0 = impl->second;
+            }
             op->m_blockOp.push_back(TBlockOperator<TData>::Create(
                 block_idx, exp, expansionList->GetDataWarehouseSharedPtr(),
                 execStr0, implStr0));
@@ -231,87 +252,87 @@ public:
      * - The command-line argument "opImpl" overrides everything.
      * - Otherwise the session's backend map for @p opExecSpace is
      *   consulted: the serial map for "Serial", the AVX map for "AVX" and
-     *   the device map for "Device" (SessionReader::GetSerialBackendMap()
-     *   and its siblings). The map keys use the UPPERCASE of @p opName
+     *   the device map for "Device" (SessionReader::GetBackendMap()).
+     *   The map keys use the UPPERCASE of @p opName
      *   (e.g. "Mass" -> "MASS").
-     * - An operator named in neither takes "SumFac" and warns that it has
-     *   done so.
+     * - An operator named in neither takes the default of
+     *   Operator::GetDefaultOpImpl() for the block of @p exp, read from the
+     *   default implementation table (DefaultOpImplTable.hpp; on Device it
+     *   currently gives SumFacTOP from order three in 3D and order six in
+     *   1D and 2D, SumFac below it, and SumFac elsewhere), and warns that
+     *   it has done so, naming the table's row. When that default is
+     *   SumFacTOP and no block operator "Block" + @p opName is registered
+     *   under it, the block takes SumFac instead. Create() asks once per block
+     *   shape and order, so the blocks of a mesh of mixed shape or order
+     *   can take different implementations.
      *
      * @param opName  Operator name (e.g. "Mass", "Helmholtz").
      * @param opExecSpace  Execution space whose map is consulted; must be
      * "Serial", "AVX" or "Device" (asserted).
      * @param session  Session reader to recover the relevant maps and
      * command-line arguments.
+     * @param exp  Representative element of the block the implementation
+     * is for, whose shape and highest order set the default; null for
+     * SumFac.
      *
      * @return std::string containing the implementation name (e.g. "SumFac",
      * "StdMat").
      */
-    static std::string GetOpImpl(const std::string &opName,
-                                 const std::string &opExecSpace,
-                                 LibUtilities::SessionReaderSharedPtr session)
+    static std::string GetOpImpl(
+        const std::string &opName, const std::string &opExecSpace,
+        LibUtilities::SessionReaderSharedPtr session,
+        const StdRegions::StdExpansionSharedPtr &exp = nullptr)
     {
         ASSERTL0(
             opExecSpace == "Serial" || opExecSpace == "AVX" ||
                 opExecSpace == "Device",
             "Operator execution space must be 'Serial', 'AVX', or, 'Device'");
 
-        std::string OpImpl = "SumFac";
+        std::string opImpl = "SumFac";
 
-        // command line overrides everything
+        // Command line overrides everything.
         if (session->DefinesCmdLineArgument("opImpl"))
         {
-            OpImpl = session->GetCmdLineArgument<std::string>("opImpl");
+            opImpl = session->GetCmdLineArgument<std::string>("opImpl");
         }
         else
         {
-            bool OpImplSet = false;
-
             // Keys are stored uppercased by ParseOptimisations().
             const std::string opNameUpper = StringUtils::ToUpperCopy(opName);
-            if (opExecSpace == "Serial")
+            LibUtilities::BackendMap &backendInfo =
+                session->GetBackendMap(opExecSpace);
+            auto opImplIter = backendInfo.find(opNameUpper);
+            if (opImplIter != backendInfo.end())
             {
-                LibUtilities::BackendMap &serialBackendInfo =
-                    session->GetSerialBackendMap();
-                auto opImplIter = serialBackendInfo.find(opNameUpper);
-                if (opImplIter != serialBackendInfo.end())
-                {
-                    OpImpl    = opImplIter->second;
-                    OpImplSet = true;
-                }
+                opImpl = opImplIter->second;
             }
-            else if (opExecSpace == "AVX")
+            else
             {
-                LibUtilities::BackendMap &avxBackendInfo =
-                    session->GetAVXBackendMap();
-                auto opImplIter = avxBackendInfo.find(opNameUpper);
-                if (opImplIter != avxBackendInfo.end())
+                const DefaultOpImplRule *rule =
+                    Operator<TData>::GetDefaultOpImplRule(exp, opExecSpace);
+                opImpl = rule ? std::string(rule->opImpl) : "SumFac";
+                std::string reason;
+                if (opImpl == "SumFacTOP" &&
+                    !GetBlockOperatorFactory<TData>().ModuleExists(
+                        "Block" + opName + opExecSpace + opImpl))
                 {
-                    OpImpl    = opImplIter->second;
-                    OpImplSet = true;
+                    opImpl = "SumFac";
+                    reason = " (" + opName + " has no SumFacTOP)";
                 }
-            }
-            else if (opExecSpace == "Device")
-            {
-                LibUtilities::BackendMap &deviceBackendInfo =
-                    session->GetDeviceBackendMap();
-                auto opImplIter = deviceBackendInfo.find(opNameUpper);
-                if (opImplIter != deviceBackendInfo.end())
+                else if (rule)
                 {
-                    OpImpl    = opImplIter->second;
-                    OpImplSet = true;
+                    reason =
+                        " (default table: " + DescribeDefaultOpImplRule(*rule) +
+                        ")";
                 }
-            }
-
-            if (OpImplSet == false)
-            {
                 NEKERROR(ErrorUtil::ewarning,
                          "No implementation space specified "
                          "for operator. Defaulting to " +
-                             OpImpl);
+                             opImpl + reason);
             }
         }
 
-        return OpImpl;
+        return opImpl;
     }
 
 protected:

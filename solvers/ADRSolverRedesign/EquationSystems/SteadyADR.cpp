@@ -169,8 +169,7 @@ void SteadyADR::SetDiffusionCoeff()
         names.resize(m_coordim * (m_coordim + 1) / 2);
         auto bAtr_phys =
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                m_expansionLists[0],
-                Operator<double>::GetDefaultInterleaveWidth(m_session));
+                m_expansionLists[0]);
         m_varDiffCoeff = LibUtilities::Field<double, FieldState::Phys>(
             "DiffusionCoefficient", bAtr_phys, names.size(), m_npointsZ);
         m_varDiffCoeffFunction = std::make_shared<SessionFunction>(
@@ -287,16 +286,12 @@ void SteadyADR::v_InitialiseFields()
     // Initialise solution "m_fields" via EquationSystem routine
     EquationSystem::v_InitialiseFields();
 
-    // Get interleave width
-    auto interleaveWidth =
-        Operator<double>::GetDefaultInterleaveWidth(m_session);
-
     // Get block Attributes.
     auto bAtr_phys = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-        m_expansionLists[0], interleaveWidth);
+        m_expansionLists[0]);
     auto bAtr_coeff =
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            m_expansionLists[0], interleaveWidth);
+            m_expansionLists[0]);
 
     // Create fields.
     unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp

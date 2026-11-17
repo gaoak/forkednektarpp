@@ -101,8 +101,8 @@ BOOST_AUTO_TEST_CASE(ForcingNoise_Apply)
     const double sigma = 0.5;
     const double tol   = 1.0e-14;
 
-    auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+    auto blockAttr = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+        explist, MultiRegions::UnitInterleaveWidths(explist));
     LibUtilities::Field<double, FieldState::Phys> in("in", blockAttr, vars, 1);
     LibUtilities::Field<double, FieldState::Phys> out("out", blockAttr, vars,
                                                       1);

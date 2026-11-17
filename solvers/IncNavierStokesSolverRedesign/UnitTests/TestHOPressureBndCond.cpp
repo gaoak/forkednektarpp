@@ -195,7 +195,8 @@ std::vector<double> BuildExpectedBoundaryContribution(
     LibUtilities::Field<double, FieldState::Coeff> expected(
         "expected Poisson RHS",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     expected.Initialize<NektarSpaces::HostSpace>(0.0);
     for (unsigned int blk = 0; blk < expected.GetBlocks().size(); ++blk)
@@ -242,11 +243,13 @@ void CheckNeumannVelocityBoundaryFlux(const bool isWeak)
     const std::vector<std::string> pressureComponents = {"p"};
     const auto velocityPhysBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList);
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList));
     LibUtilities::Field<double, FieldState::Coeff> poissonRhs(
         "Poisson RHS",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     LibUtilities::Field<double, FieldState::Phys> rhs(
         "explicit contribution", velocityPhysBlocks, velocityComponents, 1);
@@ -349,7 +352,8 @@ BOOST_AUTO_TEST_CASE(factory_create_and_empty_apply_preserves_rhs)
     LibUtilities::Field<double, FieldState::Coeff> rhs(
         "rhs",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     rhs.Initialize<NektarSpaces::HostSpace>(1.25);
 
@@ -387,17 +391,20 @@ BOOST_AUTO_TEST_CASE(update_then_apply_zero_contribution_preserves_rhs)
     LibUtilities::Field<double, FieldState::Coeff> rhs(
         "rhs",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     LibUtilities::Field<double, FieldState::Phys> boundaryRhs(
         "boundary rhs",
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList),
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList)),
         velocityComponents, 1);
     LibUtilities::Field<double, FieldState::Phys> velocity(
         "velocity",
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList),
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList)),
         velocityComponents, 1);
 
     rhs.Initialize<NektarSpaces::HostSpace>(1.25);
@@ -443,12 +450,14 @@ BOOST_AUTO_TEST_CASE(update_then_apply_manufactured_boundary_flux)
     const std::vector<std::string> pressureComponents = {"p"};
     const auto velocityPhysBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList);
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList));
 
     LibUtilities::Field<double, FieldState::Coeff> poissonRhs(
         "Poisson RHS",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     LibUtilities::Field<double, FieldState::Phys> boundaryRhs(
         "HOPressure boundary RHS", velocityPhysBlocks, velocityComponents, 1);
@@ -593,11 +602,13 @@ BOOST_AUTO_TEST_CASE(update_then_apply_acceleration_boundary_flux)
     const std::vector<std::string> pressureComponents = {"p"};
     const auto velocityPhysBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList);
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList));
     LibUtilities::Field<double, FieldState::Coeff> poissonRhs(
         "Poisson RHS",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     LibUtilities::Field<double, FieldState::Phys> velocity(
         "velocity", velocityPhysBlocks, velocityComponents, 1);
@@ -681,10 +692,12 @@ BOOST_AUTO_TEST_CASE(update_then_apply_interleaved_matches_width_one)
     const std::vector<std::string> pressureComponents = {"p"};
     const auto velocityPhysBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList);
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList));
     const auto pressureCoeffBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList);
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList));
     LibUtilities::Field<double, FieldState::Phys> velocity(
         "velocity", velocityPhysBlocks, velocityComponents, 1);
     LibUtilities::Field<double, FieldState::Phys> predictor(
@@ -784,12 +797,14 @@ BOOST_AUTO_TEST_CASE(update_then_apply_kovasznay_boundary_flux)
     const std::vector<std::string> pressureComponents = {"p"};
     const auto velocityPhysBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList);
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList));
 
     LibUtilities::Field<double, FieldState::Coeff> poissonRhs(
         "Poisson RHS",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     LibUtilities::Field<double, FieldState::Phys> boundaryRhs(
         "Kovasznay boundary RHS", velocityPhysBlocks, velocityComponents, 1);
@@ -889,7 +904,8 @@ BOOST_AUTO_TEST_CASE(update_then_apply_kovasznay_boundary_flux)
     LibUtilities::Field<double, FieldState::Coeff> expected(
         "expected Kovasznay Poisson RHS",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     expected.Initialize<NektarSpaces::HostSpace>(0.0);
     for (unsigned int blk = 0; blk < expected.GetBlocks().size(); ++blk)
@@ -985,11 +1001,13 @@ BOOST_AUTO_TEST_CASE(update_then_apply_kovasznay_discrete_boundary_velocity)
 
     const auto velocityPhysBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpLists[0]);
+            velocityExpLists[0],
+            MultiRegions::UnitInterleaveWidths(velocityExpLists[0]));
     LibUtilities::Field<double, FieldState::Coeff> poissonRhs(
         "Poisson RHS",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     LibUtilities::Field<double, FieldState::Phys> velocity(
         "velocity", velocityPhysBlocks, velocityComponents, 1);
@@ -1062,12 +1080,14 @@ BOOST_AUTO_TEST_CASE(update_then_apply_selection_respects_hop_tag)
     const std::vector<std::string> pressureComponents = {"p"};
     const auto velocityPhysBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList);
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList));
 
     LibUtilities::Field<double, FieldState::Coeff> poissonRhs(
         "Poisson RHS",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     LibUtilities::Field<double, FieldState::Phys> boundaryRhs(
         "HOPressure boundary RHS", velocityPhysBlocks, velocityComponents, 1);

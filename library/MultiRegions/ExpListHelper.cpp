@@ -37,6 +37,7 @@
 #include <MultiRegions/ExpListHomogeneous2D.h>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <MultiRegions/Common/Operator.hpp>
 
 using namespace Nektar::LibUtilities;
 
@@ -100,15 +101,20 @@ Collections::CollectionVector GetCollections(
  * stored in the ExpList and group them into blocks. Padding elements will
  * also be set based on given vector width.
  *
- * @param state     Field state to query.
- * @param explist   Expansion list to query.
- * @param interleave_width Vector width to use for the field.
+ * Without @p interleave_widths each block takes the default width of
+ * Operator::GetDefaultInterleaveWidths(), the width its operators work at
+ * by default, so that a Field built on it is not reshaped on every Apply.
+ * Give the widths only where a Field must be at others.
+ *
+ * @param explist           Expansion list to query.
+ * @param interleave_widths Interleave width of each block, in block order;
+ *                          empty for the defaults.
  * @return std::vector<BlockAttributes>
  */
 template <typename TPadding, FieldState TState>
 std::vector<BlockAttributes<TState>> GetBlockAttributes(
     const MultiRegions::ExpListSharedPtr explist,
-    const unsigned interleave_width)
+    const std::vector<unsigned int> &interleave_widths)
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -118,38 +124,50 @@ std::vector<BlockAttributes<TState>> GetBlockAttributes(
     // Use maximum vector width for back-ends interoperability.
     const auto vector_width = NektarSpaces::max_vector_width<TPadding>::value;
 
-    std::vector<BlockAttributes<TState>> blockAttr;
+    const std::vector<unsigned int> widths =
+        interleave_widths.empty()
+            ? Operator<TPadding>::GetDefaultInterleaveWidths(explist)
+            : interleave_widths;
 
     auto colls = GetCollections(explist);
-    for (auto &coll : colls)
+    ASSERTL0(widths.size() == colls.size(),
+             "GetBlockAttributes: " + std::to_string(widths.size()) +
+                 " interleave widths given for " +
+                 std::to_string(colls.size()) + " blocks.");
+
+    std::vector<BlockAttributes<TState>> blockAttr;
+    for (size_t blk = 0; blk < colls.size(); ++blk)
     {
-        auto expPtr               = coll.GetExpVector()[0];
-        const size_t num_elements = coll.GetExpVector().size();
+        auto expPtr               = colls[blk].GetExpVector()[0];
+        const size_t num_elements = colls[blk].GetExpVector().size();
         const unsigned int ndata  = TState == FieldState::Phys
                                         ? expPtr->GetTotPoints()
                                         : expPtr->GetNcoeffs();
         size_t num_elements_with_padding =
             ((num_elements + vector_width - 1) / vector_width) * vector_width;
         blockAttr.push_back(
-            {num_elements, num_elements_with_padding, ndata, interleave_width});
+            {num_elements, num_elements_with_padding, ndata, widths[blk]});
     }
 
     return blockAttr;
 }
 
 template std::vector<BlockAttributes<FieldState::Phys>> GetBlockAttributes<
-    double, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
-                              const unsigned interleave_width);
+    double, FieldState::Phys>(
+    const MultiRegions::ExpListSharedPtr explist,
+    const std::vector<unsigned int> &interleave_widths);
 template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
-    double, FieldState::Coeff>(const MultiRegions::ExpListSharedPtr explist,
-                               const unsigned interleave_width);
-
+    double, FieldState::Coeff>(
+    const MultiRegions::ExpListSharedPtr explist,
+    const std::vector<unsigned int> &interleave_widths);
 template std::vector<BlockAttributes<FieldState::Phys>> GetBlockAttributes<
-    float, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
-                             const unsigned interleave_width);
+    float, FieldState::Phys>(
+    const MultiRegions::ExpListSharedPtr explist,
+    const std::vector<unsigned int> &interleave_widths);
 template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
-    float, FieldState::Coeff>(const MultiRegions::ExpListSharedPtr explist,
-                              const unsigned interleave_width);
+    float, FieldState::Coeff>(
+    const MultiRegions::ExpListSharedPtr explist,
+    const std::vector<unsigned int> &interleave_widths);
 
 template <typename TPadding, FieldState TState>
 std::vector<BlockAttributes<TState>> GetLocTraceBlockAttributes(

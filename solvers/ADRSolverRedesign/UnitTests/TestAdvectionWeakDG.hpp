@@ -103,8 +103,9 @@ public:
         size_t ndim  = this->fixt_explist->GetCoordim(0);
         size_t nphys = this->fixt_explist->GetTotPoints();
 
-        auto blocks_in =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto blocks_in = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
         auto f_advectVel = LibUtilities::Field<TData, FieldState::Phys>(
             "f_advectVel", blocks_in, ndim, 1);
         fixt_advectVel = new LibUtilities::Field<TData, FieldState::Phys>(
@@ -140,7 +141,8 @@ public:
         }
 
         auto blocks_trace = GetBlockAttributes<TData, FieldState::Phys>(
-            this->fixt_explist->GetTrace());
+            this->fixt_explist->GetTrace(),
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist->GetTrace()));
 
         auto f_traceAdvVel = LibUtilities::Field<TData, FieldState::Phys>(
             "f_traceAdvVel", blocks_trace, ndim, 1);

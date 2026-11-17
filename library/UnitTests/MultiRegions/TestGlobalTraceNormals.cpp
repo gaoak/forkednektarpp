@@ -124,8 +124,8 @@ BOOST_AUTO_TEST_CASE(TestGlobalTraceNormalsSpanEveryBlock)
     }
     trace->GetNormals(expected);
 
-    auto blocks =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(trace);
+    auto blocks = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+        trace, MultiRegions::UnitInterleaveWidths(trace));
     BOOST_REQUIRE_GT(blocks.size(), 1);
 
     const double *data =

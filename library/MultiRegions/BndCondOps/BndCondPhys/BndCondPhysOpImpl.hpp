@@ -212,7 +212,7 @@ public:
             // Create fields for evaluating BCs into
             auto blocks_phys =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    bcExpList);
+                    bcExpList, MultiRegions::UnitInterleaveWidths(bcExpList));
             this->m_wsp_phys.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
                     "Boundary condition phys", blocks_phys, nComp, nhomo));

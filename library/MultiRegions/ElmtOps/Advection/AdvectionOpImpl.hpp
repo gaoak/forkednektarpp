@@ -100,7 +100,7 @@ public:
 
         if (nhomo > 1)
         {
-            m_zOp = std::make_shared<AdvectionZOpImpl<ExecSpace, TData>>(
+            m_zOp = std::make_shared<AdvectionZOpImpl<ExecSpace, TData, true>>(
                 expansionList);
         }
     }
@@ -122,7 +122,7 @@ public:
 protected:
     /// Z-operator adding the homogeneous term; null unless the expansion is
     /// 3DH1 with more than one local plane.
-    std::shared_ptr<AdvectionZOpImpl<ExecSpace, TData>> m_zOp;
+    std::shared_ptr<AdvectionZOpImpl<ExecSpace, TData, true>> m_zOp;
 
     /// Forward @p scale to #m_zOp, if any.
     void v_SetScaleFFT(const TData &scale) override

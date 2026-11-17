@@ -187,9 +187,9 @@ protected:
     // each operator's per-chunk reshape is a no-op, and the trace flux
     // addresses the traces at it directly. The caller's fields are taken to
     // it on entry, where they arrive at another width, and returned to the
-    // widths they arrived at on exit: a field created at the session's
-    // default width (Operator::GetDefaultInterleaveWidth()) is already at it
-    // and is left alone. On Serial and Device the fields are used as they
+    // widths they arrived at on exit: a field created at the default widths
+    // (Operator::GetDefaultInterleaveWidths()) is already at it and is left
+    // alone. On Serial and Device the fields are used as they
     // arrive.
     static constexpr unsigned int m_rhsInterleaveWidth =
         std::is_same_v<ExecSpace, NektarSpaces::AVX>

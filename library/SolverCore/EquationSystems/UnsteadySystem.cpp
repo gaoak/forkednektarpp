@@ -171,9 +171,7 @@ void UnsteadySystem::SetInitialConditionsFrom(
     auto iprod = LibUtilities::Field<double, FieldState::Coeff>(
         "initial conditions inner product",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            m_expansionLists[0],
-            MultiRegions::Operator<double>::GetDefaultInterleaveWidth(
-                m_session)),
+            m_expansionLists[0]),
         m_variables.size(), m_npointsZ);
     MultiRegions::IProductWRTBaseOp<double>::Create(m_expansionLists[0],
                                                     m_variables)

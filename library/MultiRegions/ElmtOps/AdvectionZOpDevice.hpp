@@ -51,14 +51,15 @@ namespace Nektar::MultiRegions::detail
 /// \brief Device backend for the homogeneous part of the advection term.
 ///
 /// Launch() applies a D2Z + wavenumber multiply + Z2D pipeline per block via
-/// DerivZDirect, over cuFFT, hipFFT or oneMath. The transform writes to a
-/// scratch buffer rather than to the output, because the xy backend has
-/// already left scale * (u dphi/dx + v dphi/dy) there and scale * w dphi/dz
-/// has to be added to it; mulKernel scales the derivative by w in place and
-/// daxpyKernel adds the result on. The transform's own APPEND mode would not
-/// serve here: the derivative has to be weighted by w before it reaches the
-/// output. The scratch is the per-stream workspace the block operators share,
-/// so this pass allocates nothing of its own.
+/// DerivZDirect, over cuFFT, hipFFT or oneMath. With APPEND the transform
+/// writes to a scratch buffer rather than to the output, because
+/// scale * w dphi/dz has to be added to what is already there; mulKernel
+/// scales the derivative by w in place and daxpyKernel adds the result on.
+/// The transform's own APPEND mode would not serve here: the derivative has
+/// to be weighted by w before it reaches the output. The scratch is the
+/// per-stream workspace the block operators share, so this pass allocates
+/// nothing of its own. Without APPEND the transform writes straight to the
+/// output, which mulKernel then weights by w and the scale in place.
 /// Each block is submitted to its own per-block stream (block index + 1), the
 /// same stream its producers and consumers use, so no cross-stream ordering
 /// is needed and the blocks can overlap. Under CUDA and HIP each block's
@@ -74,9 +75,9 @@ namespace Nektar::MultiRegions::detail
 /// and a different Field or a SetScale() may arrive on any call. SYCL has no
 /// capture, so there m_graphExec stays empty and every call submits the
 /// pipeline directly.
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename TData, bool APPEND>
 class AdvectionZOpImpl<
-    ExecSpace, TData,
+    ExecSpace, TData, APPEND,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>>>
 {
 public:
@@ -167,11 +168,29 @@ public:
                 velblock.template SetInterleaveWidth<TData>(interleaveWidth);
             }
 
-            // Scratch for the transform, taken from the per-stream workspace
-            // the block operators share. That workspace is reallocated
-            // whenever one of them asks for more than it currently holds.
-            TData *dzPtr = BlockOperator<TData>::template GetStaticWorkSpace<
-                NektarSpaces::DeviceSpace>(nsize, streamID);
+            // Each plane is read at the input's interleave width and written
+            // at the output's, so the two must match. An output this
+            // overwrites is relabelled; one it appends to keeps its contents
+            // and so is reshaped, ahead of the replay shortcut for the same
+            // reason as the velocity.
+            if constexpr (APPEND)
+            {
+                outblock.ReshapeStorage(interleaveWidth, ExecSpace::name,
+                                        streamID);
+            }
+            else
+            {
+                outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+            }
+
+            // Scratch for the transform with APPEND, taken from the
+            // per-stream workspace the block operators share. That workspace
+            // is reallocated whenever one of them asks for more than it
+            // currently holds.
+            TData *dzPtr =
+                APPEND ? BlockOperator<TData>::template GetStaticWorkSpace<
+                             NektarSpaces::DeviceSpace>(nsize, streamID)
+                       : nullptr;
 
             // Resolved on every call, ahead of both replay and capture: on a
             // first touch these allocate the block storage and copy it in, a
@@ -181,9 +200,9 @@ public:
             const TData *inPtr =
                 inblock.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
                     streamID);
-            TData *outPtr =
-                outblock.template GetPtr<NektarSpaces::DeviceSpace, ReadWrite>(
-                    streamID);
+            TData *outPtr = outblock.template GetPtr<
+                NektarSpaces::DeviceSpace,
+                std::conditional_t<APPEND, ReadWrite, WriteOnly>>(streamID);
             const TData *velPtr =
                 velblock.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
                     streamID);
@@ -224,17 +243,33 @@ public:
                 const TData *phiPtr = inPtr + n * nsize;
                 TData *advPtr       = outPtr + n * nsize;
 
-                LibUtilities::DerivZDirect<
-                    TData, LibUtilities::DerivZOrder::First, false>(
-                    phiPtr, dzPtr, nhomo, compStride, compStride, m_beta,
-                    streamID);
-
-                // The output already holds the xy part of the advection
-                // term. Both steps run over the whole component, padding
-                // included: a padded xy slot only ever feeds itself.
-                Math::mulKernel<ExecSpace>(nsize, wPtr, dzPtr, dzPtr, streamID);
-                Math::daxpyKernel<ExecSpace>(nsize, m_scale, dzPtr, advPtr,
-                                             advPtr, streamID);
+                // Every step runs over the whole component, padding included:
+                // a padded slot only ever feeds itself.
+                if constexpr (APPEND)
+                {
+                    LibUtilities::DerivZDirect<
+                        TData, LibUtilities::DerivZOrder::First, false>(
+                        phiPtr, dzPtr, nhomo, compStride, compStride, m_beta,
+                        streamID);
+                    Math::mulKernel<ExecSpace>(nsize, wPtr, dzPtr, dzPtr,
+                                               streamID);
+                    Math::daxpyKernel<ExecSpace>(nsize, m_scale, dzPtr, advPtr,
+                                                 advPtr, streamID);
+                }
+                else
+                {
+                    LibUtilities::DerivZDirect<
+                        TData, LibUtilities::DerivZOrder::First, false>(
+                        phiPtr, advPtr, nhomo, compStride, compStride, m_beta,
+                        streamID);
+                    Math::mulKernel<ExecSpace>(nsize, wPtr, advPtr, advPtr,
+                                               streamID);
+                    if (m_scale != static_cast<TData>(1))
+                    {
+                        Math::mulKernel<ExecSpace>(nsize, m_scale, advPtr,
+                                                   advPtr, streamID);
+                    }
+                }
             }
 
             // Capture records the pipeline instead of running it, so the

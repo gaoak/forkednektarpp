@@ -68,9 +68,9 @@ template <typename TData> class BlockOperator;
 namespace detail
 {
 // Forward-declare the homogeneous advection z-op so that BlockOperator can
-// befriend it; the default of its third parameter stays with the declaration
+// befriend it; the default of its fourth parameter stays with the declaration
 // in AdvectionZOpImpl.hpp.
-template <typename ExecSpace, typename TData, typename Enable>
+template <typename ExecSpace, typename TData, bool APPEND, typename Enable>
 class AdvectionZOpImpl;
 } // namespace detail
 
@@ -187,7 +187,7 @@ protected:
     /// so it reaches GetStaticWorkSpace directly. The z-derivative op needs
     /// no such access: the transform holds whatever buffer it accumulates
     /// through.
-    template <typename ExecSpace, typename TDataZ, typename Enable>
+    template <typename ExecSpace, typename TDataZ, bool APPEND, typename Enable>
     friend class detail::AdvectionZOpImpl;
 
     /**

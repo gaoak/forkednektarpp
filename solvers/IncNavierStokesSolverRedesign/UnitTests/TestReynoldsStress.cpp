@@ -160,7 +160,8 @@ static void CheckProducts(const std::string &xml, const std::string &execStr,
     op->Configure(velocityComponents);
 
     const auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            explist, MultiRegions::UnitInterleaveWidths(explist));
     const unsigned int implInterleaveWidth =
         NektarSpaces::GetVectorWidth<double>(execStr);
     std::vector<unsigned int> interleaveWidths = {1u};
@@ -254,7 +255,8 @@ static void RunConstantTest(const std::string &execStr)
     op->Configure({0, 1, 2});
 
     const auto blockAttr =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            explist, MultiRegions::UnitInterleaveWidths(explist));
     LibUtilities::Field<double, FieldState::Phys> velocity("velocity",
                                                            blockAttr, 3, 1);
     velocity.template CopyArray<NektarSpaces::HostSpace>(values);

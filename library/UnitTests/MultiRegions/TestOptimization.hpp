@@ -96,6 +96,34 @@ public:
         delete[] argv;
     }
 
+    /// The mesh with every element at @p nmodes orthogonal modes, so that a
+    /// test sets the expansion order the default implementation follows.
+    /// The orthogonal basis is the one that admits a single mode (order 0).
+    MultiRegions::ExpListSharedPtr ExpansionList(const int nmodes)
+    {
+        return ExpansionList(nmodes, nmodes);
+    }
+
+    /// The mesh with its first half of elements (composite C[0]) at
+    /// @p nmodesFirst orthogonal modes and its second half at
+    /// @p nmodesSecond, so that a test can give the two blocks different
+    /// orders.
+    MultiRegions::ExpListSharedPtr ExpansionList(const int nmodesFirst,
+                                                 const int nmodesSecond)
+    {
+        const SpatialDomains::MeshGraphSharedPtr graph =
+            SpatialDomains::MeshGraphIO::Read(session);
+        for (const auto &expInfo : graph->GetExpansionInfo("u"))
+        {
+            expInfo.second->m_basisKeyVector =
+                SpatialDomains::MeshGraph::DefineBasisKeyFromExpansionType(
+                    expInfo.second->m_geomPtr, SpatialDomains::eOrthogonal,
+                    expInfo.first < 5 ? nmodesFirst : nmodesSecond);
+        }
+        return MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+            session, graph, true, "u");
+    }
+
 protected:
     std::string meshName = "";
     LibUtilities::SessionReaderSharedPtr session;

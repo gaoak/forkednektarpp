@@ -139,7 +139,9 @@ protected:
     void RecordForms()
     {
         const auto nblocks =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist)
+            GetBlockAttributes<TData, FieldState::Phys>(
+                this->fixt_explist,
+                MultiRegions::UnitInterleaveWidths(this->fixt_explist))
                 .size();
         for (unsigned int blk = 0; blk < nblocks; ++blk)
         {
@@ -179,10 +181,10 @@ protected:
         const auto &explist = this->fixt_explist;
         const auto ncomp    = this->session->GetVariables().size();
         const std::vector<std::string> comps(this->session->GetVariables());
-        const auto physAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(explist);
-        const auto coefAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(explist);
+        const auto physAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            explist, MultiRegions::UnitInterleaveWidths(explist));
+        const auto coefAttr = GetBlockAttributes<TData, FieldState::Coeff>(
+            explist, MultiRegions::UnitInterleaveWidths(explist));
         const auto traceAttr =
             GetLocTraceBlockAttributes<TData, FieldState::Phys>(explist);
 

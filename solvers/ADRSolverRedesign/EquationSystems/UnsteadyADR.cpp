@@ -335,8 +335,7 @@ void UnsteadyADR::SetDiffusionCoeff()
         names.resize(m_coordim * (m_coordim + 1) / 2);
         auto bAtr_phys =
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                m_expansionLists[0],
-                Operator<double>::GetDefaultInterleaveWidth(m_session));
+                m_expansionLists[0]);
         m_varDiffCoeff = LibUtilities::Field<double, FieldState::Phys>(
             "DiffusionCoefficient", bAtr_phys, names.size(), m_npointsZ);
         m_varDiffCoeffFunction = std::make_shared<SessionFunction>(
@@ -520,10 +519,6 @@ void UnsteadyADR::v_InitialiseFields()
 
     unsigned int numHomoModes = m_npointsZ; // Note read in EquationSystem.cpp
 
-    // Get interleave width
-    auto interleaveWidth =
-        Operator<double>::GetDefaultInterleaveWidth(m_session);
-
     // Switch on the projection type (Discontinuous or Continuous).
     switch (m_projectionType)
     {
@@ -533,7 +528,7 @@ void UnsteadyADR::v_InitialiseFields()
             // Create blocks.
             auto bAtr_phys =
                 MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                    m_expansionLists[0], interleaveWidth);
+                    m_expansionLists[0]);
 
             if (m_advection)
             {
@@ -548,10 +543,10 @@ void UnsteadyADR::v_InitialiseFields()
             // Get block Attributes.
             auto bAtr_phys =
                 MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                    m_expansionLists[0], interleaveWidth);
+                    m_expansionLists[0]);
             auto bAtr_coeff =
                 MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-                    m_expansionLists[0], interleaveWidth);
+                    m_expansionLists[0]);
 
             // Create fields.
             if (m_advection)

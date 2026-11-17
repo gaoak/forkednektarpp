@@ -123,7 +123,8 @@ public:
         // One component per session variable, so the kernels are exercised
         // over a field wider than a single component.
         const auto &components = this->m_session->GetVariables();
-        auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(m_expList);
+        auto blockAttr         = GetBlockAttributes<TData, FieldState::Phys>(
+            m_expList, MultiRegions::UnitInterleaveWidths(m_expList));
         auto f_in1 =
             Field<TData, FieldState::Phys>("f_in1", blockAttr, components, 1);
         auto f_in2 =

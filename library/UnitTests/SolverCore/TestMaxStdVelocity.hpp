@@ -292,7 +292,8 @@ protected:
         // is the operator's input contract, and is unrelated to the number of
         // variables the session happens to declare.
         const unsigned int ncomp = m_expList->GetCoordim(0) + 1;
-        auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(m_expList);
+        auto blockAttr           = GetBlockAttributes<TData, FieldState::Phys>(
+            m_expList, MultiRegions::UnitInterleaveWidths(m_expList));
 
         m_in = Field<TData, FieldState::Phys>("f_in", blockAttr, ncomp, 1);
     }

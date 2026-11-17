@@ -121,8 +121,7 @@ void CheckStartup(const SessionReaderSharedPtr &session,
     session->SetParameter("TimeStep", timeStep);
 
     const unsigned int ncomp = session->GetVariables().size();
-    auto blockAttr           = GetBlockAttributes<double, FieldState::Phys>(
-        expList, Operator<double>::GetDefaultInterleaveWidth(session));
+    auto blockAttr = GetBlockAttributes<double, FieldState::Phys>(expList);
     Field<double, FieldState::Phys> solution("solution", blockAttr, ncomp, 1);
     Field<double, FieldState::Phys> stepStart("step start", blockAttr, ncomp,
                                               1);

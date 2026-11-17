@@ -57,10 +57,11 @@ public:
             (is3DH1 && nhomo > 1)
                 ? 3u
                 : static_cast<unsigned int>(this->fixt_explist->GetCoordim(0));
-        auto nin  = this->session->GetVariables().size();
-        auto nout = nin * m_coordDim;
-        auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto nin       = this->session->GetVariables().size();
+        auto nout      = nin * m_coordDim;
+        auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         auto f_in =
             Field<TData, FieldState::Phys>("f_in", blockAttr, nin, nhomo);

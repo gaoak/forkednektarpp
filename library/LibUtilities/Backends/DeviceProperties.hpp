@@ -35,6 +35,7 @@
 #pragma once
 
 #include <limits>
+#include <string>
 #include <unordered_map>
 
 #include <LibUtilities/Backends/Backends.hpp>
@@ -85,6 +86,17 @@ public:
         CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
         FetchDeviceProperties(id);
         return (*prop)[id].maxThreadsPerMultiProcessor;
+    }
+
+    /// Architecture id of the current device, "sm_" and its compute
+    /// capability (e.g. "sm_90").
+    static std::string Architecture(void)
+    {
+        int id = -1;
+        CHECK_HIPCUDA_ERROR(cudaGetDevice(&id));
+        FetchDeviceProperties(id);
+        return "sm_" + std::to_string((*prop)[id].major) +
+               std::to_string((*prop)[id].minor);
     }
 
     static void CheckSharedMemoryUsage(const size_t shmemsize)
@@ -202,6 +214,17 @@ public:
         CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
         FetchDeviceProperties(id);
         return (*prop)[id].maxThreadsPerMultiProcessor;
+    }
+
+    /// Architecture id of the current device, its gcnArchName without the
+    /// feature flags (e.g. "gfx90a").
+    static std::string Architecture(void)
+    {
+        int id = -1;
+        CHECK_HIPCUDA_ERROR(hipGetDevice(&id));
+        FetchDeviceProperties(id);
+        const std::string name = (*prop)[id].gcnArchName;
+        return name.substr(0, name.find(':'));
     }
 
     static void CheckSharedMemoryUsage(const size_t shmemsize)
@@ -408,5 +431,24 @@ private:
 }
 
 #endif
+
+/**
+ * @brief Return the architecture id of the device the calling rank uses,
+ * as the default implementation table (MultiRegions DefaultOpImplTable.hpp)
+ * names it: "sm_" and the compute capability on CUDA (e.g. "sm_90"), the
+ * gcnArchName without its feature flags on HIP (e.g. "gfx90a").
+ *
+ * It is empty without a CUDA or HIP device: SYCL reports no portable
+ * architecture id, so a SYCL build, like a host-only one, takes the table's
+ * rows for every architecture.
+ */
+[[maybe_unused]] static std::string GetDeviceArchitecture()
+{
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
+    return GetDeviceProperties::Architecture();
+#else
+    return "";
+#endif
+}
 
 } // namespace Nektar

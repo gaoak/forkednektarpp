@@ -288,12 +288,14 @@ public:
 
     virtual void SetFixture(const unsigned int nhomo)
     {
-        auto nin  = this->session->GetVariables().size();
-        auto nout = this->session->GetVariables().size();
-        auto inblockAttr =
-            GetBlockAttributes<TData, stateIn>(this->fixt_explist);
-        auto outblockAttr =
-            GetBlockAttributes<TData, stateOut>(this->fixt_explist);
+        auto nin         = this->session->GetVariables().size();
+        auto nout        = this->session->GetVariables().size();
+        auto inblockAttr = GetBlockAttributes<TData, stateIn>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
+        auto outblockAttr = GetBlockAttributes<TData, stateOut>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         auto f_in  = Field<TData, stateIn>("f_in", inblockAttr, nin, nhomo);
         auto f_out = Field<TData, stateOut>("f_out", outblockAttr, nout, nhomo);

@@ -49,11 +49,10 @@ namespace Nektar::MultiRegions::detail
 /// is needed because Homogeneous1DTrans takes the planes of the whole field
 /// one after another, unpadded.
 ///
-/// The xy backend leaves scale * (u dphi/dx + v dphi/dy) in the output,
-/// having honoured its own append flag, so this pass always accumulates.
-template <typename ExecSpace, typename TData>
+/// AdvectionZOpImpl.hpp says what APPEND selects.
+template <typename ExecSpace, typename TData, bool APPEND>
 class AdvectionZOpImpl<
-    ExecSpace, TData,
+    ExecSpace, TData, APPEND,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                      std::is_same_v<ExecSpace, NektarSpaces::AVX>>>
 {
@@ -102,6 +101,19 @@ public:
         // interleave format and leaves it there, so it is realigned with the
         // input before being read.
         m_advVel->ReshapeStorage(in.GetInterleaveWidth(), ExecSpace::name);
+
+        // Each plane is read at the input's interleave width and written at
+        // the output's, so the two must match. An output this overwrites is
+        // relabelled; one it appends to keeps its contents and so is
+        // reshaped.
+        if constexpr (APPEND)
+        {
+            out.ReshapeStorage(in.GetInterleaveWidth(), ExecSpace::name);
+        }
+        else
+        {
+            out.SetInterleaveWidth(in);
+        }
 
         // Unpadded points per plane, summed over the blocks of `in`, and the
         // total across all planes.
@@ -199,8 +211,8 @@ public:
             m_homoExpList->Homogeneous1DTrans(static_cast<int>(nTotal),
                                               waveCoef, dzFlat, false);
 
-            // Scatter: add scale * w * dphi/dz to output component n, which
-            // already holds the xy part of the advection term.
+            // Scatter: add scale * w * dphi/dz to output component n, or
+            // write it there without APPEND.
             // Homogeneous1DTrans works in NekDouble, which is double whatever
             // TData is, so the sum narrows as it accumulates and cannot go
             // through the Math kernels, whose operands share one type.
@@ -220,8 +232,9 @@ public:
                 const size_t fullPts     = realPts - size_t(nlast) * ndata;
 
                 TData *advPtr =
-                    outblock
-                        .template GetPtr<NektarSpaces::HostSpace, ReadWrite>() +
+                    outblock.template GetPtr<
+                        NektarSpaces::HostSpace,
+                        std::conditional_t<APPEND, ReadWrite, WriteOnly>>() +
                     n * compStride * nhomo;
                 const TData *wPtr =
                     velblock
@@ -235,12 +248,12 @@ public:
                     TData *dst     = advPtr + p * compStride;
                     const TData *w = wPtr + p * velStride;
                     // The real points, in the order the gather took them.
-                    AddScaled(fullPts, src, w, dst);
+                    WriteScaled(fullPts, src, w, dst);
                     for (unsigned int q = 0; q < ndata; ++q)
                     {
-                        AddScaled(nlast, src + fullPts + q * nlast,
-                                  w + fullPts + q * width,
-                                  dst + fullPts + q * width);
+                        WriteScaled(nlast, src + fullPts + q * nlast,
+                                    w + fullPts + q * width,
+                                    dst + fullPts + q * width);
                     }
                 }
 
@@ -260,13 +273,21 @@ private:
     double m_beta                                          = 0.0;
     TData m_scale                                          = 1.0;
 
-    /// Add scale * w * dphi/dz over @p n points to @p dst.
-    void AddScaled(const size_t n, const double *dz, const TData *w,
-                   TData *dst) const
+    /// Add scale * w * dphi/dz over @p n points to @p dst, or write it
+    /// there without APPEND.
+    void WriteScaled(const size_t n, const double *dz, const TData *w,
+                     TData *dst) const
     {
         for (size_t j = 0; j < n; ++j)
         {
-            dst[j] += m_scale * w[j] * dz[j];
+            if constexpr (APPEND)
+            {
+                dst[j] += m_scale * w[j] * dz[j];
+            }
+            else
+            {
+                dst[j] = m_scale * w[j] * dz[j];
+            }
         }
     }
 };

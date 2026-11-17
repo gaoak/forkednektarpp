@@ -446,12 +446,8 @@ public:
         TiXmlElement *&element, const size_t timeLevel,
         const bool enableCheck = true);
 
-    /// Serial backend map.
-    LIB_UTILITIES_EXPORT BackendMap &GetSerialBackendMap();
-    /// AVX backend map.
-    LIB_UTILITIES_EXPORT BackendMap &GetAVXBackendMap();
-    /// Device backend map.
-    LIB_UTILITIES_EXPORT BackendMap &GetDeviceBackendMap();
+    /// Backend map for execution space "Serial", "AVX" or "Device".
+    LIB_UTILITIES_EXPORT BackendMap &GetBackendMap(const std::string &execName);
 
     /// manually override verbose flag
     LIB_UTILITIES_EXPORT void SetVerbose(bool verbose)

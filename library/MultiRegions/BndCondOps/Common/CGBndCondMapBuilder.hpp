@@ -169,15 +169,17 @@ CGBndCondRegions<TData> BuildCGBndCondRegions(
             continue;
         }
 
-        // Create fields for evaluating BCs into
+        // Create fields for evaluating BCs into, at width 1: their
+        // coefficients are copied out block by block as contiguous elements.
+        const auto ones = MultiRegions::UnitInterleaveWidths(bcExpList);
         auto blocks_phys =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                bcExpList);
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(bcExpList,
+                                                                      ones);
         wspPhys.push_back(LibUtilities::Field<TData, FieldState::Phys>(
             wspLabel + " phys", blocks_phys, nComp, nhomo));
         auto blocks_coeffs =
             MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                bcExpList);
+                bcExpList, ones);
         wspCoeffs.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
             wspLabel + " coeff", blocks_coeffs, nComp, nhomo));
 
@@ -324,7 +326,7 @@ CGBndCondCoeffMaps<TData> BuildCGBndCondCoeffMaps(
 
     auto domainBlocks =
         MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-            expansionList);
+            expansionList, MultiRegions::UnitInterleaveWidths(expansionList));
     std::vector<size_t> blockBound(domainBlocks.size());
     size_t bound = 0;
     for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)

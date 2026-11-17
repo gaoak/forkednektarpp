@@ -125,8 +125,9 @@ public:
         nout = (p_nout == 0) ? this->session->GetVariables().size() : p_nout;
         auto inblockAttr = GetLocTraceBlockAttributes<TData, FieldState::Phys>(
             this->fixt_explist);
-        auto outblockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(this->fixt_explist);
+        auto outblockAttr = GetBlockAttributes<TData, FieldState::Coeff>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         auto f_in =
             Field<TData, FieldState::Phys>("f_in", inblockAttr, nin, nhomo);
@@ -141,8 +142,9 @@ public:
             new Field<TData, FieldState::Coeff>(std::move(f_expected));
 
         // set up physical space intermediate soln.
-        auto physblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto physblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
         auto phys_tmp = Field<TData, FieldState::Phys>(
             "phys_tmp", physblockAttr, nout, nhomo);
         phys = new Field<TData, FieldState::Phys>(std::move(phys_tmp));
@@ -196,8 +198,9 @@ public:
         // element local trace orientation that the operator expects, which
         // for a quad means edges 2 and 3 run along decreasing xi rather than
         // in their own edge direction.
-        auto physblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto physblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         auto Gvol = Field<TData, FieldState::Phys>("Gvol", physblockAttr, 1, 1);
         Gvol.template Initialize<NektarSpaces::HostSpace>(TData(0.0));
@@ -335,8 +338,9 @@ public:
     {
         const auto dim = this->fixt_explist->GetCoordim(0);
 
-        auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         // grad(G) is constant, one component per Cartesian direction.
         auto GradG = Field<TData, FieldState::Phys>("GradG", blockAttr, dim, 1);

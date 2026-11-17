@@ -593,10 +593,10 @@ protected:
 
             const auto physBlocks =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    bndExp);
+                    bndExp, MultiRegions::UnitInterleaveWidths(bndExp));
             const auto coeffBlocks =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    bndExp);
+                    bndExp, MultiRegions::UnitInterleaveWidths(bndExp));
             m_pressureBndPhys.emplace_back("HOutflow pressure boundary phys",
                                            physBlocks, this->m_components, 1);
             m_pressureBndCoeffs.emplace_back(
@@ -728,10 +728,10 @@ protected:
 
             const auto physBlocks =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    bndExp);
+                    bndExp, MultiRegions::UnitInterleaveWidths(bndExp));
             const auto coeffBlocks =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    bndExp);
+                    bndExp, MultiRegions::UnitInterleaveWidths(bndExp));
             m_velocityBndPhys.emplace_back("HOutflow velocity boundary phys",
                                            physBlocks, components, 1);
             m_velocityBndCoeffs.emplace_back(
@@ -872,7 +872,8 @@ protected:
     {
         const auto coeffBlocks =
             MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                expansionList);
+                expansionList,
+                MultiRegions::UnitInterleaveWidths(expansionList));
         std::vector<CoeffTargets> targets(unitWidthIndex.size());
         for (unsigned int blk = 0; blk < unitWidthIndex.size(); ++blk)
         {
@@ -905,7 +906,8 @@ protected:
         auto BuildLocations = [](const MultiRegions::ExpListSharedPtr &list,
                                  auto &locations, auto &owners) {
             const auto blocks =
-                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(list);
+                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                    list, MultiRegions::UnitInterleaveWidths(list));
             for (unsigned int blk = 0; blk < blocks.size(); ++blk)
             {
                 auto collection        = MultiRegions::GetCollection(list, blk);
@@ -939,7 +941,9 @@ protected:
         {
             const auto blocks =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    m_pressureBndExpLists[n]);
+                    m_pressureBndExpLists[n],
+                    MultiRegions::UnitInterleaveWidths(
+                        m_pressureBndExpLists[n]));
             for (unsigned int blk = 0; blk < blocks.size(); ++blk)
             {
                 auto collection =
@@ -974,7 +978,9 @@ protected:
         m_restrictedVelocityExpansionList->SetDataWarehouse();
         const auto restrictedBlocks =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                m_restrictedVelocityExpansionList);
+                m_restrictedVelocityExpansionList,
+                MultiRegions::UnitInterleaveWidths(
+                    m_restrictedVelocityExpansionList));
         m_restrictedVelocity = LibUtilities::Field<TData, FieldState::Phys>(
             "HOutflow restricted velocity", restrictedBlocks, components, 1);
         std::vector<std::string> gradientComponents(m_nDim * m_nDim);
@@ -1037,7 +1043,9 @@ protected:
         {
             const auto bndPhysBlocks =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    m_pressureBndExpLists[n]);
+                    m_pressureBndExpLists[n],
+                    MultiRegions::UnitInterleaveWidths(
+                        m_pressureBndExpLists[n]));
 
             m_bndVelocityExtractOps.push_back(
                 std::make_shared<MultiRegions::detail::PhysTraceExtractBndCond<

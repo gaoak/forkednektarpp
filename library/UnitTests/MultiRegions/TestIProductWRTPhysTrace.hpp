@@ -94,8 +94,9 @@ public:
         nout = (p_nout == 0) ? this->session->GetVariables().size() : p_nout;
         auto inblockAttr = GetLocTraceBlockAttributes<TData, FieldState::Phys>(
             this->fixt_explist);
-        auto outblockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(this->fixt_explist);
+        auto outblockAttr = GetBlockAttributes<TData, FieldState::Coeff>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         auto f_in =
             Field<TData, FieldState::Phys>("f_in", inblockAttr, nin, nhomo);
@@ -110,8 +111,9 @@ public:
             new Field<TData, FieldState::Coeff>(std::move(f_expected));
 
         // set up physical space intermediate soln.
-        auto physblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto physblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
         auto phys_tmp = Field<TData, FieldState::Phys>(
             "phys_tmp", physblockAttr, nout, nhomo);
         phys = new Field<TData, FieldState::Phys>(std::move(phys_tmp));
@@ -579,8 +581,9 @@ public:
         size_t eid = 0;
         auto dim   = this->fixt_explist->GetCoordim(0);
 
-        auto blockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
         auto Xvals =
             Field<TData, FieldState::Phys>("Coordinates", blockAttr, dim, 1);
         Xvals.template Initialize<NektarSpaces::HostSpace>(TData(0.0));
@@ -681,8 +684,9 @@ public:
     {
         const unsigned numComp = this->fixt_in->GetNumComponents();
 
-        auto outblockAttr =
-            GetBlockAttributes<TData, FieldState::Coeff>(this->fixt_explist);
+        auto outblockAttr = GetBlockAttributes<TData, FieldState::Coeff>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         size_t eid = 0;
         for (unsigned blk = 0; blk < outblockAttr.size(); ++blk)

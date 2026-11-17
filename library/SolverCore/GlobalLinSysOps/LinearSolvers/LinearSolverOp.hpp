@@ -310,8 +310,14 @@ protected:
      */
     template <typename ExecSpace> void SetMask(void)
     {
+        // At width 1: it is filled below element by element from the
+        // local-to-global mask, and ReshapeMask() takes it to a field's width.
         this->m_mask = LibUtilities::Field<std::uint8_t, FieldState::Coeff>(
-            "LinearSolver mask", this->m_blockAttr, this->m_components, 1);
+            "LinearSolver mask",
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                this->m_expansionList,
+                MultiRegions::UnitInterleaveWidths(this->m_expansionList)),
+            this->m_components, 1);
 
         auto maskptr =
             this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(

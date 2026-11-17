@@ -119,6 +119,19 @@ public:
                      "The homogeneous curl needs all three components");
         }
 
+        // Each plane is read at the input's interleave width and written at
+        // the output's, so the two must match. An output this appends to, or
+        // writes only some components of, keeps the rest and so is reshaped;
+        // one it overwrites in every component is relabelled.
+        if constexpr (APPEND || LAYOUT == DerivZLayout::ScalarToVectorZ)
+        {
+            out.ReshapeStorage(in.GetInterleaveWidth(), ExecSpace::name);
+        }
+        else
+        {
+            out.SetInterleaveWidth(in);
+        }
+
         // Unpadded points per plane, summed over the blocks of `in`, and the
         // total across all planes.
         size_t planePts = 0;

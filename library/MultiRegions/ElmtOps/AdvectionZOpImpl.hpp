@@ -37,15 +37,19 @@
 namespace Nektar::MultiRegions::detail
 {
 
-/// \brief The advection along the homogeneous direction, w du/dz, added on
-/// top of whatever the xy pass has already left in the output.
+/// \brief The advection along the homogeneous direction, w du/dz.
 ///
 /// It sits here rather than with one operator because two of them take it:
 /// Advection itself, and LinAdvDiffReaction, whose weak z advection is this
 /// term formed at the quadrature points and taken back through the inner
 /// product. Specialised per execution space in AdvectionZOpSerialAVX.hpp and
 /// AdvectionZOpDevice.hpp.
-template <typename ExecSpace, typename TData, typename Enable = void>
+///
+/// APPEND says whether Launch() adds its result to the output or replaces
+/// it: Advection accumulates on top of the xy part its block operators have
+/// already written, while LinAdvDiffReaction writes into a slot of its own.
+template <typename ExecSpace, typename TData, bool APPEND,
+          typename Enable = void>
 class AdvectionZOpImpl;
 } // namespace Nektar::MultiRegions::detail
 

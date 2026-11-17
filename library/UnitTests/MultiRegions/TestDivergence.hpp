@@ -60,10 +60,12 @@ public:
         auto nin   = m_coordDim;
         auto nout  = 1;
 
-        auto inblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
-        auto outblockAttr =
-            GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
+        auto inblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
+        auto outblockAttr = GetBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist,
+            MultiRegions::UnitInterleaveWidths(this->fixt_explist));
 
         auto f_in =
             Field<TData, FieldState::Phys>("f_in", inblockAttr, nin, nhomo);

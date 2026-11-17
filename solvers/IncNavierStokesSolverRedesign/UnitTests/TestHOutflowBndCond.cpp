@@ -281,7 +281,8 @@ BOOST_AUTO_TEST_CASE(build_boundary_element_data_manufactured_multi_element)
     const std::vector<std::string> pressureComponents = {"p"};
     const auto velocityPhysBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList);
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList));
 
     // A linear velocity field, whose gradient PhysDerivOp reproduces to
     // rounding error.
@@ -399,7 +400,8 @@ BOOST_AUTO_TEST_CASE(build_boundary_element_data_manufactured_multi_element)
     LibUtilities::Field<double, FieldState::Coeff> expected(
         "expected pressure coeffs",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     expected.Initialize<NektarSpaces::HostSpace>(0.0);
     for (unsigned int blk = 0; blk < expected.GetBlocks().size(); ++blk)
@@ -438,7 +440,8 @@ BOOST_AUTO_TEST_CASE(build_boundary_element_data_manufactured_multi_element)
     LibUtilities::Field<double, FieldState::Coeff> pressureCoeffs(
         "pressure coeffs",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     for (const unsigned int velocityWidth : {1u, interleaveWidth, 1u})
     {
@@ -491,7 +494,8 @@ BOOST_AUTO_TEST_CASE(apply_interleaved_matches_width_one)
     LibUtilities::Field<double, FieldState::Phys> velocity(
         "outflow velocity",
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList),
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList)),
         velocityComponents, 1);
     velocity.Initialize<NektarSpaces::HostSpace>(0.0);
     for (auto &velocityBlock : velocity.GetBlocks())
@@ -510,7 +514,8 @@ BOOST_AUTO_TEST_CASE(apply_interleaved_matches_width_one)
     LibUtilities::Field<double, FieldState::Phys> pressure(
         "solved pressure",
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            pressureExpList),
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList)),
         pressureComponents, 1);
     pressure.Initialize<NektarSpaces::HostSpace>(0.0);
     for (unsigned int blk = 0; blk < pressure.GetBlocks().size(); ++blk)
@@ -549,7 +554,8 @@ BOOST_AUTO_TEST_CASE(apply_interleaved_matches_width_one)
     // gradient.
     const auto pressureCoeffBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList);
+            pressureExpList,
+            MultiRegions::UnitInterleaveWidths(pressureExpList));
     LibUtilities::Field<double, FieldState::Coeff> pressureReference(
         "pressure coeffs at width 1", pressureCoeffBlocks, pressureComponents,
         1);
@@ -572,7 +578,8 @@ BOOST_AUTO_TEST_CASE(apply_interleaved_matches_width_one)
     op->SetPressure(pressure);
     const auto velocityCoeffBlocks =
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            velocityExpList);
+            velocityExpList,
+            MultiRegions::UnitInterleaveWidths(velocityExpList));
     LibUtilities::Field<double, FieldState::Coeff> velocityReference(
         "velocity coeffs at width 1", velocityCoeffBlocks, velocityComponents,
         1);

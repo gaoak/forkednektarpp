@@ -194,39 +194,30 @@ CmdLineArgMap &SessionReader::GetCmdLineArgMap()
 }
 
 /**
- * Returns map that provide configured backend to run for operators executed on
- * serial.
+ * Returns map that provide configured backend to run for operators executed in
+ * the execution space @p execName ("Serial", "AVX" or "Device").
  *
  * This list is populated through the #ParseOptimisations member function that
  * is called during session initialisation in #InitSession.
  */
-BackendMap &SessionReader::GetSerialBackendMap()
+BackendMap &SessionReader::GetBackendMap(const std::string &execName)
 {
+    if (execName == "Serial")
+    {
+        return this->m_serialBackendInfo;
+    }
+    else if (execName == "AVX")
+    {
+        return this->m_avxBackendInfo;
+    }
+    else if (execName == "Device")
+    {
+        return this->m_deviceBackendInfo;
+    }
+
+    NEKERROR(ErrorUtil::efatal,
+             "GetBackendMap: Unknown execution space '" + execName + "'");
     return this->m_serialBackendInfo;
-}
-
-/**
- * Returns map that provide configured backend to run for operators executed on
- * AVX.
- *
- * This list is populated through the #ParseOptimisations member function that
- * is called during session initialisation in #InitSession.
- */
-BackendMap &SessionReader::GetAVXBackendMap()
-{
-    return this->m_avxBackendInfo;
-}
-
-/**
- * Returns map that provide configured backend to run for operators executed on
- * device.
- *
- * This list is populated through the #ParseOptimisations member function that
- * is called during session initialisation in #InitSession.
- */
-BackendMap &SessionReader::GetDeviceBackendMap()
-{
-    return this->m_deviceBackendInfo;
 }
 
 /**

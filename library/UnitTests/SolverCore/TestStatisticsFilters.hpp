@@ -229,10 +229,10 @@ public:
 
         m_coeffBlocks =
             MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-                m_expansion);
+                m_expansion, MultiRegions::UnitInterleaveWidths(m_expansion));
         m_physBlocks =
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                m_expansion);
+                m_expansion, MultiRegions::UnitInterleaveWidths(m_expansion));
         m_bwdTransOp =
             MultiRegions::BwdTransOp<double>::Create(m_expansion, {"q"});
         m_iProductWRTBaseOp =

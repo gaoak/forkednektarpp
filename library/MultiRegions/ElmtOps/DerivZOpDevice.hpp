@@ -143,6 +143,20 @@ public:
             ASSERTL1(in.GetNumComponents() == 3 && out.GetNumComponents() == 3,
                      "The homogeneous curl needs all three components");
         }
+
+        // Each plane is read at the input's interleave width and written at
+        // the output's, so the two must match. An output this appends to, or
+        // writes only some components of, keeps the rest and so is reshaped;
+        // one it overwrites in every component is relabelled.
+        if constexpr (APPEND || LAYOUT == DerivZLayout::ScalarToVectorZ)
+        {
+            out.ReshapeStorage(in.GetInterleaveWidth(), ExecSpace::name);
+        }
+        else
+        {
+            out.SetInterleaveWidth(in);
+        }
+
         const unsigned int numBlocks =
             static_cast<unsigned int>(in.GetBlocks().size());
 
