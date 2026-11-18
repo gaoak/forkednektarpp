@@ -441,12 +441,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     }
     else if constexpr (IsSizeParameter2D_v<TSizeParameter2D>)
     {
-        const unsigned int nm0    = sizeParam2D.nm0();
-        const unsigned int nmode1 = (SHAPE_TYPE == LibUtilities::Quad)
-                                        ? sizeParam2D.nm1()
-                                        : sizeParam2D.nmTot();
-
-        return SharedMemoryAlignedSize<TData>(nm0 * nq0 + nmode1 * nq1 + nDT) +
+        return SharedMemoryAlignedSize<TData>(
+                   nDT + BasisDataSize2D<SHAPE_TYPE>(sizeParam2D).total()) +
                wspSize;
     }
 }
@@ -509,35 +505,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     }
     else if constexpr (IsSizeParameter3D_v<TSizeParameter3D>)
     {
-        const unsigned int nm0   = sizeParam3D.nm0();
-        const unsigned int nm1   = sizeParam3D.nm1();
-        const unsigned int nm2   = sizeParam3D.nm2();
-        const unsigned int nmTot = sizeParam3D.nmTot();
-        const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-        const unsigned int nm012 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-        unsigned int nmode1 = nm1, nmode2 = nm2;
-        if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
-                      SHAPE_TYPE == LibUtilities::NodalTet)
-        {
-            nmode1 = nm01;
-            nmode2 = nm012;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                           SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            nmode2 = nm02;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
-                           SHAPE_TYPE == LibUtilities::NodalPyr)
-        {
-            nmode2 = nm012;
-        }
-
-        return SharedMemoryAlignedSize<TData>(nm0 * nq0 + nmode1 * nq1 +
-                                              nmode2 * nq2 + nDT) +
+        return SharedMemoryAlignedSize<TData>(
+                   nDT + BasisDataSize3D<SHAPE_TYPE>(sizeParam3D).total()) +
                wspSize;
     }
 }
@@ -1073,9 +1042,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * triangle, its coefficient vector, in that order -- follows them with
  * @p useSharedMemoryWsp, else is the thread block's slice of @p wsp; the
  * sizes are those IProductWRTDerivBaseSharedMemorySize and
- * IProductWRTDerivBaseWorkSpaceSize account for; the locals
- * nmode0 and nmode1 hold the row counts of the two basis tables, which
- * for the triangles follow the collapsed mode ordering. The block's
+ * IProductWRTDerivBaseWorkSpaceSize account for; BasisDataSize2D gives the
+ * two basis tables, which for the triangles follow the collapsed mode
+ * ordering. The block's
  * threads copy the basis tables and derivative matrices in, then stride
  * over the elements running
  * the three stages; the nodal triangle writes its coefficients to the
@@ -1165,31 +1134,26 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int wsp0Size = 0, nmode0 = 0, nmode1 = 0;
+    unsigned int wsp0Size = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
         wsp0Size = nm0 * nq1;
-        nmode0   = nm0;
-        nmode1   = nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
         wsp0Size = nm0 * nq1;
-        nmode0   = nm0;
-        nmode1   = nmTot;
     }
 
-    const unsigned int basisDataSize =
-        nmode0 * nq0 + nmode1 * nq1 + nq0 * nq0 + nq1 * nq1;
+    const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam2D);
     TData *s_basis0 = (TData *)shmemptr;
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
-    TData *s_D0T    = s_basis1 + nmode1 * nq1;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
+    TData *s_D0T    = s_basis1 + basisDataSize.basis1();
     TData *s_D1T    = s_D0T + nq0 * nq0;
 
     // Copy to shared memory.
-    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
     LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
     LoadTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
 
@@ -1209,11 +1173,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t iblock = getBlockIdx<0>(threadBlock) +
                               getBlockRange<0>(threadBlock) * (m + nmode * c);
         TData *deriv0 =
-            isShared ? s_basis0 + SharedMemoryAlignedSize<TData>(basisDataSize)
-                     : wsp + IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE,
-                                                               Implementation>(
-                                 1u, sizeParam2D) *
-                                 iblock;
+            isShared
+                ? s_basis0 + SharedMemoryAlignedSize<TData>(
+                                 basisDataSize.total() + nq0 * nq0 + nq1 * nq1)
+                : wsp + IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE,
+                                                          Implementation>(
+                            1u, sizeParam2D) *
+                            iblock;
         const unsigned int ldi =
             padInput ? SharedMemoryRowStride<TData>(nq0) : nq0;
         const bool isPadded = (ldi != nq0);
@@ -1409,11 +1375,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * holds the three one-dimensional basis tables and the three transposed
  * derivative matrices, and the workspace the three direction fields, their
  * summed transposed derivative and the two intermediates of the basis
- * contraction (plus, for the nodal shapes, their coefficient vector); the
- * locals nmode0 ... nmode2 and wsp0Size / wsp1Size
- * hold the table row counts and intermediate sizes of the shape's
- * collapsed mode ordering, matching IProductWRTDerivBaseSharedMemorySize
- * and IProductWRTDerivBaseWorkSpaceSize.
+ * contraction (plus, for the nodal shapes, their coefficient vector);
+ * BasisDataSize3D and the locals wsp0Size / wsp1Size hold the table and
+ * intermediate sizes of the shape's collapsed mode ordering, matching
+ * IProductWRTDerivBaseSharedMemorySize and
+ * IProductWRTDerivBaseWorkSpaceSize.
  * The block's threads copy the basis tables in, then stride over the
  * elements running the geometric stage, SumDerivTensor3DSumFacTOPKernel
  * and the IProductWRTBase kernel of the shape, the nodal shapes finishing
@@ -1517,57 +1483,43 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int wsp0Size = 0, wsp1Size = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
+    unsigned int wsp0Size = 0, wsp1Size = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         wsp0Size = nm0 * nq1 * nq2;
         wsp1Size = nm0 * nm1 * nq2;
-        nmode0   = nm0;
-        nmode1   = nm1;
-        nmode2   = nm2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
         wsp0Size = nm0 * nq1 * nq2;
         wsp1Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
-        nmode0   = nm0;
-        nmode1   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         wsp0Size = nm0 * nq1 * nq2;
         wsp1Size = nm0 * nm1 * nq2;
-        nmode0   = nm0;
-        nmode1   = nm1;
-        nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
                        SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp0Size = nm0 * nq1 * nq2;
         wsp1Size = nm0 * nm1 * nq2;
-        nmode0   = nm0;
-        nmode1   = nm1;
-        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
-    const unsigned int basisDataSize = nmode0 * nq0 + nmode1 * nq1 +
-                                       nmode2 * nq2 + nq0 * nq0 + nq1 * nq1 +
-                                       nq2 * nq2;
+    const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam3D);
     TData *s_basis0 = (TData *)shmemptr;
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
-    TData *s_basis2 = s_basis1 + nmode1 * nq1;
-    TData *s_D0T    = s_basis2 + nmode2 * nq2;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
+    TData *s_basis2 = s_basis1 + basisDataSize.basis1();
+    TData *s_D0T    = s_basis2 + basisDataSize.basis2();
     TData *s_D1T    = s_D0T + nq0 * nq0;
     TData *s_D2T    = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
-    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis2(), basis2, s_basis2, threadBlock);
     LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
     LoadTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
     LoadTransposeToSharedMemory(nq2, nq2, D2, s_D2T, threadBlock);
@@ -1584,7 +1536,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t iblock = getBlockIdx<0>(threadBlock) +
                               getBlockRange<0>(threadBlock) * (m + nmode * c);
         TData *deriv0 =
-            isShared ? s_basis0 + SharedMemoryAlignedSize<TData>(basisDataSize)
+            isShared ? s_basis0 + SharedMemoryAlignedSize<TData>(
+                                      basisDataSize.total() + nq0 * nq0 +
+                                      nq1 * nq1 + nq2 * nq2)
                      : wsp + IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE,
                                                                Implementation>(
                                  1u, sizeParam3D) *

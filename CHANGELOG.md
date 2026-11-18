@@ -177,6 +177,7 @@ v5.11.0
 - Compute the block attributes of the redesign linear solvers once in the LinearSolverOp base class instead of once per allocated field (!2935)
 - LinearSolver: Various tidy-up and allow for warning when max iteration is reached (!2936)
 - Fall back to a global-memory workspace in the device SumFacTOP kernels when the shared memory is insufficient (!2940)
+- Add `BasisDataSize1D`/`2D`/`3D` helpers giving the shared-memory basis data sizes of the device SumFacTOP element operators (!2941)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

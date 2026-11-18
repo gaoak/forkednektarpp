@@ -82,64 +82,6 @@ namespace Nektar::MultiRegions::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 
 /**
- * @brief Rows of the basis table of direction @p dir the SumFacTOP
- * kernels of IProductWRTBase and BwdTrans index, as Mass stages them: the
- * mode count, or the combined mode count where the table is indexed by
- * it. None in one dimension, whose table is read from global memory.
- */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
-NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectBasisRows(
-    [[maybe_unused]] const TSizeParameter sizeParam,
-    [[maybe_unused]] const unsigned int dir)
-{
-    if constexpr (IsSizeParameter2D_v<TSizeParameter>)
-    {
-        if (dir == 0)
-        {
-            return sizeParam.nm0();
-        }
-        return (SHAPE_TYPE == LibUtilities::Quad) ? sizeParam.nm1()
-                                                  : sizeParam.nmTot();
-    }
-    else if constexpr (IsSizeParameter3D_v<TSizeParameter>)
-    {
-        const unsigned int nm0   = sizeParam.nm0();
-        const unsigned int nm1   = sizeParam.nm1();
-        const unsigned int nm2   = sizeParam.nm2();
-        const unsigned int nmTot = sizeParam.nmTot();
-        if (dir == 0)
-        {
-            return nm0;
-        }
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            return (dir == 1) ? nm1 : nm2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            return (dir == 1)
-                       ? (2u * nm1 - nm0 + 1u) * nm0 / 2u
-                       : nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            return (dir == 1) ? nm1 : (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
-                           SHAPE_TYPE == LibUtilities::NodalPyr)
-        {
-            return (dir == 1)
-                       ? nm1
-                       : nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        }
-    }
-    else
-    {
-        return 0u;
-    }
-}
-
-/**
  * @brief Size of sum-factorisation stage scratch @p stage (zero or one) of
  * a fused SumFacTOP kernel that runs the lift (@p LIFT), the basis
  * transpose (@p TRANSPOSE) and the backward transform (@p BWD) or some of
@@ -289,21 +231,15 @@ PhysLiftProjectSharedLayout(const TSizeParameter sizeParam,
     unsigned int basis = 0u;
     if constexpr (IsSizeParameter2D_v<TSizeParameter>)
     {
+        const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam);
         nqTot *= sizeParam.nq1();
-        basis = PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam, 0) *
-                    sizeParam.nq0() +
-                PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam, 1) *
-                    sizeParam.nq1();
+        basis = basisDataSize.total();
     }
     else if constexpr (IsSizeParameter3D_v<TSizeParameter>)
     {
+        const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam);
         nqTot *= sizeParam.nq1() * sizeParam.nq2();
-        basis = PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam, 0) *
-                    sizeParam.nq0() +
-                PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam, 1) *
-                    sizeParam.nq1() +
-                PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam, 2) *
-                    sizeParam.nq2();
+        basis = basisDataSize.total();
     }
 
     PhysLiftProjectSharedSizes size;
@@ -612,10 +548,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysLiftProjectSharedLayout<SHAPE_TYPE, PhysLiftProjectKernel::Fused,
                                     FORM, TData>(sizeParam2D, traceSizeParam2D);
 
-    const unsigned int nmode0 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 0);
-    const unsigned int nmode1 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 1);
+    const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam2D);
 
     const unsigned int numDataJac =
         DEFORMED ? nqTotTrace : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
@@ -631,13 +564,15 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_wsp0   = s_ipb + size.ipb;
     TData *ipb      = (isPadded) ? s_ipb : s_vol;
     TData *s_basis0 = s_wsp0 + size.wsp0;
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
 
     if constexpr (FORM != PhysLiftProjectForm::Pointwise)
     {
         // Copy to shared memory.
-        LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-        LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+        LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0,
+                           threadBlock);
+        LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1,
+                           threadBlock);
     }
 
     size_t e             = getBlockIdx<0>(threadBlock);
@@ -776,12 +711,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysLiftProjectSharedLayout<SHAPE_TYPE, PhysLiftProjectKernel::Fused,
                                     FORM, TData>(sizeParam3D, traceSizeParam3D);
 
-    const unsigned int nmode0 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 0);
-    const unsigned int nmode1 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 1);
-    const unsigned int nmode2 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 2);
+    const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam3D);
 
     const unsigned int numDataJac =
         DEFORMED ? nqTotTrace : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
@@ -798,15 +728,18 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *ipb      = (isPadded) ? s_ipb : s_vol;
     TData *s_wsp1   = s_wsp0 + size.wsp0;
     TData *s_basis0 = s_wsp1 + size.wsp1;
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
-    TData *s_basis2 = s_basis1 + nmode1 * nq1;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
+    TData *s_basis2 = s_basis1 + basisDataSize.basis1();
 
     if constexpr (FORM != PhysLiftProjectForm::Pointwise)
     {
         // Copy to shared memory.
-        LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-        LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-        LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+        LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0,
+                           threadBlock);
+        LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1,
+                           threadBlock);
+        LoadToSharedMemory(basisDataSize.basis2(), basis2, s_basis2,
+                           threadBlock);
     }
 
     size_t e             = getBlockIdx<0>(threadBlock);
@@ -969,10 +902,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                                     PhysLiftProjectForm::StdInvMass, TData>(
             sizeParam2D, traceSizeParam2D);
 
-    const unsigned int nmode0 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 0);
-    const unsigned int nmode1 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 1);
+    const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam2D);
 
     const unsigned int numDataJac =
         LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
@@ -987,11 +917,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_wsp0   = s_ipb + size.ipb;
     TData *ipb      = (isPadded) ? s_ipb : s_vol;
     TData *s_basis0 = s_wsp0 + size.wsp0;
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
 
     // Copy to shared memory.
-    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1100,12 +1030,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                                     PhysLiftProjectForm::StdInvMass, TData>(
             sizeParam3D, traceSizeParam3D);
 
-    const unsigned int nmode0 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 0);
-    const unsigned int nmode1 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 1);
-    const unsigned int nmode2 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 2);
+    const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam3D);
 
     const unsigned int numDataJac =
         LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
@@ -1121,13 +1046,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *ipb      = (isPadded) ? s_ipb : s_vol;
     TData *s_wsp1   = s_wsp0 + size.wsp0;
     TData *s_basis0 = s_wsp1 + size.wsp1;
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
-    TData *s_basis2 = s_basis1 + nmode1 * nq1;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
+    TData *s_basis2 = s_basis1 + basisDataSize.basis1();
 
     // Copy to shared memory.
-    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis2(), basis2, s_basis2, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1257,19 +1182,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                                     PhysLiftProjectForm::StdInvMass, TData>(
             sizeParam2D, traceSizeParam2D);
 
-    const unsigned int nmode0 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 0);
-    const unsigned int nmode1 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 1);
+    const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam2D);
 
     TData *s_coef   = (TData *)shmemptr;
     TData *s_wsp0   = s_coef + size.coef;
     TData *s_basis0 = s_wsp0 + size.wsp0;
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
 
     // Copy to shared memory.
-    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1344,24 +1266,19 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                                     PhysLiftProjectForm::StdInvMass, TData>(
             sizeParam3D, traceSizeParam3D);
 
-    const unsigned int nmode0 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 0);
-    const unsigned int nmode1 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 1);
-    const unsigned int nmode2 =
-        PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 2);
+    const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam3D);
 
     TData *s_coef   = (TData *)shmemptr;
     TData *s_wsp0   = s_coef + size.coef;
     TData *s_wsp1   = s_wsp0 + size.wsp0;
     TData *s_basis0 = s_wsp1 + size.wsp1;
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
-    TData *s_basis2 = s_basis1 + nmode1 * nq1;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
+    TData *s_basis2 = s_basis1 + basisDataSize.basis1();
 
     // Copy to shared memory.
-    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis2(), basis2, s_basis2, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);

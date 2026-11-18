@@ -491,18 +491,11 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter2D sizeParam2D, const bool padded,
     const bool useSharedMemoryWsp)
 {
-    const unsigned int nm0   = sizeParam2D.nm0();
-    const unsigned int nm1   = sizeParam2D.nm1();
-    const unsigned int nmTot = sizeParam2D.nmTot();
-    const unsigned int nq0   = sizeParam2D.nq0();
-    const unsigned int nq1   = sizeParam2D.nq1();
-
-    const unsigned int basisDataSize = (SHAPE_TYPE == LibUtilities::Quad)
-                                           ? nm0 * nq0 + nm1 * nq1
-                                           : nm0 * nq0 + nmTot * nq1;
+    const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam2D);
+    const unsigned int basisSize = basisDataSize.total();
     if (!useSharedMemoryWsp)
     {
-        return basisDataSize;
+        return basisSize;
     }
 
     // Rows padded by the launcher with the quadrature metric.
@@ -511,7 +504,7 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
                                                     TData>(sizeParam2D)
                : 0u;
 
-    return SharedMemoryAlignedSize<TData>(basisDataSize) + pad +
+    return SharedMemoryAlignedSize<TData>(basisSize) + pad +
            static_cast<unsigned int>(
                IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
                    1u, sizeParam2D));
@@ -522,8 +515,8 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
  * values.
  *
  * As in 2D: copies of the three basis tables, each sized by the number of
- * rows the shape's mode ordering gives that direction (nm01, nmode2 and
- * the like below), and, with @p useSharedMemoryWsp, the workspace
+ * rows the shape's mode ordering gives that direction (BasisDataSize3D),
+ * and, with @p useSharedMemoryWsp, the workspace
  * IProductWRTBaseWorkSpaceSize gives for one element, 16-byte aligned and
  * with its rows padded if @p padded.
  *
@@ -551,44 +544,12 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter3D sizeParam3D, const bool padded,
     const bool useSharedMemoryWsp)
 {
-    const unsigned int nm0   = sizeParam3D.nm0();
-    const unsigned int nm1   = sizeParam3D.nm1();
-    const unsigned int nm2   = sizeParam3D.nm2();
-    const unsigned int nmTot = sizeParam3D.nmTot();
-    const unsigned int nq0   = sizeParam3D.nq0();
-    const unsigned int nq1   = sizeParam3D.nq1();
-    const unsigned int nq2   = sizeParam3D.nq2();
-
-    unsigned int basisDataSize = 0u;
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-    {
-        basisDataSize = nm0 * nq0 + nm1 * nq1 + nm2 * nq2;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
-                       SHAPE_TYPE == LibUtilities::NodalTet)
-    {
-        const unsigned int nmode2 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        basisDataSize           = nm0 * nq0 + nm01 * nq1 + nmode2 * nq2;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                       SHAPE_TYPE == LibUtilities::NodalPrism)
-    {
-        const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-        basisDataSize           = nm0 * nq0 + nm1 * nq1 + nm02 * nq2;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
-                       SHAPE_TYPE == LibUtilities::NodalPyr)
-    {
-        const unsigned int nmode2 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        basisDataSize = nm0 * nq0 + nm1 * nq1 + nmode2 * nq2;
-    }
+    const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam3D);
+    const unsigned int basisSize = basisDataSize.total();
 
     if (!useSharedMemoryWsp)
     {
-        return basisDataSize;
+        return basisSize;
     }
 
     // Rows padded by the launcher with the quadrature metric.
@@ -597,7 +558,7 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
                                                     TData>(sizeParam3D)
                : 0u;
 
-    return SharedMemoryAlignedSize<TData>(basisDataSize) + pad +
+    return SharedMemoryAlignedSize<TData>(basisSize) + pad +
            static_cast<unsigned int>(
                IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
                    1u, sizeParam3D));
@@ -2371,20 +2332,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int nmode0 = nm0;
-    const unsigned int nmode1 =
-        (SHAPE_TYPE == LibUtilities::Quad) ? nm1 : nmTot;
-
-    const unsigned int basisDataSize = nmode0 * nq0 + nmode1 * nq1;
-    TData *s_basis0                  = (TData *)shmemptr;
-    TData *s_basis1                  = s_basis0 + nmode0 * nq0;
+    const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam2D);
+    TData *s_basis0 = (TData *)shmemptr;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
 
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     // Copy to shared memory.
-    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -2406,7 +2363,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
         TData *wsp0 =
             isShared
-                ? s_basis0 + SharedMemoryAlignedSize<TData>(basisDataSize)
+                ? s_basis0 +
+                      SharedMemoryAlignedSize<TData>(basisDataSize.total())
                 : wsp + (nqTot + nm0 * nq1 + (isNodal ? nmTot : 0u)) * iblock;
         TData *wsp1 = wsp0 + ldi * nq1;
         TData *wsp2 = wsp1 + nm0 * ld0;
@@ -2510,17 +2468,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nqTot = sizeParam2D.nqTot();
 
     const unsigned int wsp1Size = nm0 * nq1;
-    const unsigned int nmode0   = nm0;
-    const unsigned int nmode1 =
-        (SHAPE_TYPE == LibUtilities::Quad) ? nm1 : nmTot;
 
-    const unsigned int basisDataSize = nmode0 * nq0 + nmode1 * nq1;
-    TData *s_basis0                  = (TData *)shmemptr;
-    TData *s_basis1                  = s_basis0 + nmode0 * nq0;
+    const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam2D);
+    TData *s_basis0 = (TData *)shmemptr;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
 
     // Copy to shared memory.
-    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -2532,7 +2487,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
         TData *wsp0 =
             isShared
-                ? s_basis0 + SharedMemoryAlignedSize<TData>(basisDataSize)
+                ? s_basis0 +
+                      SharedMemoryAlignedSize<TData>(basisDataSize.total())
                 : wsp + (nqTot + wsp1Size + (isNodal ? nmTot : 0u)) * iblock;
         TData *wsp1 = wsp0 + nqTot;
         TData *wsp2 = wsp1 + wsp1Size;
@@ -2579,8 +2535,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * first three padded to SharedMemoryRowStride and
  * IProductWRTBaseStageStride. Without @p useSharedMemoryWsp the workspace
  * is the thread block's slice of @p wsp, its rows unpadded. Each table's row
- * count follows the shape's mode ordering -- the local nmode0, nmode1 and
- * nmode2 -- which is why the collapsed shapes need more rows than nm1 or
+ * count follows the shape's mode ordering -- see BasisDataSize3D -- which
+ * is why the collapsed shapes need more rows than nm1 or
  * nm2. Staging the element's values is where
  * the quadrature metric enters, in * jac * w0 * w1 * w2 per point.
  * The nodal shapes run the shape kernel with APPEND false and let the
@@ -2664,52 +2620,39 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int nrow1 = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
+    unsigned int nrow1 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        nrow1  = nm0 * nm1;
-        nmode0 = nm0;
-        nmode1 = nm1;
-        nmode2 = nm2;
+        nrow1 = nm0 * nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        nrow1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode0 = nm0;
-        nmode1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        nrow1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        nrow1  = nm0 * nm1;
-        nmode0 = nm0;
-        nmode1 = nm1;
-        nmode2 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        nrow1 = nm0 * nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
                        SHAPE_TYPE == LibUtilities::NodalPyr)
     {
-        nrow1  = nm0 * nm1;
-        nmode0 = nm0;
-        nmode1 = nm1;
-        nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        nrow1 = nm0 * nm1;
     }
 
-    const unsigned int basisDataSize =
-        nmode0 * nq0 + nmode1 * nq1 + nmode2 * nq2;
+    const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam3D);
     TData *s_basis0 = (TData *)shmemptr;
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
-    TData *s_basis2 = s_basis1 + nmode1 * nq1;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
+    TData *s_basis2 = s_basis1 + basisDataSize.basis1();
 
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     // Copy to shared memory.
-    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis2(), basis2, s_basis2, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -2731,11 +2674,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         // block's slice.
         const size_t iblock =
             getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
-        TData *wsp0 =
-            isShared ? s_basis0 + SharedMemoryAlignedSize<TData>(basisDataSize)
-                     : wsp + (nqTot + nm0 * nq1 * nq2 + nrow1 * nq2 +
-                              (isNodal ? nmTot : 0u)) *
-                                 iblock;
+        TData *wsp0 = isShared ? s_basis0 + SharedMemoryAlignedSize<TData>(
+                                                basisDataSize.total())
+                               : wsp + (nqTot + nm0 * nq1 * nq2 + nrow1 * nq2 +
+                                        (isNodal ? nmTot : 0u)) *
+                                           iblock;
         TData *wsp1 = wsp0 + ldi * nq1 * nq2;
         TData *wsp2 = wsp1 + nm0 * nq2 * ld0;
         TData *wsp3 = wsp2 + nrow1 * ld1;
@@ -2849,53 +2792,40 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nq2   = sizeParam3D.nq2();
     const unsigned int nqTot = sizeParam3D.nqTot();
 
-    unsigned int wsp1Size = 0, wsp2Size = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
+    unsigned int wsp1Size = 0, wsp2Size = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         wsp1Size = nm0 * nq1 * nq2;
         wsp2Size = nm0 * nm1 * nq2;
-        nmode0   = nm0;
-        nmode1   = nm1;
-        nmode2   = nm2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
         wsp1Size = nm0 * nq1 * nq2;
         wsp2Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
-        nmode0   = nm0;
-        nmode1   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         wsp1Size = nm0 * nq1 * nq2;
         wsp2Size = nm0 * nm1 * nq2;
-        nmode0   = nm0;
-        nmode1   = nm1;
-        nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
                        SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp1Size = nm0 * nq1 * nq2;
         wsp2Size = nm0 * nm1 * nq2;
-        nmode0   = nm0;
-        nmode1   = nm1;
-        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
-    const unsigned int basisDataSize =
-        nmode0 * nq0 + nmode1 * nq1 + nmode2 * nq2;
+    const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam3D);
     TData *s_basis0 = (TData *)shmemptr;
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
-    TData *s_basis2 = s_basis1 + nmode1 * nq1;
+    TData *s_basis1 = s_basis0 + basisDataSize.basis0();
+    TData *s_basis2 = s_basis1 + basisDataSize.basis1();
 
     // Copy to shared memory.
-    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(basisDataSize.basis2(), basis2, s_basis2, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -2907,7 +2837,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
         TData *wsp0 =
             isShared
-                ? s_basis0 + SharedMemoryAlignedSize<TData>(basisDataSize)
+                ? s_basis0 +
+                      SharedMemoryAlignedSize<TData>(basisDataSize.total())
                 : wsp + (nqTot + wsp1Size + wsp2Size + (isNodal ? nmTot : 0u)) *
                             iblock;
         TData *wsp1 = wsp0 + nqTot;
