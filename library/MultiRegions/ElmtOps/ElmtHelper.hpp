@@ -1231,6 +1231,186 @@ template <typename T>
 inline constexpr bool IsTraceSizeParameter3D_v =
     IsTraceSizeParameter3D<T>::value;
 
+/// Size of the 1D basis matrix held in shared memory.
+struct BasisDataSize1D
+{
+    template <typename TSizeParameter1D>
+    NEK_HOSTDEVICE_INLINE constexpr BasisDataSize1D(
+        const TSizeParameter1D &sizeParam1D)
+    {
+        static_assert(
+            IsSizeParameter1D_v<TSizeParameter1D>,
+            "Template argument must be either of type "
+            "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
+
+        const unsigned int nm0 = sizeParam1D.nm0();
+        const unsigned int nq0 = sizeParam1D.nq0();
+
+        m_basis0 = nm0 * nq0;
+
+        m_total = m_basis0;
+    }
+
+    NEK_HOSTDEVICE_INLINE constexpr unsigned int basis0(void) const
+    {
+        return m_basis0;
+    }
+    NEK_HOSTDEVICE_INLINE constexpr unsigned int total(void) const
+    {
+        return m_total;
+    }
+
+protected:
+    unsigned int m_basis0 = 0u;
+    unsigned int m_total  = 0u;
+};
+
+/// Sizes of the two 2D basis matrices held in shared memory.
+template <LibUtilities::ShapeType SHAPE_TYPE> struct BasisDataSize2D
+{
+    template <typename TSizeParameter2D>
+    NEK_HOSTDEVICE_INLINE constexpr BasisDataSize2D(
+        const TSizeParameter2D &sizeParam2D)
+    {
+        static_assert(
+            IsSizeParameter2D_v<TSizeParameter2D>,
+            "Template argument must be either of type "
+            "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
+        static_assert(SHAPE_TYPE == LibUtilities::Quad ||
+                          SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri,
+                      "SHAPE_TYPE must be Quad, Tri or NodalTri.");
+
+        const unsigned int nm0 = sizeParam2D.nm0();
+        const unsigned int nm1 = sizeParam2D.nm1();
+        const unsigned int nq0 = sizeParam2D.nq0();
+        const unsigned int nq1 = sizeParam2D.nq1();
+
+        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+        {
+            m_basis0 = nm0 * nq0;
+            m_basis1 = nm1 * nq1;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                           SHAPE_TYPE == LibUtilities::NodalTri)
+        {
+            const unsigned int nmTot = sizeParam2D.nmTot();
+
+            m_basis0 = nm0 * nq0;
+            m_basis1 = nmTot * nq1;
+        }
+
+        m_total = m_basis0 + m_basis1;
+    }
+
+    NEK_HOSTDEVICE_INLINE constexpr unsigned int basis0(void) const
+    {
+        return m_basis0;
+    }
+    NEK_HOSTDEVICE_INLINE constexpr unsigned int basis1(void) const
+    {
+        return m_basis1;
+    }
+    NEK_HOSTDEVICE_INLINE constexpr unsigned int total(void) const
+    {
+        return m_total;
+    }
+
+protected:
+    unsigned int m_basis0 = 0u;
+    unsigned int m_basis1 = 0u;
+    unsigned int m_total  = 0u;
+};
+
+/// Sizes of the three 3D basis matrices held in shared memory.
+template <LibUtilities::ShapeType SHAPE_TYPE> struct BasisDataSize3D
+{
+    template <typename TSizeParameter3D>
+    NEK_HOSTDEVICE_INLINE constexpr BasisDataSize3D(
+        const TSizeParameter3D &sizeParam3D)
+    {
+        static_assert(
+            IsSizeParameter3D_v<TSizeParameter3D>,
+            "Template argument must be either of type "
+            "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
+        static_assert(SHAPE_TYPE == LibUtilities::Hex ||
+                          SHAPE_TYPE == LibUtilities::Tet ||
+                          SHAPE_TYPE == LibUtilities::NodalTet ||
+                          SHAPE_TYPE == LibUtilities::Prism ||
+                          SHAPE_TYPE == LibUtilities::NodalPrism ||
+                          SHAPE_TYPE == LibUtilities::Pyr ||
+                          SHAPE_TYPE == LibUtilities::NodalPyr,
+                      "SHAPE_TYPE must be Hex, Tet, NodalTet, Prism, "
+                      "NodalPrism, Pyr or NodalPyr.");
+
+        const unsigned int nm0 = sizeParam3D.nm0();
+        const unsigned int nm1 = sizeParam3D.nm1();
+        const unsigned int nm2 = sizeParam3D.nm2();
+        const unsigned int nq0 = sizeParam3D.nq0();
+        const unsigned int nq1 = sizeParam3D.nq1();
+        const unsigned int nq2 = sizeParam3D.nq2();
+
+        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+        {
+            m_basis0 = nm0 * nq0;
+            m_basis1 = nm1 * nq1;
+            m_basis2 = nm2 * nq2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                           SHAPE_TYPE == LibUtilities::NodalTet)
+        {
+            const unsigned int nmTot = sizeParam3D.nmTot();
+
+            m_basis0 = nm0 * nq0;
+            m_basis1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq1;
+            m_basis2 =
+                (nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u) * nq2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
+        {
+            m_basis0 = nm0 * nq0;
+            m_basis1 = nm1 * nq1;
+            m_basis2 = (2u * nm2 - nm0 + 1u) * nm0 / 2u * nq2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
+        {
+            const unsigned int nmTot = sizeParam3D.nmTot();
+
+            m_basis0 = nm0 * nq0;
+            m_basis1 = nm1 * nq1;
+            m_basis2 =
+                (nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u) * nq2;
+        }
+
+        m_total = m_basis0 + m_basis1 + m_basis2;
+    }
+
+    NEK_HOSTDEVICE_INLINE constexpr unsigned int basis0(void) const
+    {
+        return m_basis0;
+    }
+    NEK_HOSTDEVICE_INLINE constexpr unsigned int basis1(void) const
+    {
+        return m_basis1;
+    }
+    NEK_HOSTDEVICE_INLINE constexpr unsigned int basis2(void) const
+    {
+        return m_basis2;
+    }
+    NEK_HOSTDEVICE_INLINE constexpr unsigned int total(void) const
+    {
+        return m_total;
+    }
+
+protected:
+    unsigned int m_basis0 = 0u;
+    unsigned int m_basis1 = 0u;
+    unsigned int m_basis2 = 0u;
+    unsigned int m_total  = 0u;
+};
+
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 /**
  * @brief Compile-time upper bound on the threads per block a kernel of
