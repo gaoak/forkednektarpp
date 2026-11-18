@@ -339,12 +339,12 @@ protected:
      * BwdTransSharedMemorySize for the shape and strategy at hand, in
      * bytes -- under SumFac one warp's stage intermediates when they fit
      * in shared memory, zero otherwise; under SumFacTOP room for the
-     * interpolation matrices, the element's input values and the
-     * inter-stage intermediates -- and the global workspace request is
-     * BwdTransWorkSpaceSize scaled by ncomp, taken from the static
-     * per-stream buffer: under SumFac nm1 values per element in 2D and
-     * nm1 * nm2 + nm2 in 3D for the stage intermediates unless they are
-     * in shared memory, none in 1D and none under SumFacTOP.
+     * interpolation matrices and, when they fit, the element's input
+     * values and the inter-stage intermediates -- and the global
+     * workspace request is BwdTransWorkSpaceSize scaled by ncomp, taken
+     * from the static per-stream buffer: the stage intermediates not in
+     * shared memory, of every element under SumFac and of one element
+     * per thread block under SumFacTOP, none in 1D.
      *
      * The launch goes through DEVICE_2DGRID_KERNEL_LAUNCHER to the
      * BwdTransKernelLauncher overload of this dimension and strategy,
@@ -402,26 +402,6 @@ protected:
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
-        // Get static workspace pointer.
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        const size_t wspSize =
-            useSharedMemoryWsp
-                ? 0
-                : BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt,
-                                                                    sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
-        // Neither side of this operator is modal, so there is no nodal to
-        // modal transform to apply and no collapsed coordinate correction
-        // to make.
-        const TData *nodToMod = nullptr;
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
         // Set Kernel parameters.
         const unsigned int shmemsize =
             useSharedMemoryWsp
@@ -433,6 +413,27 @@ protected:
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
+        // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const size_t wspSize =
+            useSharedMemoryWsp
+                ? 0
+                : BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
+
+        // Neither side of this operator is modal, so there is no nodal to
+        // modal transform to apply and no collapsed coordinate correction
+        // to make.
+        const TData *nodToMod = nullptr;
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

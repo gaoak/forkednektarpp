@@ -248,14 +248,27 @@ protected:
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
+        // Set Kernel parameters.
+        const unsigned int shmemsize =
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
+                          sizeParam, false);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
             useSharedMemoryWsp
                 ? 0
-                : BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt,
-                                                                    sizeParam);
+                : BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -268,18 +281,6 @@ protected:
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int shmemsize =
-            useSharedMemoryWsp
-                ? shmemsizeWithSharedWsp
-                : sizeof(TData) *
-                      BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
-                          sizeParam, false);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

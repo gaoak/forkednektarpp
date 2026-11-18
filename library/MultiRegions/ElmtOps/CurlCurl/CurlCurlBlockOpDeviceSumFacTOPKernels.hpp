@@ -66,9 +66,14 @@
  * Curl3DH1KernelLauncher, launched with the planes of a multi-plane 3DH1
  * block on the second grid dimension, stages an element's three
  * components the same way and calls each 2D curl kernel once, for the
- * plane part of a single curl. CurlCurlSharedMemorySize reports how much
- * dynamic shared memory such a launch must request; CurlCurlWorkSpaceSize
- * reports that no global workspace is needed. The launchers and helpers
+ * plane part of a single curl. When one element's buffers do not fit in
+ * shared memory the block implementation clears useSharedMemoryWsp: the
+ * launchers then read the input in place, and the 2D and 3D
+ * CurlCurlKernelLauncher hold the vorticity in the thread block's slice
+ * of the global workspace.
+ * CurlCurlSharedMemorySize reports how much dynamic shared memory such a
+ * launch must request and CurlCurlWorkSpaceSize how much global
+ * workspace. The launchers and helpers
  * are constrained to the SumFacTOP implementation tag and are otherwise
  * identical in name and signature to the SumFac ones, which is how
  * CurlCurlBlockOpImpl::OperatorNDImpl and
@@ -93,6 +98,98 @@ namespace Nektar::MultiRegions::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 /**
+ * @brief Workspace a SumFacTOP launch needs, in elements of TData, for a
+ * one-dimensional shape: none, the 1D launcher staging nothing.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter1D  1D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   nelmt        Elements whose workspace is held at once; unused.
+ * @param   sizeParam1D  Element sizes; unused.
+ *
+ * @return Zero.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TPhysSizeParameter1D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
+                           bool>
+              Enable = true>
+inline constexpr size_t CurlCurlWorkSpaceSize(
+    [[maybe_unused]] const size_t nelmt,
+    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D)
+{
+    return 0;
+}
+
+/**
+ * @brief Workspace a SumFacTOP launch needs, in elements of TData, for a
+ * two-dimensional shape.
+ *
+ * Per thread block, the out-of-plane vorticity; the input is read in
+ * place. The blocks' regions follow one another.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter2D  2D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   nelmt        Elements whose workspace is held at once: one per
+ *                       thread block (see WorkSpaceNumElmts).
+ * @param   sizeParam2D  Quadrature-point counts per direction.
+ *
+ * @return nq0 * nq1 * @p nelmt.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TPhysSizeParameter2D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+                           bool>
+              Enable = true>
+inline constexpr size_t CurlCurlWorkSpaceSize(
+    const size_t nelmt, const TPhysSizeParameter2D sizeParam2D)
+{
+
+    return sizeParam2D.nqTot() * nelmt;
+}
+
+/**
+ * @brief Workspace a SumFacTOP launch needs, in elements of TData, for a
+ * three-dimensional shape.
+ *
+ * Per thread block, the three components of the vorticity; the input is
+ * read in place. The blocks' regions follow one another.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter3D  3D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   nelmt        Elements whose workspace is held at once: one per
+ *                       thread block (see WorkSpaceNumElmts).
+ * @param   sizeParam3D  Quadrature-point counts per direction.
+ *
+ * @return 3 * nq0 * nq1 * nq2 * @p nelmt.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TPhysSizeParameter3D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
+                               IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+                           bool>
+              Enable = true>
+inline constexpr size_t CurlCurlWorkSpaceSize(
+    const size_t nelmt, const TPhysSizeParameter3D sizeParam3D)
+{
+
+    return 3u * sizeParam3D.nqTot() * nelmt;
+}
+
+/**
  * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
  * in elements of TData, for a one-dimensional shape: none, since the 1D
  * launcher reads the element's input straight from global memory.
@@ -109,8 +206,7 @@ namespace Nektar::MultiRegions::detail
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Element sizes; unused.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- *                       memory.
+ * @param   useSharedMemoryWsp    Unused: the 1D launcher stages nothing.
  *
  * @return Zero.
  */
@@ -131,11 +227,11 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
  * in elements of TData, for a two-dimensional shape.
  *
- * Three element-sized buffers, whatever the shape: the two input
+ * With @p useSharedMemoryWsp, three element-sized buffers: the two input
  * components the launcher stages and the out-of-plane vorticity the first
  * curl kernel writes; Curl3DH1KernelLauncher stages its three input
- * components in the same three buffers. The collapsed-coordinate factor
- * tables are not staged.
+ * components in the same three buffers. The collapsed-coordinate factor tables
+ * are not staged.
  *
  * @tparam SHAPE_TYPE            Element shape; unused.
  * @tparam Implementation        Implementation tag; this overload is
@@ -144,10 +240,9 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- *                       memory.
+ * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
- * @return 3 * nq0 * nq1.
+ * @return 3 * nq0 * nq1, or zero without @p useSharedMemoryWsp.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter2D,
@@ -156,21 +251,18 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
-    const TPhysSizeParameter2D sizeParam2D,
-    [[maybe_unused]] const bool useSharedMemoryWsp)
+    const TPhysSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
 {
-    const unsigned int nq0 = sizeParam2D.nq0();
-    const unsigned int nq1 = sizeParam2D.nq1();
 
     // Two input components plus the out-of-plane omega.
-    return 3 * nq0 * nq1;
+    return useSharedMemoryWsp ? 3u * sizeParam2D.nqTot() : 0u;
 }
 
 /**
  * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
  * in elements of TData, for a three-dimensional shape.
  *
- * Six element-sized buffers, whatever the shape: the three input
+ * With @p useSharedMemoryWsp, six element-sized buffers: the three input
  * components the launcher stages and the three vorticity components the
  * first curl kernel writes.
  *
@@ -181,10 +273,9 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- *                       memory.
+ * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
- * @return 6 * nq0 * nq1 * nq2.
+ * @return 6 * nq0 * nq1 * nq2, or zero without @p useSharedMemoryWsp.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter3D,
@@ -193,104 +284,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
-    const TPhysSizeParameter3D sizeParam3D,
-    [[maybe_unused]] const bool useSharedMemoryWsp)
+    const TPhysSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
 {
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
 
     // Three input components plus the three components of omega.
-    return 6 * nq0 * nq1 * nq2;
-}
-
-/**
- * @brief Global workspace a SumFacTOP launch needs, in elements of TData,
- * for a one-dimensional shape: none.
- *
- * The intermediate omega is held in shared memory, so no overload of this
- * helper requests global workspace for the SumFacTOP strategy.
- *
- * @tparam SHAPE_TYPE            Element shape; unused.
- * @tparam Implementation        Implementation tag; this overload is
- *                               constrained to SumFacTOP.
- * @tparam TPhysSizeParameter1D  1D physical-space size parameter (see
- *                               ElmtHelper.hpp).
- *
- * @param   nelmt        Elements in the block; unused.
- * @param   sizeParam1D  Element sizes; unused.
- *
- * @return Zero.
- */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TPhysSizeParameter1D,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
-                               IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
-                           bool>
-              Enable = true>
-inline constexpr size_t CurlCurlWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D)
-{
-    return 0;
-}
-
-/**
- * @brief Global workspace a SumFacTOP launch needs, in elements of TData,
- * for a two-dimensional shape: none, the vorticity being held in shared
- * memory.
- *
- * @tparam SHAPE_TYPE            Element shape; unused.
- * @tparam Implementation        Implementation tag; this overload is
- *                               constrained to SumFacTOP.
- * @tparam TPhysSizeParameter2D  2D physical-space size parameter (see
- *                               ElmtHelper.hpp).
- *
- * @param   nelmt        Elements in the block; unused.
- * @param   sizeParam2D  Element sizes; unused.
- *
- * @return Zero.
- */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TPhysSizeParameter2D,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
-                               IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
-                           bool>
-              Enable = true>
-inline constexpr size_t CurlCurlWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TPhysSizeParameter2D sizeParam2D)
-{
-    return 0;
-}
-
-/**
- * @brief Global workspace a SumFacTOP launch needs, in elements of TData,
- * for a three-dimensional shape: none, the vorticity being held in shared
- * memory.
- *
- * @tparam SHAPE_TYPE            Element shape; unused.
- * @tparam Implementation        Implementation tag; this overload is
- *                               constrained to SumFacTOP.
- * @tparam TPhysSizeParameter3D  3D physical-space size parameter (see
- *                               ElmtHelper.hpp).
- *
- * @param   nelmt        Elements in the block; unused.
- * @param   sizeParam3D  Element sizes; unused.
- *
- * @return Zero.
- */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TPhysSizeParameter3D,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
-                               IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
-                           bool>
-              Enable = true>
-inline constexpr size_t CurlCurlWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TPhysSizeParameter3D sizeParam3D)
-{
-    return 0;
+    return useSharedMemoryWsp ? 6u * sizeParam3D.nqTot() : 0u;
 }
 
 /**
@@ -702,8 +700,7 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
  *                       quadrature points.
  * @param   nelmt        Elements in the block, including padding.
  * @param   inoffset     Component stride; unused in one dimension.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- * memory.
+ * @param   useSharedMemoryWsp    Unused: the 1D launcher stages nothing.
  * @param   D0           1D derivative matrix of the direction.
  * @param   df           Derivative factors of the block, transposed
  *                       layout.
@@ -756,14 +753,16 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
  * @brief Device entry point of the 2D SumFacTOP kernel: both curls of the
  * operator for every element of the block in one launch.
  *
- * As in 1D, but the shared memory is used: FETCH_SHARED_MEMORY() binds
+ * As in 1D, but with a workspace: FETCH_SHARED_MEMORY() binds
  * @p shmemptr to the block's dynamic shared memory (a no-op on the
- * back-ends that pass it in), laid out as the element's two input
- * components followed by its vorticity. Each element's input components
- * are copied from global into that shared memory -- the threads share the
+ * back-ends that pass it in). With @p useSharedMemoryWsp, @p shmemptr
+ * holds the element's two input components followed by its vorticity:
+ * each element's input components are copied in -- the threads share the
  * copy work with the same stride they later compute with -- and a barrier
  * publishes the copy before Curl2DScalarSumFacTOPKernel reads across it to
- * write the vorticity into the third buffer; Curl2DVectorSumFacTOPKernel
+ * write the vorticity into the third buffer. Without it, the input is read
+ * in place and the vorticity goes to the thread block's slice of @p wsp.
+ * Either way, Curl2DVectorSumFacTOPKernel
  * then reads the vorticity and writes the output straight to global
  * memory. Both kernels end with a barrier of their own, so the vorticity
  * is complete before it is read and the copy for the next element cannot
@@ -780,8 +779,8 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
  * @param   nelmt        Elements in the block, including padding.
  * @param   inoffset     Stride between the components of @p in, also used
  *                       between those of @p out.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- * memory.
+ * @param   useSharedMemoryWsp    Stage the workspace in @p shmemptr rather
+ *                       than in @p wsp.
  * @param   D0           1D derivative matrix of direction 0.
  * @param   D1           1D derivative matrix of direction 1.
  * @param   f0           Collapsed-coordinate factor of direction 0.
@@ -789,12 +788,11 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
  * @param   df           Derivative factors of the block, transposed
  *                       layout.
  * @param   in           Input values of the block, two components.
- * @param   wsp          Global workspace; unused, the vorticity being
- *                       held in shared memory.
+ * @param   wsp          Global workspace, sized by CurlCurlWorkSpaceSize;
+ *                       unused if @p useSharedMemoryWsp.
  * @param   out          Output values of the block, two components.
- * @param   shmemptr     Dynamic shared memory of the thread block, at
- *                       least CurlCurlSharedMemorySize elements of TData:
- *                       three element-sized buffers.
+ * @param   shmemptr     Dynamic shared memory of the thread block, sized
+ *                       by CurlCurlSharedMemorySize.
  * @param   threadBlock  Thread-block handle supplied by the launcher
  *                       macro.
  */
@@ -805,12 +803,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const size_t inoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
+    const size_t inoffset, const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    [[maybe_unused]] TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -822,54 +820,69 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const unsigned int ncoord = sizeParam2D.ncoord();
     const unsigned int nq0    = sizeParam2D.nq0();
     const unsigned int nq1    = sizeParam2D.nq1();
+    const unsigned int nqTot  = sizeParam2D.nqTot();
 
     const unsigned int ndf    = 2 * ncoord;
-    const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    TData *s_in               = (TData *)shmemptr;
-    TData *s_omega            = s_in + 2u * nqTot;
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * e;
-        TData *outptr      = out + nqTot * e;
 
-        // Copy both components to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Staged input then omega in shared memory, or omega alone in the
+        // thread block's slice.
+        const size_t iblock = getBlockIdx<0>(threadBlock);
+        TData *s_in         = (TData *)shmemptr;
+        TData *omega = isShared ? s_in + 2u * nqTot : wsp + nqTot * iblock;
+
+        while (e < nelmt)
         {
-            s_in[idx]         = inptr[idx];
-            s_in[nqTot + idx] = inptr[inoffset + idx];
+            const TData *dfptr = df + ndf * dfsize * e;
+            const TData *inptr = in + nqTot * e;
+            TData *outptr      = out + nqTot * e;
+
+            if (isShared)
+            {
+                // Copy both components to shared memory.
+                for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+                {
+                    s_in[idx]         = inptr[idx];
+                    s_in[nqTot + idx] = inptr[inoffset + idx];
+                }
+
+                localBarrier(threadBlock);
+            }
+
+            // The input, staged or in place, and its component stride.
+            const TData *inbase   = isShared ? s_in : inptr;
+            const size_t instride = isShared ? size_t{nqTot} : inoffset;
+
+            // omega = dv/dx - du/dy
+            Curl2DScalarSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                ncoord, nq0, nq1, instride, D0, D1, f0, f1, dfptr, inbase,
+                omega, threadBlock);
+
+            // out = {d(omega)/dy, -d(omega)/dx}
+            Curl2DVectorSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                ncoord, nq0, nq1, inoffset, D0, D1, f0, f1, dfptr, omega,
+                outptr, threadBlock);
+
+            e += getBlockRange<0>(threadBlock);
         }
-
-        localBarrier(threadBlock);
-
-        // omega = dv/dx - du/dy
-        Curl2DScalarSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            ncoord, nq0, nq1, nqTot, D0, D1, f0, f1, dfptr, s_in, s_omega,
-            threadBlock);
-
-        // out = {d(omega)/dy, -d(omega)/dx}
-        Curl2DVectorSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            ncoord, nq0, nq1, inoffset, D0, D1, f0, f1, dfptr, s_omega, outptr,
-            threadBlock);
-
-        e += getBlockRange<0>(threadBlock);
-    }
+    });
 }
 
 // One curl's plane part on each plane of a 3DH1 block: three components in,
 // three out. See the SumFac kernel of the same name for how the curl splits
 // and why the 2D kernels already hold both halves of the plane part.
 //
-// The three input components fit the shared memory the 2D curl-curl already
-// asks for: the first two go where it stages its input and the third where
-// it would hold omega, which this pass never forms -- each half of the plane
-// part writes straight out to global memory.
+// The three input components fit the shared memory the 2D curl-curl asks for
+// with its workspace staged there: the first two go where it stages its input
+// and the third where it would hold omega, which this pass never forms --
+// each half of the plane part writes straight out to global memory. Without
+// useSharedMemoryWsp the kernels read the input in place instead.
 //
 // Each plane holds one plane curl over the same geometry, so they ride the
 // second grid dimension of a single launch and the kernel picks its plane
@@ -881,7 +894,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const size_t inoffset, const size_t outoffset, const TData *NEK_RESTRICT D0,
+    const size_t inoffset, const size_t outoffset,
+    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
@@ -897,57 +911,69 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
     const unsigned int ncoord = sizeParam2D.ncoord();
     const unsigned int nq0    = sizeParam2D.nq0();
     const unsigned int nq1    = sizeParam2D.nq1();
+    const unsigned int nqTot  = sizeParam2D.nqTot();
 
     const unsigned int ndf    = 2 * ncoord;
-    const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    TData *s_in               = (TData *)shmemptr;
-    TData *s_inz              = s_in + 2u * nqTot;
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int p = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * (nelmt * p + e);
-        TData *outptr      = out + nqTot * (nelmt * p + e);
 
-        // Copy all three components to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        TData *s_in  = (TData *)shmemptr;
+        TData *s_inz = s_in + 2u * nqTot;
+
+        while (e < nelmt)
         {
-            s_in[idx]         = inptr[idx];
-            s_in[nqTot + idx] = inptr[inoffset + idx];
-            s_inz[idx]        = inptr[2u * inoffset + idx];
+            const TData *dfptr = df + ndf * dfsize * e;
+            const TData *inptr = in + nqTot * (nelmt * p + e);
+            TData *outptr      = out + nqTot * (nelmt * p + e);
+
+            if (isShared)
+            {
+                // Copy all three components to shared memory.
+                for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+                {
+                    s_in[idx]         = inptr[idx];
+                    s_in[nqTot + idx] = inptr[inoffset + idx];
+                    s_inz[idx]        = inptr[2u * inoffset + idx];
+                }
+
+                localBarrier(threadBlock);
+            }
+
+            // The input, staged or in place, and its component stride.
+            const TData *inxy     = isShared ? s_in : inptr;
+            const TData *inz      = isShared ? s_inz : inptr + 2u * inoffset;
+            const size_t instride = isShared ? size_t{nqTot} : inoffset;
+
+            // The third component, df_y/dx - df_x/dy.
+            Curl2DScalarSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                ncoord, nq0, nq1, instride, D0, D1, f0, f1, dfptr, inxy,
+                outptr + 2u * outoffset, threadBlock);
+
+            // The first two components, {df_z/dy, -df_z/dx}.
+            Curl2DVectorSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                ncoord, nq0, nq1, outoffset, D0, D1, f0, f1, dfptr, inz, outptr,
+                threadBlock);
+
+            e += getBlockRange<0>(threadBlock);
         }
-
-        localBarrier(threadBlock);
-
-        // The third component, df_y/dx - df_x/dy.
-        Curl2DScalarSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            ncoord, nq0, nq1, nqTot, D0, D1, f0, f1, dfptr, s_in,
-            outptr + 2u * outoffset, threadBlock);
-
-        // The first two components, {df_z/dy, -df_z/dx}.
-        Curl2DVectorSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            ncoord, nq0, nq1, outoffset, D0, D1, f0, f1, dfptr, s_inz, outptr,
-            threadBlock);
-
-        e += getBlockRange<0>(threadBlock);
-    }
+    });
 }
 
 /**
  * @brief Device entry point of the 3D SumFacTOP kernel: both curls of the
  * operator for every element of the block in one launch.
  *
- * As in 2D, with the shared memory laid out as the element's three input
+ * As in 2D, with shared memory laid out as the element's three input
  * components followed by its three vorticity components, and
- * Curl3DSumFacTOPKernel called twice per element: first from the staged
- * input into the vorticity buffers, with the element size nqTot as both
- * component strides, then from the vorticity buffers into the output,
+ * Curl3DSumFacTOPKernel called twice per element: first from the input,
+ * staged with stride nqTot or in place with stride @p inoffset, into the
+ * vorticity buffers, then from the vorticity buffers into the output,
  * reading the vorticity at nqTot and writing the output at @p inoffset.
  *
  * @tparam SHAPE_TYPE           Element shape.
@@ -960,8 +986,8 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
  * @param   nelmt        Elements in the block, including padding.
  * @param   inoffset     Stride between the components of @p in, also used
  *                       between those of @p out.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- * memory.
+ * @param   useSharedMemoryWsp    Stage the workspace in @p shmemptr rather
+ *                       than in @p wsp.
  * @param   D0           1D derivative matrix of direction 0.
  * @param   D1           1D derivative matrix of direction 1.
  * @param   D2           1D derivative matrix of direction 2.
@@ -976,12 +1002,11 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
  * @param   df           Derivative factors of the block, transposed
  *                       layout.
  * @param   in           Input values of the block, three components.
- * @param   wsp          Global workspace; unused, the vorticity being
- *                       held in shared memory.
+ * @param   wsp          Global workspace, sized by CurlCurlWorkSpaceSize;
+ *                       unused if @p useSharedMemoryWsp.
  * @param   out          Output values of the block, three components.
- * @param   shmemptr     Dynamic shared memory of the thread block, at
- *                       least CurlCurlSharedMemorySize elements of TData:
- *                       six element-sized buffers.
+ * @param   shmemptr     Dynamic shared memory of the thread block, sized
+ *                       by CurlCurlSharedMemorySize.
  * @param   threadBlock  Thread-block handle supplied by the launcher
  *                       macro.
  */
@@ -992,12 +1017,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const size_t inoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
+    const size_t inoffset, const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
     const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, [[maybe_unused]] TData *NEK_RESTRICT wsp,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT wsp,
     TData *NEK_RESTRICT out, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
@@ -1008,48 +1033,62 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
 
     constexpr unsigned int ndf = 9u;
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
-    TData *s_in               = (TData *)shmemptr;
-    TData *s_omega            = s_in + 3u * nqTot;
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
-    while (e < nelmt)
-    {
-        const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * e;
-        TData *outptr      = out + nqTot * e;
 
-        // Copy all three components to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Staged input then omega in shared memory, or omega alone in the
+        // thread block's slice.
+        const size_t iblock = getBlockIdx<0>(threadBlock);
+        TData *s_in         = (TData *)shmemptr;
+        TData *omega = isShared ? s_in + 3u * nqTot : wsp + 3u * nqTot * iblock;
+
+        while (e < nelmt)
         {
-            s_in[idx]              = inptr[idx];
-            s_in[nqTot + idx]      = inptr[inoffset + idx];
-            s_in[2u * nqTot + idx] = inptr[2u * inoffset + idx];
+            const TData *dfptr = df + ndf * dfsize * e;
+            const TData *inptr = in + nqTot * e;
+            TData *outptr      = out + nqTot * e;
+
+            if (isShared)
+            {
+                // Copy all three components to shared memory.
+                for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+                {
+                    s_in[idx]              = inptr[idx];
+                    s_in[nqTot + idx]      = inptr[inoffset + idx];
+                    s_in[2u * nqTot + idx] = inptr[2u * inoffset + idx];
+                }
+
+                localBarrier(threadBlock);
+            }
+
+            // The input, staged or in place, and its component stride.
+            const TData *inbase   = isShared ? s_in : inptr;
+            const size_t instride = isShared ? size_t{nqTot} : inoffset;
+
+            // omega = curl(u)
+            Curl3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                nq0, nq1, nq2, instride, nqTot, D0, D1, D2, f0, f1, f1m, f2,
+                dfptr, inbase, omega, threadBlock);
+
+            // out = curl(omega)
+            Curl3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                nq0, nq1, nq2, nqTot, inoffset, D0, D1, D2, f0, f1, f1m, f2,
+                dfptr, omega, outptr, threadBlock);
+
+            e += getBlockRange<0>(threadBlock);
         }
-
-        localBarrier(threadBlock);
-
-        // omega = curl(u)
-        Curl3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            nq0, nq1, nq2, nqTot, nqTot, D0, D1, D2, f0, f1, f1m, f2, dfptr,
-            s_in, s_omega, threadBlock);
-
-        // out = curl(omega)
-        Curl3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            nq0, nq1, nq2, nqTot, inoffset, D0, D1, D2, f0, f1, f1m, f2, dfptr,
-            s_omega, outptr, threadBlock);
-
-        e += getBlockRange<0>(threadBlock);
-    }
+    });
 }
 
 #endif

@@ -545,14 +545,17 @@ NEK_FORCE_INLINE static unsigned int GetDeviceGridSize(
  * @brief Whether a kernel holds its stage intermediates in shared
  * memory rather than in the global-memory workspace.
  *
- * Always true for SumFacTOP. For SumFac, true when the thread block's
- * share of the workspace fits in the device's shared memory per block
- * and leaves at least `1 / minOccupancyDivisor` of the multiprocessor's
- * threads resident. Always false for the other implementations.
+ * For SumFac, true when the thread block's share of the workspace fits
+ * in the device's shared memory per block and leaves at least
+ * `1 / minOccupancyDivisor` of the multiprocessor's threads resident.
+ * For SumFacTOP, true when the thread block's whole request, workspace
+ * included, fits in the device's shared memory per block. Always false
+ * for the other implementations.
  *
  * @tparam Implementation   Implementation tag.
  *
- * @param   shmemsize   Workspace of one thread block in bytes.
+ * @param   shmemsize   Shared memory of one thread block in bytes with
+ *                      the workspace staged in it.
  *
  * @return Whether to place the workspace in shared memory.
  */
@@ -581,11 +584,39 @@ NEK_FORCE_INLINE static bool UseSharedWorkSpace(const size_t shmemsize)
     }
     else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
     {
-        return true;
+        return shmemsize <= GetDeviceProperties::SharedMemoryPerBlock();
     }
     else
     {
         return false;
+    }
+}
+
+/**
+ * @brief Elements whose workspace the global-memory workspace holds at
+ * once.
+ *
+ * Every element of the block for SumFac. For SumFacTOP one per thread
+ * block, each block reusing its slice for the elements it takes.
+ *
+ * @tparam Implementation   Implementation tag.
+ *
+ * @param   nelmt       Elements in the block, padding included.
+ * @param   gridsize    Thread blocks in the grid's first dimension.
+ *
+ * @return Number of per-element workspaces to allocate per component.
+ */
+template <typename Implementation>
+NEK_FORCE_INLINE static size_t WorkSpaceNumElmts(const size_t nelmt,
+                                                 const unsigned int gridsize)
+{
+    if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
+    {
+        return gridsize;
+    }
+    else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
+    {
+        return nelmt;
     }
 }
 #endif

@@ -791,13 +791,6 @@ protected:
         std::integer_sequence<unsigned int, ind0...>,
         std::integer_sequence<unsigned int, ind1...>)
     {
-        // Get static workspace pointer.
-        const size_t wspSize =
-            PhysTraceExtractWorkSpaceSize<Implementation>(nelmtPad, sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
@@ -806,6 +799,13 @@ protected:
             GetDeviceBlockSize<Implementation>(nTracePts);
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
+
+        // Get static workspace pointer.
+        const size_t wspSize =
+            PhysTraceExtractWorkSpaceSize<Implementation>(nelmtPad, sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
 
         // PhysTraceExtract kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
@@ -1010,6 +1010,17 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Set Kernel parameters.
+        const unsigned int nqTotOut =
+            sizeParam.template nqTotTrace<SHAPE_TYPE>();
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            PhysTraceExtractSharedMemorySize<Implementation>(sizeParam);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nqTotOut);
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
@@ -1021,17 +1032,6 @@ protected:
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int nqTotOut =
-            sizeParam.template nqTotTrace<SHAPE_TYPE>();
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            PhysTraceExtractSharedMemorySize<Implementation>(sizeParam);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(nqTotOut);
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

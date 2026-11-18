@@ -472,16 +472,17 @@ protected:
      * helpers, with the Helmholtz sizing functions supplying this
      * family's per-element requirements unchanged. The global-memory
      * workspace is HelmholtzWorkSpaceSize for the shape and strategy --
-     * zero under SumFacTOP, which stages everything in shared memory --
-     * multiplied by ncomp = GetNumComponents() * GetNumHomoModes(), since
-     * it must hold every component's intermediates at once; the dynamic
-     * shared-memory request is HelmholtzSharedMemorySize, in bytes, and
-     * is not scaled by ncomp. Under SumFac the intermediates go in shared
-     * memory as well when UseSharedWorkSpace() accepts the size
-     * HelmholtzSharedMemorySize gives for one warp of elements; the
-     * global workspace is then zero. Threads per block come from
-     * GetDeviceBlockSize: a warp for SumFac; for SumFacTOP the element's
-     * total mode count rounded up to whole warps and capped at the
+     * every element's intermediates under SumFac, one element's per
+     * thread block under SumFacTOP -- multiplied by ncomp =
+     * GetNumComponents() * GetNumHomoModes(), since it must hold every
+     * component's intermediates at once; the dynamic shared-memory
+     * request is HelmholtzSharedMemorySize, in bytes, and is not scaled
+     * by ncomp. The intermediates go in shared memory instead, and the
+     * global workspace is zero, when UseSharedWorkSpace() accepts the
+     * size HelmholtzSharedMemorySize gives with them staged there: one
+     * warp of elements under SumFac, one element under SumFacTOP. Threads per
+     * block come from GetDeviceBlockSize: a warp for SumFac; for SumFacTOP the
+     * element's total mode count rounded up to whole warps and capped at the
      * default block size. The grid's first dimension comes from
      * GetDeviceGridSize: enough thread blocks for every element under
      * SumFac; under SumFacTOP a persistent, occupancy-based count of
@@ -610,21 +611,6 @@ protected:
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
-        // Get static workspace pointer.
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        const size_t wspSize =
-            useSharedMemoryWsp
-                ? 0
-                : HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      nelmt, m_coordDim, sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
         // Set Kernel parameters.
         const unsigned int shmemsize =
             useSharedMemoryWsp
@@ -637,6 +623,22 @@ protected:
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
+        // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const size_t wspSize =
+            useSharedMemoryWsp
+                ? 0
+                : HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      m_coordDim, sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

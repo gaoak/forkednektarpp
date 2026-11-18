@@ -761,36 +761,42 @@ protected:
             (DEFORMED) ? numDataIn
                        : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
 
-        // Get static workspace pointer. This path covers a single
-        // trace, hence the ntrace of one in two dimensions; in three
-        // the regions are sized per face already.
-        size_t wspSize         = 0;
+        // Set Kernel parameters. This path covers a single trace, hence
+        // the ntrace of one in two dimensions; in three the regions are
+        // sized per face already.
         unsigned int shmemsize = 0;
         if constexpr (IsTraceSizeParameter2D_v<TTraceSizeParameter>)
         {
-            wspSize = IProductWRTPhysTraceWorkSpaceSize<Implementation>(
-                nelmtPad, sizeParam, 1u);
             shmemsize = sizeof(TData) *
                         IProductWRTPhysTraceSharedMemorySize<Implementation>(
                             sizeParam, 1u);
         }
         else
         {
-            wspSize = IProductWRTPhysTraceWorkSpaceSize<Implementation>(
-                nelmtPad, sizeParam);
             shmemsize =
                 sizeof(TData) *
                 IProductWRTPhysTraceSharedMemorySize<Implementation>(sizeParam);
         }
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
-        // Set Kernel parameters.
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
+
+        // Get static workspace pointer, sized for a single trace as above.
+        size_t wspSize = 0;
+        if constexpr (IsTraceSizeParameter2D_v<TTraceSizeParameter>)
+        {
+            wspSize = IProductWRTPhysTraceWorkSpaceSize<Implementation>(
+                nelmtPad, sizeParam, 1u);
+        }
+        else
+        {
+            wspSize = IProductWRTPhysTraceWorkSpaceSize<Implementation>(
+                nelmtPad, sizeParam);
+        }
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
 
         // A deformed Jacobian is packed like the trace field and takes
         // the same offset; a regular one has one slot per trace.
@@ -964,6 +970,15 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Set Kernel parameters.
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTPhysTraceSharedMemorySize<Implementation>(sizeParam);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
@@ -986,15 +1001,6 @@ protected:
         const unsigned int numDataJac =
             (DEFORMED) ? numDataIn
                        : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
-
-        // Set Kernel parameters.
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTPhysTraceSharedMemorySize<Implementation>(sizeParam);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

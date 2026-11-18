@@ -168,22 +168,21 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
     size_t wspsize = 0;
 
     const unsigned int nm0 = sizeParam2D.nm0();
-    const unsigned int nq0 = sizeParam2D.nq0();
     const unsigned int nq1 = sizeParam2D.nq1();
 
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        wspsize = (nq0 * nq1 + nq1) * nelmt;
+        wspsize = (sizeParam2D.nqTot() + nq1) * nelmt;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
-        wspsize = (nq0 * nq1 + std::max(nq1, nm0)) * nelmt;
+        wspsize = (sizeParam2D.nqTot() + std::max(nq1, nm0)) * nelmt;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
     {
         const unsigned int nmTot = sizeParam2D.nmTot();
 
-        wspsize = (nq0 * nq1 + std::max(nq1, nm0) + nmTot) * nelmt;
+        wspsize = (sizeParam2D.nqTot() + std::max(nq1, nm0) + nmTot) * nelmt;
     }
 
     return wspsize;
@@ -227,34 +226,33 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
 
     const unsigned int nm0 = sizeParam3D.nm0();
     const unsigned int nm1 = sizeParam3D.nm1();
-    const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
     const unsigned int nq2 = sizeParam3D.nq2();
 
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        wspsize = (nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+        wspsize = (sizeParam3D.nqTot() + nq1 * nq2 + nq2) * nelmt;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-        wspsize =
-            (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm01) + std::max(nq2, nm0)) *
-            nelmt;
+        wspsize = (sizeParam3D.nqTot() + std::max(nq1 * nq2, nm01) +
+                   std::max(nq2, nm0)) *
+                  nelmt;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
     {
         const unsigned int nmTot = sizeParam3D.nmTot();
         const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm01) +
+        wspsize = (sizeParam3D.nqTot() + std::max(nq1 * nq2, nm01) +
                    std::max(nq2, nm0) + nmTot) *
                   nelmt;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
-        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+        wspsize = (sizeParam3D.nqTot() + std::max(nq1 * nq2, nm0 * nm1) +
                    std::max(nq2, nm0)) *
                   nelmt;
     }
@@ -262,13 +260,13 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
     {
         const unsigned int nmTot = sizeParam3D.nmTot();
 
-        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+        wspsize = (sizeParam3D.nqTot() + std::max(nq1 * nq2, nm0 * nm1) +
                    std::max(nq2, nm0) + nmTot) *
                   nelmt;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+        wspsize = (sizeParam3D.nqTot() + std::max(nq1 * nq2, nm0 * nm1) +
                    std::max(nq2, nm0)) *
                   nelmt;
     }
@@ -276,7 +274,7 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
     {
         const unsigned int nmTot = sizeParam3D.nmTot();
 
-        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+        wspsize = (sizeParam3D.nqTot() + std::max(nq1 * nq2, nm0 * nm1) +
                    std::max(nq2, nm0) + nmTot) *
                   nelmt;
     }
@@ -554,8 +552,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nmTot = sizeParam2D.nmTot();
     const unsigned int nq0   = sizeParam2D.nq0();
     const unsigned int nq1   = sizeParam2D.nq1();
+    const unsigned int nqTot = sizeParam2D.nqTot();
 
-    const unsigned int nqTot   = nq0 * nq1;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     unsigned int wsp0Size = 0;
@@ -727,8 +725,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nq0   = sizeParam3D.nq0();
     const unsigned int nq1   = sizeParam3D.nq1();
     const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
 
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
     unsigned int wsp0Size = 0, wsp1Size = 0;

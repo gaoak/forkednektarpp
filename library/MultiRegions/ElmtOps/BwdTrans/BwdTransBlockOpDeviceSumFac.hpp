@@ -384,8 +384,7 @@ protected:
      *
      * The launch configuration comes from the shared helpers. Dynamic
      * shared memory is BwdTransSharedMemorySize() for the shape and
-     * strategy -- zero under SumFac, which stages nothing in shared
-     * memory. Threads per block come from GetDeviceBlockSize(): a warp
+     * strategy. Threads per block come from GetDeviceBlockSize(): a warp
      * under SumFac, and under SumFacTOP the element's total mode count
      * rounded up to whole warps and capped at the device's default block
      * size. The grid is two-dimensional, its second dimension being the
@@ -395,11 +394,12 @@ protected:
      * device's occupancy, since there a block serves one element at a
      * time. The global-memory workspace is the static per-stream buffer
      * shared by all block operators, sized by BwdTransWorkSpaceSize()
-     * times ncomp -- the stage intermediates under SumFac, and zero
-     * under SumFacTOP, which stages them in shared memory instead. Under
-     * SumFac the intermediates go in shared memory as well when
-     * UseSharedWorkSpace() accepts the size BwdTransSharedMemorySize()
-     * gives for one warp of elements; the global workspace is then zero.
+     * times ncomp -- the stage intermediates of every element under
+     * SumFac, and of one element per thread block under SumFacTOP. They
+     * go in shared memory instead, and the global workspace is zero,
+     * when UseSharedWorkSpace() accepts the size
+     * BwdTransSharedMemorySize() gives with them staged there: one warp
+     * of elements under SumFac, one element under SumFacTOP.
      *
      * The storage for all nelmt * ncomp elements is reshaped once to
      * #m_implInterleaveWidth, a single launch covers every component on
@@ -445,22 +445,6 @@ protected:
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
-        // Get static workspace pointer.
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        const size_t wspSize =
-            useSharedMemoryWsp
-                ? 0
-                : BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt,
-                                                                    sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
-        // Get interleave parameter.
-        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
-        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
         // Set Kernel parameters.
         const unsigned int shmemsize =
             useSharedMemoryWsp
@@ -472,6 +456,23 @@ protected:
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
+        // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const size_t wspSize =
+            useSharedMemoryWsp
+                ? 0
+                : BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
+
+        // Get interleave parameter.
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

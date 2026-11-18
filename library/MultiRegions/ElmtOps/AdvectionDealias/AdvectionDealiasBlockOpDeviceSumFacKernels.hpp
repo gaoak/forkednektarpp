@@ -90,7 +90,7 @@ NEK_HOSTDEVICE_INLINE constexpr size_t AdvectionDealiasWorkSpaceSize(
     const unsigned int nq1Fine =
         (nq0 - nq1 == 1u) ? nq0Fine - 1u : 3u * nq1 / 2u;
 
-    return (ncomp * ncoord * nq0 * nq1 +
+    return (ncomp * ncoord * sizeParam2D.nqTot() +
             (ncoord + ncomp * ncoord + ncomp) * nq0Fine * nq1Fine +
             (nq1 + nq1Fine)) *
            nelmt;
@@ -117,7 +117,7 @@ NEK_HOSTDEVICE_INLINE constexpr size_t AdvectionDealiasWorkSpaceSize(
     const unsigned int nq2Fine =
         (nq0 - nq2 == 1u) ? nq0Fine - 1u : 3u * nq2 / 2u;
 
-    return (ncomp * ncoord * nq0 * nq1 * nq2 +
+    return (ncomp * ncoord * sizeParam3D.nqTot() +
             (ncoord + ncomp * ncoord + ncomp) * nq0Fine * nq1Fine * nq2Fine +
             (nq1 * nq2 + nq1Fine * nq2Fine) + (nq2 + nq2Fine)) *
            nelmt;
@@ -224,10 +224,10 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
 
     const unsigned int coordDim = sizeParam1D.ncoord();
     const unsigned int nq0      = sizeParam1D.nq0();
+    const unsigned int nqTot    = sizeParam1D.nqTot();
     const unsigned int nq0Fine  = 3u * nq0 / 2u;
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    const unsigned int nqTot        = nq0;
     const unsigned int nqTotFine    = nq0Fine;
     const unsigned int dfsize       = DEFORMED ? nqTot : 1u;
 
@@ -347,11 +347,11 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const unsigned int coordDim = sizeParam2D.ncoord();
     const unsigned int nq0      = sizeParam2D.nq0();
     const unsigned int nq1      = sizeParam2D.nq1();
+    const unsigned int nqTot    = sizeParam2D.nqTot();
     const unsigned int nq0Fine  = 3u * nq0 / 2u;
     const unsigned int nq1Fine =
         (nq0 - nq1 == 1u) ? nq0Fine - 1u : 3u * nq1 / 2u;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    const unsigned int nqTot        = nq0 * nq1;
     const unsigned int nqTotFine    = nq0Fine * nq1Fine;
     const unsigned int ndf          = 2u * coordDim;
     const unsigned int dfsize       = DEFORMED ? nqTot : 1u;
@@ -498,6 +498,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const unsigned int nq0     = sizeParam3D.nq0();
     const unsigned int nq1     = sizeParam3D.nq1();
     const unsigned int nq2     = sizeParam3D.nq2();
+    const unsigned int nqTot   = sizeParam3D.nqTot();
     const unsigned int nq0Fine = 3u * nq0 / 2u;
     const unsigned int nq1Fine =
         (nq0 - nq1 == 1u) ? nq0Fine - 1u : 3u * nq1 / 2u;
@@ -505,7 +506,6 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
         (nq0 - nq2 == 1u) ? nq0Fine - 1u : 3u * nq2 / 2u;
     constexpr unsigned int warpsize   = NektarSpaces::Device::warpSize;
     constexpr unsigned int coordDim3D = 3u;
-    const unsigned int nqTot          = nq0 * nq1 * nq2;
     const unsigned int nqTotFine      = nq0Fine * nq1Fine * nq2Fine;
     constexpr unsigned int ndf        = 9u;
     const unsigned int dfsize         = DEFORMED ? nqTot : 1u;

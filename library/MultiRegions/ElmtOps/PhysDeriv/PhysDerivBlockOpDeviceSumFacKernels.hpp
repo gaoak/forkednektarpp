@@ -1223,9 +1223,9 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const unsigned int ncoord = sizeParam2D.ncoord();
     const unsigned int nq0    = sizeParam2D.nq0();
     const unsigned int nq1    = sizeParam2D.nq1();
+    const unsigned int nqTot  = sizeParam2D.nqTot();
 
     const unsigned int ndf    = 2 * ncoord;
-    const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -1329,11 +1329,11 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
-    const unsigned int nq0 = sizeParam2D.nq0();
-    const unsigned int nq1 = sizeParam2D.nq1();
+    const unsigned int nq0   = sizeParam2D.nq0();
+    const unsigned int nq1   = sizeParam2D.nq1();
+    const unsigned int nqTot = sizeParam2D.nqTot();
 
     const unsigned int ndf    = 4u;
-    const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -1441,12 +1441,12 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
 
     constexpr unsigned int ndf = 9u;
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
@@ -1578,12 +1578,12 @@ NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
 
     constexpr unsigned int ndf = 9u;
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
