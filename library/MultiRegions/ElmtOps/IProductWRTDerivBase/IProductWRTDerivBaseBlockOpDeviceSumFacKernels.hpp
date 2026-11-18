@@ -154,7 +154,7 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
     {
         wspsize = nq0 * nelmt;
     }
-    else
+    else if constexpr (IsSizeParameter1D_v<TSizeParameter1D>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Seg)
         {
@@ -201,28 +201,27 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
 {
     size_t wspsize = 0;
 
-    const unsigned int nq0 = sizeParam2D.nq0();
     const unsigned int nq1 = sizeParam2D.nq1();
 
     if constexpr (IsPhysSizeParameter2D_v<TSizeParameter2D>)
     {
-        wspsize = 2 * nq0 * nq1 * nelmt;
+        wspsize = 2 * sizeParam2D.nqTot() * nelmt;
     }
-    else
+    else if constexpr (IsSizeParameter2D_v<TSizeParameter2D>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            wspsize = (3 * nq0 * nq1 + nq1) * nelmt;
+            wspsize = (3 * sizeParam2D.nqTot() + nq1) * nelmt;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            wspsize = (3 * nq0 * nq1 + nq1) * nelmt;
+            wspsize = (3 * sizeParam2D.nqTot() + nq1) * nelmt;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
             const unsigned int nmTot = sizeParam2D.nmTot();
 
-            wspsize = (3 * nq0 * nq1 + nq1 + nmTot) * nelmt;
+            wspsize = (3 * sizeParam2D.nqTot() + nq1 + nmTot) * nelmt;
         }
     }
 
@@ -263,49 +262,51 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
 {
     size_t wspsize = 0;
 
-    const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
     const unsigned int nq2 = sizeParam3D.nq2();
 
     if constexpr (IsPhysSizeParameter3D_v<TSizeParameter3D>)
     {
-        wspsize = 3 * nq0 * nq1 * nq2 * nelmt;
+        wspsize = 3 * sizeParam3D.nqTot() * nelmt;
     }
-    else
+    else if constexpr (IsSizeParameter3D_v<TSizeParameter3D>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+            wspsize = (4 * sizeParam3D.nqTot() + nq1 * nq2 + nq2) * nelmt;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+            wspsize = (4 * sizeParam3D.nqTot() + nq1 * nq2 + nq2) * nelmt;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
             const unsigned int nmTot = sizeParam3D.nmTot();
 
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nmTot) * nelmt;
+            wspsize =
+                (4 * sizeParam3D.nqTot() + nq1 * nq2 + nq2 + nmTot) * nelmt;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+            wspsize = (4 * sizeParam3D.nqTot() + nq1 * nq2 + nq2) * nelmt;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             const unsigned int nmTot = sizeParam3D.nmTot();
 
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nmTot) * nelmt;
+            wspsize =
+                (4 * sizeParam3D.nqTot() + nq1 * nq2 + nq2 + nmTot) * nelmt;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+            wspsize = (4 * sizeParam3D.nqTot() + nq1 * nq2 + nq2) * nelmt;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             const unsigned int nmTot = sizeParam3D.nmTot();
 
-            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nmTot) * nelmt;
+            wspsize =
+                (4 * sizeParam3D.nqTot() + nq1 * nq2 + nq2 + nmTot) * nelmt;
         }
     }
 
@@ -1059,9 +1060,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nmTot = sizeParam2D.nmTot();
     const unsigned int nq0   = sizeParam2D.nq0();
     const unsigned int nq1   = sizeParam2D.nq1();
+    const unsigned int nqTot = sizeParam2D.nqTot();
 
     const unsigned int ndf     = 2 * ncoord;
-    const unsigned int nqTot   = nq0 * nq1;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
@@ -1215,9 +1216,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int ncoord = sizeParam2D.ncoord();
     const unsigned int nq0    = sizeParam2D.nq0();
     const unsigned int nq1    = sizeParam2D.nq1();
+    const unsigned int nqTot  = sizeParam2D.nqTot();
 
     const unsigned int ndf     = 2 * ncoord;
-    const unsigned int nqTot   = nq0 * nq1;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
@@ -1392,9 +1393,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nq0   = sizeParam3D.nq0();
     const unsigned int nq1   = sizeParam3D.nq1();
     const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
 
     constexpr unsigned int ndf = 9u;
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
@@ -1586,12 +1587,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
 
     constexpr unsigned int ndf = 9u;
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 

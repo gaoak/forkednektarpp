@@ -455,21 +455,6 @@ protected:
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
-        // Get static workspace pointer.
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        const size_t wspSize =
-            useSharedMemoryWsp
-                ? 0
-                : LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      nelmt, m_coordDim, sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
         // Set Kernel parameters.
         const unsigned int shmemsize =
             useSharedMemoryWsp
@@ -482,6 +467,22 @@ protected:
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
+        // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const size_t wspSize =
+            useSharedMemoryWsp
+                ? 0
+                : LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      m_coordDim, sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

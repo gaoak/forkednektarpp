@@ -497,6 +497,16 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Set Kernel parameters.
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTPhysNormalDerivTraceSharedMemorySize<SHAPE_TYPE>(
+                sizeParam);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<MultiRegions::SumFac>(sizeParam.nmMax());
+        const unsigned int gridsize = GetDeviceGridSize<MultiRegions::SumFac>(
+            nelmtPad, blocksize, shmemsize);
+
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
@@ -519,16 +529,6 @@ protected:
             (DEFORMED) ? numDataIn
                        : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
         const size_t jacCompStride = nelmtPad * numDataJac;
-
-        // Set Kernel parameters.
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTPhysNormalDerivTraceSharedMemorySize<SHAPE_TYPE>(
-                sizeParam);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<MultiRegions::SumFac>(sizeParam.nmMax());
-        const unsigned int gridsize = GetDeviceGridSize<MultiRegions::SumFac>(
-            nelmtPad, blocksize, shmemsize);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

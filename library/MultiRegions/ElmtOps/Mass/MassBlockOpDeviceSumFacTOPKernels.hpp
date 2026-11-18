@@ -69,9 +69,13 @@
  * metric-free form, the one that expects its input to carry the metric
  * already.
  *
- * The MassSharedMemorySize overloads here return what that staging costs;
- * the MassWorkSpaceSize overloads return 0, since no kernel here touches
- * the global workspace.
+ * The basis tables always go in shared memory. The per-element regions --
+ * the coefficients, the physical values and the stage scratch -- form the
+ * workspace: with useSharedMemoryWsp in shared memory after the basis data,
+ * aligned, row-padded and with a padded inner-product input of its own
+ * (MassSharedWorkSpaceSize), else packed and unpadded in the thread block's
+ * slice of the global-memory workspace (MassWorkSpaceSize).
+ * MassSharedMemorySize returns what the shared staging costs.
  */
 
 #pragma once
@@ -88,23 +92,102 @@ namespace Nektar::MultiRegions::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 /**
- * @brief Global-memory workspace a 1D SumFacTOP mass launch needs, in
- * TData values: none.
- *
- * SumFacTOP holds every intermediate in shared memory, so this and the
- * 2D and 3D overloads all return 0. The block implementation queries
- * them along the same path as for SumFac and simply ends up with an
- * empty workspace (see MassBlockOpDeviceSumFac.hpp).
+ * @brief Unpadded size of the first stage scratch of a 2D or 3D SumFacTOP
+ * mass launch, in TData values: what the transform's first intermediate
+ * needs, or for the quadrilateral and hexahedron the larger of what the two
+ * stages ask of it.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int MassStage0Size(
+    const TSizeParameter sizeParam)
+{
+    const unsigned int nm0 = sizeParam.nm0();
+    const unsigned int nm1 = sizeParam.nm1();
+    const unsigned int nq0 = sizeParam.nq0();
+    const unsigned int nq1 = sizeParam.nq1();
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        return (nm0 * nq1 > nm1 * nq0) ? nm0 * nq1 : nm1 * nq0;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        return nm0 * nq1;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        const unsigned int nm2 = sizeParam.nm2();
+        const unsigned int nq2 = sizeParam.nq2();
+        return (nq0 * nm1 * nm2 > nm0 * nq1 * nq2) ? nq0 * nm1 * nm2
+                                                   : nm0 * nq1 * nq2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                       SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        return (2u * nm1 - nm0 + 1u) * nm0 / 2u * sizeParam.nq2();
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism ||
+                       SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        return nm0 * nm1 * sizeParam.nq2();
+    }
+}
+
+/**
+ * @brief Unpadded size of the second stage scratch of a 3D SumFacTOP mass
+ * launch, in TData values, as MassStage0Size; 2D launches have none.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int MassStage1Size(
+    const TSizeParameter sizeParam)
+{
+    if constexpr (IsSizeParameter2D_v<TSizeParameter>)
+    {
+        return 0u;
+    }
+    else if constexpr (IsSizeParameter3D_v<TSizeParameter>)
+    {
+        const unsigned int nm0 = sizeParam.nm0();
+        const unsigned int nm1 = sizeParam.nm1();
+        const unsigned int nm2 = sizeParam.nm2();
+        const unsigned int nq0 = sizeParam.nq0();
+        const unsigned int nq1 = sizeParam.nq1();
+        const unsigned int nq2 = sizeParam.nq2();
+
+        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+        {
+            return (nq0 * nq1 * nm2 > nm0 * nm1 * nq2) ? nq0 * nq1 * nm2
+                                                       : nm0 * nm1 * nq2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                           SHAPE_TYPE == LibUtilities::NodalTet ||
+                           SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism ||
+                           SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
+        {
+            return nm0 * nq1 * nq2;
+        }
+    }
+}
+
+/**
+ * @brief Global workspace a 1D SumFacTOP mass launch needs, in TData values:
+ * the element's nq0 physical values per thread block.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
  * @tparam Implementation    MultiRegions::SumFacTOP; the SumFac overload
  *                           lives in MassBlockOpDeviceSumFacKernels.hpp.
  * @tparam TSizeParameter1D  1D size parameter (see ElmtHelper.hpp).
  *
- * @param   nelmt        Elements in the block, padding included.
+ * @param   nelmt        Elements whose workspace is held at once: one per
+ *                       thread block (see WorkSpaceNumElmts).
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
  *
- * @return 0.
+ * @return Number of TData values.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
@@ -112,41 +195,102 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                                IsSizeParameter1D_v<TSizeParameter1D>,
                            bool>
               Enable = true>
-inline constexpr size_t MassWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TSizeParameter1D sizeParam1D)
+NEK_HOSTDEVICE_INLINE constexpr size_t MassWorkSpaceSize(
+    const size_t nelmt, const TSizeParameter1D sizeParam1D)
 {
-    return 0;
+    return sizeParam1D.nq0() * nelmt;
 }
 
-/// @brief Global-memory workspace a 2D SumFacTOP mass launch needs:
-/// none, for the reason given in the 1D overload.
+/**
+ * @brief Global workspace a 2D SumFacTOP mass launch needs, in TData values.
+ *
+ * Per thread block, the regions the 2D MassKernelLauncher lays out in global
+ * memory, packed and unpadded: the element's nmTot coefficients, its
+ * nq0 * nq1 physical values, which are also the inner product's input, and
+ * the stage scratch of MassStage0Size.
+ *
+ * @tparam SHAPE_TYPE        Quad, Tri or NodalTri.
+ * @tparam Implementation    MultiRegions::SumFacTOP.
+ * @tparam TSizeParameter2D  2D size parameter (see ElmtHelper.hpp).
+ *
+ * @param   nelmt        Elements whose workspace is held at once: one per
+ *                       thread block (see WorkSpaceNumElmts).
+ * @param   sizeParam2D  Modal and quadrature sizes per direction.
+ *
+ * @return Number of TData values.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter2D_v<TSizeParameter2D>,
                            bool>
               Enable = true>
-inline constexpr size_t MassWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TSizeParameter2D sizeParam2D)
+NEK_HOSTDEVICE_INLINE constexpr size_t MassWorkSpaceSize(
+    const size_t nelmt, const TSizeParameter2D sizeParam2D)
 {
-    return 0;
+    return (sizeParam2D.nmTot() + sizeParam2D.nqTot() +
+            MassStage0Size<SHAPE_TYPE>(sizeParam2D)) *
+           nelmt;
 }
 
-/// @brief Global-memory workspace a 3D SumFacTOP mass launch needs:
-/// none, for the reason given in the 1D overload.
+/**
+ * @brief Global workspace a 3D SumFacTOP mass launch needs, in TData values.
+ *
+ * As in 2D, with the two stage scratch areas of MassStage0Size and
+ * MassStage1Size.
+ *
+ * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                           NodalPyr.
+ * @tparam Implementation    MultiRegions::SumFacTOP.
+ * @tparam TSizeParameter3D  3D size parameter (see ElmtHelper.hpp).
+ *
+ * @param   nelmt        Elements whose workspace is held at once: one per
+ *                       thread block (see WorkSpaceNumElmts).
+ * @param   sizeParam3D  Modal and quadrature sizes per direction.
+ *
+ * @return Number of TData values.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter3D_v<TSizeParameter3D>,
                            bool>
               Enable = true>
-inline constexpr size_t MassWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TSizeParameter3D sizeParam3D)
+NEK_HOSTDEVICE_INLINE constexpr size_t MassWorkSpaceSize(
+    const size_t nelmt, const TSizeParameter3D sizeParam3D)
 {
-    return 0;
+    return (sizeParam3D.nmTot() + sizeParam3D.nqTot() +
+            MassStage0Size<SHAPE_TYPE>(sizeParam3D) +
+            MassStage1Size<SHAPE_TYPE>(sizeParam3D)) *
+           nelmt;
+}
+
+/**
+ * @brief One element's 2D or 3D workspace when staged in shared memory, in
+ * TData values: the regions of MassWorkSpaceSize, each 16-byte aligned, with
+ * the inner product's padded input as a region of its own and its row
+ * padding added to each stage scratch.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TData, typename TSizeParameter,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int MassSharedWorkSpaceSize(
+    const TSizeParameter sizeParam)
+{
+    const unsigned int wspPadSize =
+        IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam);
+    const unsigned int wsp1Size = MassStage1Size<SHAPE_TYPE>(sizeParam);
+
+    return SharedMemoryAlignedSize<TData>(sizeParam.nmTot()) +
+           SharedMemoryAlignedSize<TData>(sizeParam.nqTot()) +
+           SharedMemoryAlignedSize<TData>(
+               IProductWRTBasePaddedInputSize<TData>(sizeParam)) +
+           SharedMemoryAlignedSize<TData>(
+               MassStage0Size<SHAPE_TYPE>(sizeParam) + wspPadSize) +
+           (IsSizeParameter3D_v<TSizeParameter>
+                ? SharedMemoryAlignedSize<TData>(wsp1Size + wspPadSize)
+                : 0u);
 }
 
 /**
@@ -154,9 +298,8 @@ inline constexpr size_t MassWorkSpaceSize(
  * TData values.
  *
  * The 1D MassKernelLauncher stages one region only, the element's nq0
- * physical values; this returns twice that, so nq0 values of the request
- * go unused. They still enter the occupancy heuristic of
- * GetDeviceGridSize.
+ * physical values, which form its workspace; with @p useSharedMemoryWsp
+ * that is the request, else nothing.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
  * @tparam Implementation    MultiRegions::SumFacTOP.
@@ -164,8 +307,7 @@ inline constexpr size_t MassWorkSpaceSize(
  * @tparam TSizeParameter1D  1D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- *                       memory.
+ * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared memory per thread block, in TData values.
  */
@@ -176,25 +318,19 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter1D sizeParam1D,
-    [[maybe_unused]] const bool useSharedMemoryWsp)
+    const TSizeParameter1D sizeParam1D, const bool useSharedMemoryWsp)
 {
-    const unsigned int nq0 = sizeParam1D.nq0();
-
-    return 2 * nq0;
+    return useSharedMemoryWsp ? sizeParam1D.nq0() : 0u;
 }
 
 /**
  * @brief Dynamic shared memory a 2D SumFacTOP mass launch requests, in
  * TData values.
  *
- * The sum of the regions the 2D MassKernelLauncher lays out: the element's
- * nmTot coefficients, its nq0 * nq1 physical values, the scratch the two
- * stages share -- max(nq0 * nm1, nm0 * nq1) for the quadrilateral,
- * nm0 * nq1 for the triangles -- and copies of both basis tables, the
- * direction-1 table having nmTot rows for the triangles because its rows
- * are indexed by the combined mode. IProductWRTBaseFusedSharedMemoryPadding
- * adds the inner product's padded rows and the regions' alignment.
+ * The copies of both basis tables, the direction-1 table having nmTot rows
+ * for the triangles because its rows are indexed by the combined mode,
+ * rounded to 16 bytes; with @p useSharedMemoryWsp one element's workspace as
+ * MassSharedWorkSpaceSize gives it follows.
  *
  * @tparam SHAPE_TYPE        Quad, Tri or NodalTri.
  * @tparam Implementation    MultiRegions::SumFacTOP.
@@ -203,8 +339,7 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @tparam TSizeParameter2D  2D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Modal and quadrature sizes per direction.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- *                       memory.
+ * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared memory per thread block, in TData values.
  */
@@ -215,29 +350,29 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter2D sizeParam2D,
-    [[maybe_unused]] const bool useSharedMemoryWsp)
+    const TSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
 {
-    // Padded rows of the inner product's input and intermediate stages.
-    const unsigned int pad =
-        IProductWRTBaseFusedSharedMemoryPadding<SHAPE_TYPE, Implementation,
-                                                TData>(sizeParam2D, 0u, false);
-
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
     const unsigned int nmTot = sizeParam2D.nmTot();
     const unsigned int nq0   = sizeParam2D.nq0();
     const unsigned int nq1   = sizeParam2D.nq1();
 
+    const unsigned int wspSize =
+        useSharedMemoryWsp
+            ? MassSharedWorkSpaceSize<SHAPE_TYPE, Implementation, TData>(
+                  sizeParam2D)
+            : 0u;
+
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        return pad + nm0 * nq0 + nm1 * nq1 + nmTot + nq0 * nq1 +
-               std::max(nq0 * nm1, nm0 * nq1);
+        return SharedMemoryAlignedSize<TData>(nm0 * nq0 + nm1 * nq1) + wspSize;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        return pad + nm0 * nq0 + nmTot * nq1 + nmTot + nq0 * nq1 + nm0 * nq1;
+        return SharedMemoryAlignedSize<TData>(nm0 * nq0 + nmTot * nq1) +
+               wspSize;
     }
 }
 
@@ -245,10 +380,11 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @brief Dynamic shared memory a 3D SumFacTOP mass launch requests, in
  * TData values.
  *
- * As in 2D, with three basis tables and two shared scratch areas. For the
- * hexahedron each area is the maximum of what the two stages ask of it.
- * For the collapsed shapes the two areas are sized to the transform's two
- * demands exactly and the inner product reuses them in the opposite order
+ * As in 2D, with three basis tables and two scratch areas in the
+ * workspace. For the hexahedron each area is the maximum of what the two
+ * stages ask of it. For the collapsed shapes the two areas are sized to the
+ * transform's two demands exactly and the inner product reuses them in the
+ * opposite order
  * -- its first stage fills the area the transform's second stage filled --
  * which is why the 3D MassKernelLauncher passes them to the inner-product
  * shape kernel with the two arguments swapped. The direction-2 table is
@@ -264,8 +400,7 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @tparam TSizeParameter3D  3D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Modal and quadrature sizes per direction.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- *                       memory.
+ * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared memory per thread block, in TData values.
  */
@@ -276,14 +411,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter3D sizeParam3D,
-    [[maybe_unused]] const bool useSharedMemoryWsp)
+    const TSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
 {
-    // Padded rows of the inner product's input and intermediate stages.
-    const unsigned int pad =
-        IProductWRTBaseFusedSharedMemoryPadding<SHAPE_TYPE, Implementation,
-                                                TData>(sizeParam3D, 0u, false);
-
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
     const unsigned int nm2   = sizeParam3D.nm2();
@@ -292,11 +421,17 @@ inline constexpr unsigned int MassSharedMemorySize(
     const unsigned int nq1   = sizeParam3D.nq1();
     const unsigned int nq2   = sizeParam3D.nq2();
 
+    const unsigned int wspSize =
+        useSharedMemoryWsp
+            ? MassSharedWorkSpaceSize<SHAPE_TYPE, Implementation, TData>(
+                  sizeParam3D)
+            : 0u;
+
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        return pad + nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nmTot +
-               nq0 * nq1 * nq2 + std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2) +
-               std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2);
+        return SharedMemoryAlignedSize<TData>(nm0 * nq0 + nm1 * nq1 +
+                                              nm2 * nq2) +
+               wspSize;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
@@ -304,23 +439,26 @@ inline constexpr unsigned int MassSharedMemorySize(
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        return pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nmTot +
-               nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2;
+        return SharedMemoryAlignedSize<TData>(nm0 * nq0 + nm01 * nq1 +
+                                              nmode2 * nq2) +
+               wspSize;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-        return pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nmTot +
-               nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+        return SharedMemoryAlignedSize<TData>(nm0 * nq0 + nm1 * nq1 +
+                                              nm02 * nq2) +
+               wspSize;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
                        SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        return pad + nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nmTot +
-               nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+        return SharedMemoryAlignedSize<TData>(nm0 * nq0 + nm1 * nq1 +
+                                              nmode2 * nq2) +
+               wspSize;
     }
 }
 
@@ -337,9 +475,9 @@ inline constexpr unsigned int MassSharedMemorySize(
  *
  * Enabled only for the SumFacTOP tag, so the SumFac overload of the same
  * name (MassBlockOpDeviceSumFacKernels.hpp) never competes for the call; a
- * static_assert then rejects anything but a 1D size parameter. The @p wsp
- * argument is accepted, so that both strategies' launchers take the same
- * argument list, and ignored.
+ * static_assert then rejects anything but a 1D size parameter. The staged
+ * physical values go in @p shmemptr with @p useSharedMemoryWsp, else in the
+ * thread block's slice of @p wsp.
  *
  * @tparam SHAPE_TYPE       Seg.
  * @tparam Implementation   MultiRegions::SumFacTOP.
@@ -355,8 +493,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @param   sizeParam1D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A; unused in 1D.
- * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
- * memory.
+ * @param   useSharedMemoryWsp   Stage the workspace in @p shmemptr rather
+ *                      than in @p wsp.
  * @param   basis0      Basis table (nm0 rows of nq0).
  * @param   w0          Quadrature weights.
  * @param   nodToMod    Nodal-to-modal matrix; unused in 1D.
@@ -366,7 +504,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @param   out         Block's coefficients, every component back to
  *                      back; this thread block's own component is c,
  *                      overwritten, or accumulated into when APPEND.
- * @param   wsp         Global workspace; unused.
+ * @param   wsp         Global workspace, sized by MassWorkSpaceSize times
+ *                      ncomp; unused if @p useSharedMemoryWsp.
  * @param   scale       Factor applied when @p SCALE is set.
  * @param   shmemptr    Dynamic shared-memory base, sized by
  *                      MassSharedMemorySize.
@@ -381,15 +520,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     MassKernelLauncher(const TSizeParameter1D sizeParam1D, const size_t nelmt,
                        [[maybe_unused]] const bool isModified,
-                       [[maybe_unused]] const bool useSharedMemoryWsp,
+                       const bool useSharedMemoryWsp,
                        const TData *NEK_RESTRICT basis0,
                        const TData *NEK_RESTRICT w0,
                        [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
                        const TData *NEK_RESTRICT jac,
                        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-                       [[maybe_unused]] TData *NEK_RESTRICT wsp,
-                       const TData scale, unsigned char *shmemptr,
-                       const TthreadBlock &threadBlock)
+                       TData *NEK_RESTRICT wsp, const TData scale,
+                       unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
                   "Template argument must be either of type "
@@ -402,39 +540,45 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
-    TData *bwd = (TData *)shmemptr;
-
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nm0 * nelmt * c + nm0 * e;
-        TData *outptr       = out + nm0 * nelmt * c + nm0 * e;
-        BwdTransSegSumFacTOPKernel<false>(nm0, nq0, basis0, inptr, bwd,
-                                          threadBlock);
 
-        for (unsigned int i = idx0; i < nq0; i += stride)
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Workspace: shared memory, or the thread block's slice.
+        const size_t iblock =
+            getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
+        TData *bwd = isShared ? (TData *)shmemptr : wsp + nq0 * iblock;
+
+        while (e < nelmt)
         {
-            if constexpr (DEFORMED)
+            const TData *jacptr = jac + jacsize * e;
+            const TData *inptr  = in + nm0 * nelmt * c + nm0 * e;
+            TData *outptr       = out + nm0 * nelmt * c + nm0 * e;
+            BwdTransSegSumFacTOPKernel<false>(nm0, nq0, basis0, inptr, bwd,
+                                              threadBlock);
+
+            for (unsigned int i = idx0; i < nq0; i += stride)
             {
-                bwd[i] *= jacptr[i] * w0[i];
+                if constexpr (DEFORMED)
+                {
+                    bwd[i] *= jacptr[i] * w0[i];
+                }
+                else
+                {
+                    bwd[i] *= jacptr[0] * w0[i];
+                }
             }
-            else
-            {
-                bwd[i] *= jacptr[0] * w0[i];
-            }
+
+            localBarrier(threadBlock);
+
+            IProductWRTBaseSegSumFacTOPKernel<SCALE, APPEND>(
+                nm0, nq0, basis0, bwd, outptr, scale, threadBlock);
+            e += getBlockRange<0>(threadBlock);
         }
-
-        localBarrier(threadBlock);
-
-        IProductWRTBaseSegSumFacTOPKernel<SCALE, APPEND>(
-            nm0, nq0, basis0, bwd, outptr, scale, threadBlock);
-        e += getBlockRange<0>(threadBlock);
-    }
+    });
 }
 
 /**
@@ -443,14 +587,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * elements, transforms and integrates one quadrilateral or triangle at a
  * time.
  *
- * The shared-memory regions are carved out in the order s_modal (the element's
- * coefficients), bwd (its physical values), the inner product's padded
- * input, the shared stage scratch, then the two basis tables, which the thread
- * block copies in once before the element loop. Per element the coefficients
+ * The two basis tables go first in shared memory, copied in once before the
+ * element loop. The workspace is carved out in the order modal (the
+ * element's coefficients), bwd (its physical values), the inner product's
+ * padded input, then the stage scratch: after the basis data, 16-byte aligned,
+ * with @p useSharedMemoryWsp, else packed and unpadded, without the padded
+ * input, in the thread block's slice of @p wsp. Per element the coefficients
  * are staged -- through the nodal-to-modal matrix for a nodal triangle --
  * transformed, multiplied by the weights of both directions and the Jacobian,
  * and integrated back; for a nodal triangle the inner product writes into
- * s_modal and the transposed nodal mapping produces the output.
+ * modal and the transposed nodal mapping produces the output.
  *
  * @tparam SHAPE_TYPE       Quad, Tri or NodalTri.
  * @tparam Implementation   MultiRegions::SumFacTOP.
@@ -466,8 +612,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam2D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
- * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
- * memory.
+ * @param   useSharedMemoryWsp   Stage the workspace in @p shmemptr rather
+ *                      than in @p wsp.
  * @param   index0      Table giving p for each flat (p,q) mode of the
  *                      triangles, read by the inner-product shape kernel;
  *                      unused for the quadrilateral.
@@ -481,7 +627,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   out         Block's coefficients, every component back to
  *                      back; this thread block's own component is c,
  *                      overwritten, or accumulated into when APPEND.
- * @param   wsp         Global workspace; unused.
+ * @param   wsp         Global workspace, sized by MassWorkSpaceSize times
+ *                      ncomp; unused if @p useSharedMemoryWsp.
  * @param   scale       Factor applied when @p SCALE is set.
  * @param   shmemptr    Dynamic shared-memory base, sized by
  *                      MassSharedMemorySize.
@@ -494,16 +641,18 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-    MassKernelLauncher(
-        const TSizeParameter2D sizeParam2D, const size_t nelmt,
-        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
-        const unsigned int *NEK_RESTRICT index0,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    MassKernelLauncher(const TSizeParameter2D sizeParam2D, const size_t nelmt,
+                       const bool isModified, const bool useSharedMemoryWsp,
+                       const unsigned int *NEK_RESTRICT index0,
+                       const TData *NEK_RESTRICT basis0,
+                       const TData *NEK_RESTRICT basis1,
+                       const TData *NEK_RESTRICT w0,
+                       const TData *NEK_RESTRICT w1,
+                       const TData *NEK_RESTRICT nodToMod,
+                       const TData *NEK_RESTRICT jac,
+                       const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+                       TData *NEK_RESTRICT wsp, const TData scale,
+                       unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -518,47 +667,27 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nmTot = sizeParam2D.nmTot();
     const unsigned int nq0   = sizeParam2D.nq0();
     const unsigned int nq1   = sizeParam2D.nq1();
+    const unsigned int nqTot = sizeParam2D.nqTot();
 
-    const unsigned int nqTot   = nq0 * nq1;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int wsp0Size{0}, nmode0{0}, nmode1{0};
+    unsigned int nmode0{0}, nmode1{0};
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        wsp0Size = std::max(nm0 * nq1, nm1 * nq0);
-        nmode0   = nm0;
-        nmode1   = nm1;
+        nmode0 = nm0;
+        nmode1 = nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        wsp0Size = nm0 * nq1;
-        nmode0   = nm0;
-        nmode1   = nmTot;
+        nmode0 = nm0;
+        nmode1 = nmTot;
     }
 
-    // Rows of the inner product's input and intermediate stages are padded
-    // to SharedMemoryRowStride and IProductWRTBaseStageStride, sized by
-    // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
-    // 16-byte aligned.
-    // The padded input has its own region.
-    wsp0Size += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
+    const unsigned int basisDataSize = nmode0 * nq0 + nmode1 * nq1;
+    TData *s_basis0                  = (TData *)shmemptr;
+    TData *s_basis1                  = s_basis0 + nmode0 * nq0;
 
-    TData *s_modal = (TData *)shmemptr;
-    TData *bwd     = s_modal + SharedMemoryAlignedSize<TData>(nmTot);
-    TData *s_ipb   = bwd + SharedMemoryAlignedSize<TData>(nqTot);
-    TData *s_wsp0 =
-        s_ipb + SharedMemoryAlignedSize<TData>(
-                    IProductWRTBasePaddedInputSize<TData>(sizeParam2D));
-    TData *s_basis0 = s_wsp0 + SharedMemoryAlignedSize<TData>(wsp0Size);
-    TData *s_basis1 = s_basis0 + nmode0 * nq0;
-
-    // Input of the inner product: the weighted values, in padded rows when
-    // the rows need padding.
-    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
-    TData *ipb             = ldi == nq0 ? bwd : s_ipb;
-
-    // Copy to shared memory.
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
@@ -568,59 +697,94 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
-        TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
-        if constexpr (isNodal)
-        {
-            // Nodal to Modal in shared memory.
-            MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, s_modal, threadBlock);
-        }
-        else
-        {
-            // Copy to shared memory.
-            LoadToSharedMemory(nmTot, inptr, s_modal, threadBlock);
-            localBarrier(threadBlock);
-        }
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // In shared memory the inner product's input and stage rows are
+        // padded to SharedMemoryRowStride and IProductWRTBaseStageStride,
+        // the padded input has its own region, and every region starts
+        // 16-byte aligned, as MassSharedWorkSpaceSize sizes them; in global
+        // memory the regions are packed and unpadded, as MassWorkSpaceSize
+        // sizes them.
+        constexpr bool padInput = decltype(isShared)::value;
 
-        BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, false>(
-            nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1, s_modal,
-            bwd, s_wsp0, threadBlock);
+        // Workspace: after the basis data, or the thread block's slice.
+        const size_t iblock =
+            getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
+        const unsigned int ldi =
+            padInput ? SharedMemoryRowStride<TData>(nq0) : nq0;
 
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        TData *modal =
+            isShared ? s_basis0 + SharedMemoryAlignedSize<TData>(basisDataSize)
+                     : wsp + MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                                 1u, sizeParam2D) *
+                                 iblock;
+        TData *bwd =
+            modal + (isShared ? SharedMemoryAlignedSize<TData>(nmTot) : nmTot);
+        TData *padded =
+            bwd + (isShared ? SharedMemoryAlignedSize<TData>(nqTot) : nqTot);
+        TData *wsp0 =
+            isShared
+                ? padded +
+                      SharedMemoryAlignedSize<TData>(
+                          IProductWRTBasePaddedInputSize<TData>(sizeParam2D))
+                : padded;
+        TData *ipb = ldi == nq0 ? bwd : padded;
+
+        while (e < nelmt)
         {
-            const unsigned int i = idx % nq0;
-            const unsigned int j = idx / nq0;
-            if constexpr (DEFORMED)
+            const TData *jacptr = jac + jacsize * e;
+            const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
+            TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
+
+            if constexpr (isNodal)
             {
-                ipb[ldi * j + i] = bwd[idx] * (jacptr[idx] * w0[i] * w1[j]);
+                // Nodal to Modal in the workspace.
+                MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, modal,
+                                      threadBlock);
             }
             else
             {
-                ipb[ldi * j + i] = bwd[idx] * (jacptr[0] * w0[i] * w1[j]);
+                // Copy to the workspace.
+                LoadToSharedMemory(nmTot, inptr, modal, threadBlock);
+                localBarrier(threadBlock);
             }
+
+            BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, false>(
+                nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1,
+                modal, bwd, wsp0, threadBlock);
+
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+            {
+                const unsigned int i = idx % nq0;
+                const unsigned int j = idx / nq0;
+                if constexpr (DEFORMED)
+                {
+                    ipb[ldi * j + i] = bwd[idx] * (jacptr[idx] * w0[i] * w1[j]);
+                }
+                else
+                {
+                    ipb[ldi * j + i] = bwd[idx] * (jacptr[0] * w0[i] * w1[j]);
+                }
+            }
+
+            localBarrier(threadBlock);
+
+            IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, SCALE,
+                                             APPEND && !isNodal, padInput>(
+                nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
+                s_basis1, ipb, isNodal ? modal : outptr, wsp0, scale,
+                threadBlock);
+
+            if constexpr (isNodal)
+            {
+                // Multiply by transpose nodToMod to transform coeffs.
+                MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, modal,
+                                                    outptr, threadBlock);
+            }
+
+            e += getBlockRange<0>(threadBlock);
         }
-
-        localBarrier(threadBlock);
-
-        IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, SCALE, APPEND && !isNodal,
-                                         true>(
-            nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-            s_basis1, ipb, isNodal ? s_modal : outptr, s_wsp0, scale,
-            threadBlock);
-
-        if constexpr (isNodal)
-        {
-            // Multiply by transpose nodToMod to transform coeffs.
-            MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, s_modal,
-                                                outptr, threadBlock);
-        }
-
-        e += getBlockRange<0>(threadBlock);
-    }
+    });
 }
 
 /**
@@ -628,7 +792,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * size parameter and, striding the device block over the block's
  * elements, transforms and integrates one element at a time.
  *
- * As in 2D, with three basis tables and two shared scratch areas. The two
+ * As in 2D, with three basis tables and two scratch areas. The two
  * areas are handed to the inner-product shape kernel in the reverse order
  * for the collapsed shapes, because there each area is sized for exactly
  * one of the transform's two intermediates and the inner product's two
@@ -650,8 +814,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam3D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
- * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
- * memory.
+ * @param   useSharedMemoryWsp   Stage the workspace in @p shmemptr rather
+ *                      than in @p wsp.
  * @param   index0,index1,index2,index3   Mode-index tables of the
  *                      collapsed shapes; which of them a shape's two
  *                      kernels read follows from the calls below, and
@@ -666,7 +830,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   out         Block's coefficients, every component back to
  *                      back; this thread block's own component is c,
  *                      overwritten, or accumulated into when APPEND.
- * @param   wsp         Global workspace; unused.
+ * @param   wsp         Global workspace, sized by MassWorkSpaceSize times
+ *                      ncomp; unused if @p useSharedMemoryWsp.
  * @param   scale       Factor applied when @p SCALE is set.
  * @param   shmemptr    Dynamic shared-memory base, sized by
  *                      MassSharedMemorySize.
@@ -681,7 +846,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     MassKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
-        const bool isModified, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const bool isModified, const bool useSharedMemoryWsp,
         const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
@@ -691,8 +856,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData scale,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        TData *NEK_RESTRICT wsp, const TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
                   "Template argument must be either of type "
@@ -711,74 +876,47 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nq0   = sizeParam3D.nq0();
     const unsigned int nq1   = sizeParam3D.nq1();
     const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
 
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int wsp0Size{0}, wsp1Size{0}, nmode0{0}, nmode1{0}, nmode2{0};
+    const unsigned int wsp0Size = MassStage0Size<SHAPE_TYPE>(sizeParam3D);
+
+    unsigned int nmode0{0}, nmode1{0}, nmode2{0};
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        wsp0Size = std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
-        wsp1Size = std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2);
-        nmode0   = nm0;
-        nmode1   = nm1;
-        nmode2   = nm2;
+        nmode0 = nm0;
+        nmode1 = nm1;
+        nmode2 = nm2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        wsp0Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
-        wsp1Size = nm0 * nq1 * nq2;
-        nmode0   = nm0;
-        nmode1   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        nmode0 = nm0;
+        nmode1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        wsp0Size = nm0 * nm1 * nq2;
-        wsp1Size = nm0 * nq1 * nq2;
-        nmode0   = nm0;
-        nmode1   = nm1;
-        nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        nmode0 = nm0;
+        nmode1 = nm1;
+        nmode2 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
                        SHAPE_TYPE == LibUtilities::NodalPyr)
     {
-        wsp0Size = nm0 * nm1 * nq2;
-        wsp1Size = nm0 * nq1 * nq2;
-        nmode0   = nm0;
-        nmode1   = nm1;
-        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        nmode0 = nm0;
+        nmode1 = nm1;
+        nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
-    // Rows of the inner product's input and intermediate stages are padded
-    // to SharedMemoryRowStride and IProductWRTBaseStageStride, sized by
-    // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
-    // 16-byte aligned.
-    // The padded input has its own region.
-    const unsigned int wspPadSize =
-        IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
-    wsp0Size += wspPadSize;
-    wsp1Size += wspPadSize;
-
-    TData *s_modal = (TData *)shmemptr;
-    TData *bwd     = s_modal + SharedMemoryAlignedSize<TData>(nmTot);
-    TData *s_ipb   = bwd + SharedMemoryAlignedSize<TData>(nqTot);
-    TData *s_wsp0 =
-        s_ipb + SharedMemoryAlignedSize<TData>(
-                    IProductWRTBasePaddedInputSize<TData>(sizeParam3D));
-    TData *s_wsp1   = s_wsp0 + SharedMemoryAlignedSize<TData>(wsp0Size);
-    TData *s_basis0 = s_wsp1 + SharedMemoryAlignedSize<TData>(wsp1Size);
+    const unsigned int basisDataSize =
+        nmode0 * nq0 + nmode1 * nq1 + nmode2 * nq2;
+    TData *s_basis0 = (TData *)shmemptr;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
-    // Input of the inner product: the weighted values, in padded rows when
-    // the rows need padding.
-    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
-    TData *ipb             = ldi == nq0 ? bwd : s_ipb;
-
-    // Copy to shared memory.
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
@@ -789,67 +927,105 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
-        TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
-        if constexpr (isNodal)
-        {
-            // Nodal to Modal in shared memory.
-            MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, s_modal, threadBlock);
-        }
-        else
-        {
-            // Copy to shared memory.
-            LoadToSharedMemory(nmTot, inptr, s_modal, threadBlock);
-            localBarrier(threadBlock);
-        }
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Laid out as in 2D, with the stage scratch's padding in shared
+        // memory only.
+        constexpr bool padInput = decltype(isShared)::value;
 
-        BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, false>(
-            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index3,
-            s_basis0, s_basis1, s_basis2, s_modal, bwd, s_wsp0, s_wsp1,
-            threadBlock);
+        // Workspace: after the basis data, or the thread block's slice.
+        const size_t iblock =
+            getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
+        const unsigned int ldi =
+            padInput ? SharedMemoryRowStride<TData>(nq0) : nq0;
 
-        // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        TData *modal =
+            isShared ? s_basis0 + SharedMemoryAlignedSize<TData>(basisDataSize)
+                     : wsp + MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                                 1u, sizeParam3D) *
+                                 iblock;
+        TData *bwd =
+            modal + (isShared ? SharedMemoryAlignedSize<TData>(nmTot) : nmTot);
+        TData *padded =
+            bwd + (isShared ? SharedMemoryAlignedSize<TData>(nqTot) : nqTot);
+        TData *wsp0 =
+            isShared
+                ? padded +
+                      SharedMemoryAlignedSize<TData>(
+                          IProductWRTBasePaddedInputSize<TData>(sizeParam3D))
+                : padded;
+        TData *wsp1 =
+            isShared
+                ? wsp0 + SharedMemoryAlignedSize<TData>(
+                             wsp0Size +
+                             IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(
+                                 sizeParam3D))
+                : wsp0 + wsp0Size;
+        TData *ipb = ldi == nq0 ? bwd : padded;
+
+        while (e < nelmt)
         {
-            const unsigned int i = idx % nq0;
-            const unsigned int j = (idx / nq0) % nq1;
-            const unsigned int k = idx / (nq0 * nq1);
-            if constexpr (DEFORMED)
+            const TData *jacptr = jac + jacsize * e;
+            const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
+            TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
+
+            if constexpr (isNodal)
             {
-                ipb[ldi * (nq1 * k + j) + i] =
-                    bwd[idx] * (jacptr[idx] * w0[i] * w1[j] * w2[k]);
+                // Nodal to Modal in the workspace.
+                MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, modal,
+                                      threadBlock);
             }
             else
             {
-                ipb[ldi * (nq1 * k + j) + i] =
-                    bwd[idx] * (jacptr[0] * w0[i] * w1[j] * w2[k]);
+                // Copy to the workspace.
+                LoadToSharedMemory(nmTot, inptr, modal, threadBlock);
+                localBarrier(threadBlock);
             }
+
+            BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, false>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index3,
+                s_basis0, s_basis1, s_basis2, modal, bwd, wsp0, wsp1,
+                threadBlock);
+
+            // Weight the physical values into the inner-product input.
+            for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+            {
+                const unsigned int i = idx % nq0;
+                const unsigned int j = (idx / nq0) % nq1;
+                const unsigned int k = idx / (nq0 * nq1);
+                if constexpr (DEFORMED)
+                {
+                    ipb[ldi * (nq1 * k + j) + i] =
+                        bwd[idx] * (jacptr[idx] * w0[i] * w1[j] * w2[k]);
+                }
+                else
+                {
+                    ipb[ldi * (nq1 * k + j) + i] =
+                        bwd[idx] * (jacptr[0] * w0[i] * w1[j] * w2[k]);
+                }
+            }
+
+            localBarrier(threadBlock);
+
+            // The collapsed shapes take the two scratches the other way round.
+            constexpr bool hex = (SHAPE_TYPE == LibUtilities::Hex);
+            IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, SCALE,
+                                             APPEND && !isNodal, padInput>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb,
+                isNodal ? modal : outptr, hex ? wsp0 : wsp1, hex ? wsp1 : wsp0,
+                scale, threadBlock);
+
+            if constexpr (isNodal)
+            {
+                // Multiply by transpose nodToMod to transform coeffs.
+                MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, modal,
+                                                    outptr, threadBlock);
+            }
+
+            e += getBlockRange<0>(threadBlock);
         }
-
-        localBarrier(threadBlock);
-
-        // The collapsed shapes take the two scratches the other way round.
-        constexpr bool hex = (SHAPE_TYPE == LibUtilities::Hex);
-        IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, SCALE, APPEND && !isNodal,
-                                         true>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-            index1, index2, s_basis0, s_basis1, s_basis2, ipb,
-            isNodal ? s_modal : outptr, hex ? s_wsp0 : s_wsp1,
-            hex ? s_wsp1 : s_wsp0, scale, threadBlock);
-
-        if constexpr (isNodal)
-        {
-            // Multiply by transpose nodToMod to transform coeffs.
-            MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, s_modal,
-                                                outptr, threadBlock);
-        }
-
-        e += getBlockRange<0>(threadBlock);
-    }
+    });
 }
 
 #endif

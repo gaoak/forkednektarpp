@@ -61,8 +61,9 @@
  * - SumFacTOP (CurlCurlBlockOpDeviceSumFacTOPKernels.hpp): one element per
  *   thread block. The block's threads are indexed over the element's
  *   quadrature points and both the input components and omega are staged
- *   in shared memory, exposing parallelism within an element rather than
- *   across elements.
+ *   in shared memory when they fit; otherwise the input is read in place
+ *   and omega held in a global workspace. This exposes parallelism within
+ *   an element rather than across elements.
  *
  * The two strategies want different storage and derivative-factor
  * layouts; see the class description. v_Apply() dispatches on the block's
@@ -376,14 +377,15 @@ protected:
      * The dynamic shared memory request is CurlCurlSharedMemorySize for
      * the shape and strategy at hand, in bytes: the collapsed-coordinate
      * factor tables for SumFac (nothing for segments, quadrilaterals and
-     * hexahedra) and one element's input components plus its vorticity
-     * for SumFacTOP (nothing for segments). The global workspace request
+     * hexahedra) and nothing for SumFacTOP. The global workspace request
      * is CurlCurlWorkSpaceSize: the block's vorticity planes for SumFac,
-     * nothing for SumFacTOP, whose kernels keep omega in shared memory.
-     * Under SumFac the vorticity goes in shared memory as well, after the
-     * factor tables, when UseSharedWorkSpace() accepts the size
-     * CurlCurlSharedMemorySize gives for one warp of elements; the global
-     * workspace is then zero.
+     * and for SumFacTOP one element's vorticity per thread block (nothing
+     * for segments). The vorticity goes in shared memory instead, after
+     * any factor tables and, under SumFacTOP, with the staged input
+     * components, and the global workspace is zero, when
+     * UseSharedWorkSpace() accepts the size CurlCurlSharedMemorySize
+     * gives with it staged there: one warp of elements under SumFac, one
+     * element under SumFacTOP.
      *
      * The launch goes through DEVICE_1DGRID_KERNEL_LAUNCHER to the
      * CurlCurlKernelLauncher overload of this dimension and strategy, with
@@ -468,20 +470,6 @@ protected:
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
-        // Get static workspace pointer. The fused kernel only needs storage
-        // for the intermediate omega = curl(u).
-        const size_t wspSize =
-            useSharedMemoryWsp
-                ? 0
-                : CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt,
-                                                                    sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize, m_streamID);
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
         // Set Kernel parameters.
         const unsigned int shmemsize =
             useSharedMemoryWsp
@@ -493,6 +481,22 @@ protected:
             GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
+        // Get static workspace pointer. The fused kernel needs storage for
+        // the intermediate omega = curl(u), and SumFacTOP for its staged
+        // input as well.
+        const size_t wspSize =
+            useSharedMemoryWsp
+                ? 0
+                : CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize, m_streamID);
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         const auto inoffset = outblock.CompSize();
 
@@ -556,11 +560,19 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
-        // Set Kernel parameters.
+        // Set Kernel parameters. SumFacTOP stages the element's three
+        // components in shared memory if they fit, else reads them in place.
+        const bool useSharedMemoryWsp =
+            std::is_same_v<Implementation, MultiRegions::SumFacTOP>
+                ? UseSharedWorkSpace<Implementation>(
+                      sizeof(TData) *
+                      CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
+                          sizeParam, true))
+                : false;
         const unsigned int shmemsize =
             sizeof(TData) *
-            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam,
-                                                                 false);
+            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
+                sizeParam, useSharedMemoryWsp);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
         const unsigned int gridsize =
@@ -580,8 +592,8 @@ protected:
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (Curl3DH1KernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
             gridsize, nhomo, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            nelmt, inoffset, outoffset, m_D[ind0]..., m_f[ind1]..., m_dfptr,
-            inptr, outptr);
+            nelmt, inoffset, outoffset, useSharedMemoryWsp, m_D[ind0]...,
+            m_f[ind1]..., m_dfptr, inptr, outptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

@@ -412,11 +412,13 @@ protected:
      * kernel recovers its component from its block index. The dynamic
      * shared memory request is MassSharedMemorySize for the shape and
      * strategy at hand, in bytes; the global workspace request is
-     * MassWorkSpaceSize scaled by ncomp (zero under SumFacTOP), taken from
-     * the static per-stream buffer. Under SumFac the intermediates go in
-     * shared memory when UseSharedWorkSpace() accepts the size
-     * MassSharedMemorySize() gives for one warp of elements; the global
-     * workspace is then zero. Both helpers have one overload per strategy
+     * MassWorkSpaceSize scaled by ncomp -- every element's intermediates
+     * under SumFac, one element's per thread block under SumFacTOP -- taken
+     * from the static per-stream buffer. The intermediates go in shared
+     * memory instead, and the global workspace is zero, when
+     * UseSharedWorkSpace() accepts the size MassSharedMemorySize() gives
+     * with them staged there: one warp of elements under SumFac, one
+     * element under SumFacTOP. Both helpers have one overload per strategy
      * and dimension, documented in the kernel headers.
      *
      * The launch goes through DEVICE_2DGRID_KERNEL_LAUNCHER to the
@@ -478,21 +480,6 @@ protected:
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
-        // Get static workspace pointer.
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        const size_t wspSize =
-            useSharedMemoryWsp ? 0
-                               : MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                                     nelmt, sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
-        // Get interleave parameter.
-        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
-        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
         // Set Kernel parameters.
         const unsigned int shmemsize =
             useSharedMemoryWsp
@@ -504,6 +491,23 @@ protected:
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
+        // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const size_t wspSize =
+            useSharedMemoryWsp
+                ? 0
+                : MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
+
+        // Get interleave parameter.
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

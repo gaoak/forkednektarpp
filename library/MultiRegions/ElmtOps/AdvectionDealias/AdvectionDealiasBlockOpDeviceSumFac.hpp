@@ -325,6 +325,20 @@ protected:
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
+        // Set Kernel parameters.
+        const unsigned int shmemsize =
+            useSharedMemoryWsp
+                ? shmemsizeWithSharedWsp
+                : sizeof(TData) *
+                      AdvectionDealiasSharedMemorySize<SHAPE_TYPE,
+                                                       Implementation>(
+                          m_coordDim, nvar, sizeParam, localPipeline,
+                          sharedScratch, false);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(nqTotFine);
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
         // Get static workspace pointer. Each plane has its own slab, less
         // the part block-local memory holds.
         const size_t wspSize =
@@ -343,20 +357,6 @@ protected:
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int shmemsize =
-            useSharedMemoryWsp
-                ? shmemsizeWithSharedWsp
-                : sizeof(TData) *
-                      AdvectionDealiasSharedMemorySize<SHAPE_TYPE,
-                                                       Implementation>(
-                          m_coordDim, nvar, sizeParam, localPipeline,
-                          sharedScratch, false);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(nqTotFine);
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

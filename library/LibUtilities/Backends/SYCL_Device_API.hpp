@@ -778,7 +778,7 @@ template <int ndim>
 NEK_DEVICE_INLINE void localBarrier(const sycl::nd_item<ndim> &threadBlock)
 {
 #if defined(__ADAPTIVECPP__)
-    threadBlock.barrier(sycl::access::fence_space::local_space);
+    threadBlock.barrier(sycl::access::fence_space::global_and_local);
 #else
     sycl::group_barrier(threadBlock.get_group(),
                         sycl::memory_scope::work_group);
@@ -789,7 +789,7 @@ template <int ndim>
 NEK_DEVICE_INLINE int localBarrier_and(int predictate,
                                        const sycl::nd_item<ndim> &threadBlock)
 {
-    threadBlock.barrier(sycl::access::fence_space::local_space);
+    threadBlock.barrier(sycl::access::fence_space::global_and_local);
     return sycl::all_of_group(threadBlock.get_group(), predictate);
 }
 
@@ -797,7 +797,7 @@ template <int ndim>
 NEK_DEVICE_INLINE int localBarrier_or(int predictate,
                                       const sycl::nd_item<ndim> &threadBlock)
 {
-    threadBlock.barrier(sycl::access::fence_space::local_space);
+    threadBlock.barrier(sycl::access::fence_space::global_and_local);
     return sycl::any_of_group(threadBlock.get_group(), predictate);
 }
 
@@ -805,7 +805,7 @@ template <int ndim>
 NEK_DEVICE_INLINE int localBarrier_count(int predictate,
                                          const sycl::nd_item<ndim> &threadBlock)
 {
-    threadBlock.barrier(sycl::access::fence_space::local_space);
+    threadBlock.barrier(sycl::access::fence_space::global_and_local);
     return sycl::reduce_over_group(threadBlock.get_group(), predictate ? 1 : 0,
                                    sycl::plus<>());
 }

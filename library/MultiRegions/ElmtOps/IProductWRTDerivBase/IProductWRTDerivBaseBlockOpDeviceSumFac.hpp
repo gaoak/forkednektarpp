@@ -492,12 +492,14 @@ protected:
      * dynamic shared memory request is IProductWRTDerivBaseSharedMemorySize
      * for the shape, strategy and output state at hand, in bytes; the
      * global workspace request is IProductWRTDerivBaseWorkSpaceSize scaled
-     * by the number of (mode, component) pairs. Both helpers have one
-     * overload per strategy, documented in the kernel headers. Under
-     * SumFac the intermediates go in shared memory instead when
-     * UseSharedWorkSpace() accepts the size
-     * IProductWRTDerivBaseSharedMemorySize gives for one warp of elements;
-     * the global workspace is then zero.
+     * by the number of (mode, component) pairs -- every element's
+     * intermediates under SumFac, one element's per thread block under
+     * SumFacTOP. Both helpers have one overload per strategy, documented in
+     * the kernel headers. The intermediates go in shared memory instead,
+     * and the global workspace is zero, when UseSharedWorkSpace() accepts
+     * the size IProductWRTDerivBaseSharedMemorySize gives with them staged
+     * there: one warp of elements under SumFac, one element under
+     * SumFacTOP.
      *
      * The launch goes through DEVICE_3DGRID_KERNEL_LAUNCHER to the
      * IProductWRTDerivBasePhysKernelLauncher (Phys output) or
@@ -566,22 +568,6 @@ protected:
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
-        // Get static workspace pointer.
-        const unsigned int ncomp =
-            outblock.GetNumComponents() * outblock.GetNumHomoModes();
-        const size_t wspSize =
-            useSharedMemoryWsp
-                ? 0
-                : IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      nelmt, sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
-
-        // Get interleave parameter.
-        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
-        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
         // Set Kernel parameters.
         const unsigned int shmemsize =
             useSharedMemoryWsp
@@ -600,6 +586,23 @@ protected:
         }
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
+        // Get static workspace pointer.
+        const unsigned int ncomp =
+            outblock.GetNumComponents() * outblock.GetNumHomoModes();
+        const size_t wspSize =
+            useSharedMemoryWsp
+                ? 0
+                : IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
+
+        // Get interleave parameter.
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Directions held per variable in the input block. In 3DH1
         // (nhomo > 1) there are always three (x, y, z) regardless of the base

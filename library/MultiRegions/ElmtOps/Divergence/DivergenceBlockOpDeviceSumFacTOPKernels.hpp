@@ -147,10 +147,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 inline constexpr unsigned int DivergenceSharedMemorySize(
     const TPhysSizeParameter2D sizeParam2D)
 {
-    const unsigned int nq0 = sizeParam2D.nq0();
-    const unsigned int nq1 = sizeParam2D.nq1();
 
-    return 2 * nq0 * nq1;
+    return 2 * sizeParam2D.nqTot();
 }
 
 /**
@@ -180,11 +178,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 inline constexpr unsigned int DivergenceSharedMemorySize(
     const TPhysSizeParameter3D sizeParam3D)
 {
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
 
-    return 2 * nq0 * nq1 * nq2;
+    return 2 * sizeParam3D.nqTot();
 }
 
 /**
@@ -340,9 +335,9 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const unsigned int ncoord = sizeParam2D.ncoord();
     const unsigned int nq0    = sizeParam2D.nq0();
     const unsigned int nq1    = sizeParam2D.nq1();
+    const unsigned int nqTot  = sizeParam2D.nqTot();
 
     const unsigned int ndf    = 2 * ncoord;
-    const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
     TData *s_wsp0             = (TData *)shmemptr;
@@ -453,14 +448,14 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         "Template argument must be either of type "
         "NonTemplatedPhysSizeParameter3D or TemplatedPhysSizeParameter3D.");
 
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
 
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr unsigned int ndf = 9u;
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
     TData *s_wsp0             = (TData *)shmemptr;

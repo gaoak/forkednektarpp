@@ -36,7 +36,7 @@ IF (NEKTAR_DEVICE_ARCH)
     STRING(REPLACE "_" ";" ARCH ${NEKTAR_DEVICE_ARCH})
     LIST(GET ARCH 1 ARCH)
     ADD_COMPILE_DEFINITIONS(__NEKTAR_DEVICE_ARCH__="compute_${ARCH}")
-    SET(CMAKE_CUDA_ARCHITECTURES ${ARCH})
+    SET(CMAKE_CUDA_ARCHITECTURES ${ARCH}-real)
 ELSE()
     MESSAGE(FATAL_ERROR "CUDA back-end requires NEKTAR_DEVICE_ARCH=<arch> with <arch> specified as sm_XX. The <arch> value can be queried using the following command: `nvidia-smi --query-gpu=compute_cap --format=csv`. For the following GPU, please use:
 - V100: <arch>=sm_70

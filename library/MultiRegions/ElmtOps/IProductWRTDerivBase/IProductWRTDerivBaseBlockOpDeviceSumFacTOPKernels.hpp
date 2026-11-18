@@ -51,15 +51,16 @@
  * stages, its modes in the basis contraction. The field data is therefore
  * not interleaved (interleave width 1): an element's values are
  * contiguous, and the kernels index them directly. Each stage ends with a
- * local barrier, so the intermediates one stage writes to shared memory
- * are visible to the next.
+ * local barrier, so the intermediates one stage writes are visible to the
+ * next.
  *
- * Because the intermediates live in shared memory, these kernels need no
- * global-memory workspace at all -- the IProductWRTDerivBaseWorkSpaceSize
- * overloads below return zero -- and the launch instead requests the
- * dynamic shared memory reported by IProductWRTDerivBaseSharedMemorySize,
- * which also holds the one-dimensional basis or derivative tables the
- * launchers copy in once per thread block.
+ * The launchers copy the one-dimensional basis and derivative tables into
+ * shared memory once per thread block. The per-element intermediates form
+ * the workspace: with useSharedMemoryWsp in shared memory after the basis data,
+ * aligned and row-padded (IProductWRTDerivBaseSharedWorkSpaceSize), else
+ * packed and unpadded in the thread block's slice of the global-memory
+ * workspace (IProductWRTDerivBaseWorkSpaceSize). The launch requests the
+ * dynamic shared memory reported by IProductWRTDerivBaseSharedMemorySize.
  *
  * The stages are those of the SumFac kernels: the geometric stage of this
  * header, the transposed derivative (SumDerivTensorNDSumFacTOPKernel,
@@ -94,24 +95,78 @@ namespace Nektar::MultiRegions::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 /**
+ * @brief Unpadded sizes, in TData values, of the regions the Coeff launchers
+ * use besides the direction fields and their summed derivative: the basis
+ * contraction's intermediates (nm0 * nq1 in 2D; nm0 * nq1 * nq2 and then
+ * nm01 * nq2 for the tetrahedra, nm0 * nm1 * nq2 otherwise, in 3D) and the
+ * nodal shapes' coefficient vector.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTDerivBaseStage0Size(
+    const TSizeParameter sizeParam)
+{
+    if constexpr (IsSizeParameter2D_v<TSizeParameter>)
+    {
+        return sizeParam.nm0() * sizeParam.nq1();
+    }
+    else if constexpr (IsSizeParameter3D_v<TSizeParameter>)
+    {
+        return sizeParam.nm0() * sizeParam.nq1() * sizeParam.nq2();
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTDerivBaseStage1Size(
+    const TSizeParameter sizeParam)
+{
+    if constexpr (IsSizeParameter2D_v<TSizeParameter>)
+    {
+        return 0u;
+    }
+    else if constexpr (IsSizeParameter3D_v<TSizeParameter>)
+    {
+        const unsigned int nm0 = sizeParam.nm0();
+        const unsigned int nm1 = sizeParam.nm1();
+
+        return ((SHAPE_TYPE == LibUtilities::Tet ||
+                 SHAPE_TYPE == LibUtilities::NodalTet)
+                    ? (2u * nm1 - nm0 + 1u) * nm0 / 2u
+                    : nm0 * nm1) *
+               sizeParam.nq2();
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTDerivBaseModalSize(
+    const TSizeParameter sizeParam)
+{
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTri ||
+                             SHAPE_TYPE == LibUtilities::NodalTet ||
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
+
+    return isNodal ? sizeParam.nmTot() : 0u;
+}
+
+/**
  * @brief Global workspace a SumFacTOP launch needs, in elements of TData,
- * for a one-dimensional shape: none, the intermediates being held in
- * shared memory.
+ * for a one-dimensional shape.
  *
- * No overload of this helper requests global workspace for the SumFacTOP
- * strategy; the SumFac overloads in
- * IProductWRTDerivBaseBlockOpDeviceSumFacKernels.hpp do.
+ * Per thread block, the direction field and, for the Coeff output, its
+ * transposed derivative, nq0 values each.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg); unused.
  * @tparam Implementation    Implementation tag; this overload is
  *                           constrained to SumFacTOP.
  * @tparam TSizeParameter1D  1D size parameter, modal or physical-space
- *                           (see ElmtHelper.hpp).
+ *                           (see ElmtHelper.hpp); its type selects the
+ *                           Phys or Coeff variant.
  *
- * @param   nelmt        Elements in the block; unused.
- * @param   sizeParam1D  Sizes of the expansion; unused.
+ * @param   nelmt        Elements whose workspace is held at once: one per
+ *                       thread block (see WorkSpaceNumElmts).
+ * @param   sizeParam1D  Sizes of the expansion.
  *
- * @return Zero.
+ * @return Workspace in elements of TData.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
@@ -120,15 +175,43 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                                 IsPhysSizeParameter1D_v<TSizeParameter1D>),
                            bool>
               Enable = true>
-inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TSizeParameter1D sizeParam1D)
+NEK_HOSTDEVICE_INLINE constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
+    const size_t nelmt, const TSizeParameter1D sizeParam1D)
 {
-    return 0;
+    if constexpr (IsPhysSizeParameter1D_v<TSizeParameter1D>)
+    {
+        return sizeParam1D.nq0() * nelmt;
+    }
+    else if constexpr (IsSizeParameter1D_v<TSizeParameter1D>)
+    {
+        return 2 * sizeParam1D.nq0() * nelmt;
+    }
 }
 
-/// @brief Global workspace a SumFacTOP launch needs for a two-dimensional
-/// shape: none, for the reason given in the 1D overload.
+/**
+ * @brief Global workspace a SumFacTOP launch needs, in elements of TData,
+ * for a two-dimensional shape.
+ *
+ * Per thread block, the regions the 2D launchers lay out in global memory,
+ * packed and unpadded:
+ * - Phys: the two direction fields, 2 * nq0 * nq1.
+ * - Coeff: the two direction fields and their summed transposed
+ *   derivative, then the nm0 * nq1 intermediate of the basis contraction;
+ *   the nodal triangle adds its coefficient vector, nmTot.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements.
+ * @tparam Implementation    Implementation tag; this overload is
+ *                           constrained to SumFacTOP.
+ * @tparam TSizeParameter2D  2D size parameter, modal or physical-space
+ *                           (see ElmtHelper.hpp); its type selects the
+ *                           Phys or Coeff variant.
+ *
+ * @param   nelmt        Elements whose workspace is held at once: one per
+ *                       thread block (see WorkSpaceNumElmts).
+ * @param   sizeParam2D  Sizes per direction.
+ *
+ * @return Workspace in elements of TData.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -136,15 +219,46 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                                 IsPhysSizeParameter2D_v<TSizeParameter2D>),
                            bool>
               Enable = true>
-inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TSizeParameter2D sizeParam2D)
+NEK_HOSTDEVICE_INLINE constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
+    const size_t nelmt, const TSizeParameter2D sizeParam2D)
 {
-    return 0;
+    const unsigned int nqTot = sizeParam2D.nqTot();
+
+    if constexpr (IsPhysSizeParameter2D_v<TSizeParameter2D>)
+    {
+        return 2u * nqTot * nelmt;
+    }
+    else if constexpr (IsSizeParameter2D_v<TSizeParameter2D>)
+    {
+        return (3u * nqTot +
+                IProductWRTDerivBaseStage0Size<SHAPE_TYPE>(sizeParam2D) +
+                IProductWRTDerivBaseModalSize<SHAPE_TYPE>(sizeParam2D)) *
+               nelmt;
+    }
 }
 
-/// @brief Global workspace a SumFacTOP launch needs for a
-/// three-dimensional shape: none, for the reason given in the 1D overload.
+/**
+ * @brief Global workspace a SumFacTOP launch needs, in elements of TData,
+ * for a three-dimensional shape.
+ *
+ * As the 2D overload: the three direction fields for the Phys output; for
+ * the Coeff output those and their summed transposed derivative, the two
+ * intermediates of the basis contraction and, for the nodal shapes, their
+ * coefficient vector.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements.
+ * @tparam Implementation    Implementation tag; this overload is
+ *                           constrained to SumFacTOP.
+ * @tparam TSizeParameter3D  3D size parameter, modal or physical-space
+ *                           (see ElmtHelper.hpp); its type selects the
+ *                           Phys or Coeff variant.
+ *
+ * @param   nelmt        Elements whose workspace is held at once: one per
+ *                       thread block (see WorkSpaceNumElmts).
+ * @param   sizeParam3D  Sizes per direction.
+ *
+ * @return Workspace in elements of TData.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -152,35 +266,97 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                                 IsPhysSizeParameter3D_v<TSizeParameter3D>),
                            bool>
               Enable = true>
-inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TSizeParameter3D sizeParam3D)
+NEK_HOSTDEVICE_INLINE constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
+    const size_t nelmt, const TSizeParameter3D sizeParam3D)
 {
-    return 0;
+    const unsigned int nqTot = sizeParam3D.nqTot();
+
+    if constexpr (IsPhysSizeParameter3D_v<TSizeParameter3D>)
+    {
+        return 3u * nqTot * nelmt;
+    }
+    else if constexpr (IsSizeParameter3D_v<TSizeParameter3D>)
+    {
+        return (4u * nqTot +
+                IProductWRTDerivBaseStage0Size<SHAPE_TYPE>(sizeParam3D) +
+                IProductWRTDerivBaseStage1Size<SHAPE_TYPE>(sizeParam3D) +
+                IProductWRTDerivBaseModalSize<SHAPE_TYPE>(sizeParam3D)) *
+               nelmt;
+    }
+}
+
+/**
+ * @brief One element's workspace when staged in shared memory, in TData
+ * values. As IProductWRTDerivBaseWorkSpaceSize, except that for the 2D and
+ * 3D Coeff output the summed derivative and each intermediate of the basis
+ * contraction are rounded to 16 bytes and the intermediates carry the inner
+ * product's row padding.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TData, typename TSizeParameter,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTDerivBaseSharedWorkSpaceSize(
+    const TSizeParameter sizeParam)
+{
+    if constexpr (IsSizeParameter1D_v<TSizeParameter> ||
+                  IsPhysSizeParameter1D_v<TSizeParameter> ||
+                  IsPhysSizeParameter2D_v<TSizeParameter> ||
+                  IsPhysSizeParameter3D_v<TSizeParameter>)
+    {
+        return static_cast<unsigned int>(
+            IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, SumFacTOP>(
+                1u, sizeParam));
+    }
+    else if constexpr (IsSizeParameter2D_v<TSizeParameter> ||
+                       IsSizeParameter3D_v<TSizeParameter>)
+    {
+        constexpr bool is3D = IsSizeParameter3D_v<TSizeParameter>;
+
+        unsigned int nqTot = sizeParam.nq0() * sizeParam.nq1();
+        if constexpr (is3D)
+        {
+            nqTot *= sizeParam.nq2();
+        }
+
+        const unsigned int wspPadSize =
+            IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam);
+
+        return (is3D ? 3u : 2u) * nqTot +
+               SharedMemoryAlignedSize<TData>(nqTot) +
+               SharedMemoryAlignedSize<TData>(
+                   IProductWRTDerivBaseStage0Size<SHAPE_TYPE>(sizeParam) +
+                   wspPadSize) +
+               (is3D ? SharedMemoryAlignedSize<TData>(
+                           IProductWRTDerivBaseStage1Size<SHAPE_TYPE>(
+                               sizeParam) +
+                           wspPadSize)
+                     : 0u) +
+               IProductWRTDerivBaseModalSize<SHAPE_TYPE>(sizeParam);
+    }
 }
 
 /**
  * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
  * in elements of TData, for a one-dimensional shape.
  *
- * The Phys output holds the single direction field, nq0 values; the Coeff
- * output that field plus its transposed derivative, 2 * nq0. Both are
- * followed by the transposed differentiation matrix, nq0 * nq0; the
- * basis table is read straight from global memory.
- * The output field state is encoded in the size-parameter type: a
- * physical-space size parameter selects the Phys variant, a modal one the
- * Coeff variant.
+ * The transposed differentiation matrix, nq0 * nq0, rounded to 16 bytes;
+ * with @p useSharedMemoryWsp the workspace
+ * IProductWRTDerivBaseSharedWorkSpaceSize gives follows. The basis table is
+ * read straight from global memory. The output field state is encoded in the
+ * size-parameter type: a physical-space size parameter selects the Phys
+ * variant, a modal one the Coeff variant.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg); unused.
  * @tparam Implementation    Implementation tag; this overload is
  *                           constrained to SumFacTOP.
- * @tparam TData             Floating-point type of the field data; unused.
+ * @tparam TData             Floating-point type of the field data; sets the
+ *                           alignment.
  * @tparam TSizeParameter1D  1D size parameter, modal or physical-space
  *                           (see ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Sizes of the expansion.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- *                       memory.
+ * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
  */
@@ -192,39 +368,35 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter1D sizeParam1D,
-    [[maybe_unused]] const bool useSharedMemoryWsp)
+    const TSizeParameter1D sizeParam1D, const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam1D.nq0();
 
-    if constexpr (IsPhysSizeParameter1D_v<TSizeParameter1D>)
-    {
-        return nq0 + nq0 * nq0;
-    }
-    else
-    {
-        return 2 * nq0 + nq0 * nq0;
-    }
+    const unsigned int wspSize =
+        useSharedMemoryWsp
+            ? IProductWRTDerivBaseSharedWorkSpaceSize<SHAPE_TYPE,
+                                                      Implementation, TData>(
+                  sizeParam1D)
+            : 0u;
+
+    return SharedMemoryAlignedSize<TData>(nq0 * nq0) + wspSize;
 }
 
 /**
  * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
  * in elements of TData, for a two-dimensional shape.
  *
- * The staging area a thread block claims, in the order the launchers
- * carve it up:
- * - Phys: the two direction fields, then the two transposed
- *   one-dimensional derivative matrices,
- *   2 * nq0 * nq1 + nq0 * nq0 + nq1 * nq1.
- * - Coeff: the two direction fields and their summed transposed derivative
- *   (3 * nq0 * nq1), the nm0 * nq1 intermediate of the basis contraction,
- *   and the two one-dimensional basis tables -- the second of which is
+ * The basis data a thread block stages, rounded to 16 bytes, in the order the
+ * launchers carve them up:
+ * - Phys: the two transposed one-dimensional derivative matrices,
+ *   nq0 * nq0 + nq1 * nq1.
+ * - Coeff: the two one-dimensional basis tables -- the second of which is
  *   indexed by the shape's total mode count for the triangles, whose
- *   second direction carries the collapsed mode ordering, then the two
- *   transposed derivative matrices, nq0 * nq0 + nq1 * nq1. The nodal
- *   triangle adds its coefficient vector, nmTot.
- *   IProductWRTBaseFusedSharedMemoryPadding adds the inner product's
- *   padded rows and the regions' alignment.
+ *   second direction carries the collapsed mode ordering -- then the two
+ *   transposed derivative matrices.
+ *
+ * With @p useSharedMemoryWsp the workspace
+ * IProductWRTDerivBaseSharedWorkSpaceSize gives follows.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements.
  * @tparam Implementation    Implementation tag; this overload is
@@ -236,8 +408,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *                           Phys or Coeff variant.
  *
  * @param   sizeParam2D  Sizes per direction.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- *                       memory.
+ * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
  */
@@ -249,48 +420,34 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter2D sizeParam2D,
-    [[maybe_unused]] const bool useSharedMemoryWsp)
+    const TSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
 {
-    // Padded rows of the inner product's input and intermediate stages.
-    const unsigned int pad =
-        IProductWRTBaseFusedSharedMemoryPadding<SHAPE_TYPE, Implementation,
-                                                TData>(sizeParam2D, 2u, false);
-
     const unsigned int nq0 = sizeParam2D.nq0();
     const unsigned int nq1 = sizeParam2D.nq1();
 
+    // Transposed differentiation matrices for SumDerivTensor.
+    const unsigned int nDT = nq0 * nq0 + nq1 * nq1;
+
+    const unsigned int wspSize =
+        useSharedMemoryWsp
+            ? IProductWRTDerivBaseSharedWorkSpaceSize<SHAPE_TYPE,
+                                                      Implementation, TData>(
+                  sizeParam2D)
+            : 0u;
+
     if constexpr (IsPhysSizeParameter2D_v<TSizeParameter2D>)
     {
-        return pad + 2 * nq0 * nq1 + nq0 * nq0 + nq1 * nq1;
+        return SharedMemoryAlignedSize<TData>(nDT) + wspSize;
     }
-    else
+    else if constexpr (IsSizeParameter2D_v<TSizeParameter2D>)
     {
-        // Transposed differentiation matrices for SumDerivTensor.
-        const unsigned int nDT = nq0 * nq0 + nq1 * nq1;
+        const unsigned int nm0    = sizeParam2D.nm0();
+        const unsigned int nmode1 = (SHAPE_TYPE == LibUtilities::Quad)
+                                        ? sizeParam2D.nm1()
+                                        : sizeParam2D.nmTot();
 
-        const unsigned int nm0 = sizeParam2D.nm0();
-        const unsigned int nm1 = sizeParam2D.nm1();
-
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            return nDT + pad + nm0 * nq0 + nm1 * nq1 + 3 * nq0 * nq1 +
-                   nm0 * nq1;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-        {
-            const unsigned int nmTot = sizeParam2D.nmTot();
-
-            return nDT + pad + nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 +
-                   nm0 * nq1;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            const unsigned int nmTot = sizeParam2D.nmTot();
-
-            return nDT + pad + nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 +
-                   nm0 * nq1 + nmTot;
-        }
+        return SharedMemoryAlignedSize<TData>(nm0 * nq0 + nmode1 * nq1 + nDT) +
+               wspSize;
     }
 }
 
@@ -299,16 +456,14 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  * in elements of TData, for a three-dimensional shape.
  *
  * Laid out as in the 2D overload:
- * - Phys: the three direction fields and the three transposed
- *   one-dimensional derivative matrices.
- * - Coeff: four fields of nqTot -- the three direction fields and their
- *   summed transposed derivative -- the nm0 * nq1 * nq2 and second
- *   intermediate of the basis contraction, for the nodal shapes their
- *   coefficient vector of nmTot values, and the three one-dimensional
- *   basis tables. The mode counts indexing the second and third tables
- *   follow the shape's collapsed mode ordering, which is why they are
- *   computed rather than simply nm1 and nm2. The three transposed
- *   derivative matrices follow.
+ * - Phys: the three transposed one-dimensional derivative matrices.
+ * - Coeff: the three one-dimensional basis tables, then the three
+ *   transposed derivative matrices. The mode counts indexing the second
+ *   and third tables follow the shape's collapsed mode ordering, which is
+ *   why they are computed rather than simply nm1 and nm2.
+ *
+ * With @p useSharedMemoryWsp the workspace
+ * IProductWRTDerivBaseSharedWorkSpaceSize gives follows.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements.
  * @tparam Implementation    Implementation tag; this overload is
@@ -320,8 +475,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *                           Phys or Coeff variant.
  *
  * @param   sizeParam3D  Sizes per direction.
- * @param   useSharedMemoryWsp    Unused: SumFacTOP always stages in shared
- *                       memory.
+ * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
  */
@@ -333,85 +487,58 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter3D sizeParam3D,
-    [[maybe_unused]] const bool useSharedMemoryWsp)
+    const TSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
 {
-    // Padded rows of the inner product's input and intermediate stages.
-    const unsigned int pad =
-        IProductWRTBaseFusedSharedMemoryPadding<SHAPE_TYPE, Implementation,
-                                                TData>(sizeParam3D, 2u, false);
-
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
     const unsigned int nq2 = sizeParam3D.nq2();
 
+    // Transposed differentiation matrices for SumDerivTensor.
+    const unsigned int nDT = nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
+
+    const unsigned int wspSize =
+        useSharedMemoryWsp
+            ? IProductWRTDerivBaseSharedWorkSpaceSize<SHAPE_TYPE,
+                                                      Implementation, TData>(
+                  sizeParam3D)
+            : 0u;
+
     if constexpr (IsPhysSizeParameter3D_v<TSizeParameter3D>)
     {
-        return pad + 3 * nq0 * nq1 * nq2 + nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
+        return SharedMemoryAlignedSize<TData>(nDT) + wspSize;
     }
-    else
+    else if constexpr (IsSizeParameter3D_v<TSizeParameter3D>)
     {
-        // Transposed differentiation matrices for SumDerivTensor.
-        const unsigned int nDT = nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
+        const unsigned int nm0   = sizeParam3D.nm0();
+        const unsigned int nm1   = sizeParam3D.nm1();
+        const unsigned int nm2   = sizeParam3D.nm2();
+        const unsigned int nmTot = sizeParam3D.nmTot();
+        const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        const unsigned int nm012 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-        const unsigned int nm0 = sizeParam3D.nm0();
-        const unsigned int nm1 = sizeParam3D.nm1();
-        const unsigned int nm2 = sizeParam3D.nm2();
+        unsigned int nmode1 = nm1, nmode2 = nm2;
+        if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                      SHAPE_TYPE == LibUtilities::NodalTet)
+        {
+            nmode1 = nm01;
+            nmode2 = nm012;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::NodalPrism)
+        {
+            nmode2 = nm02;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
+        {
+            nmode2 = nm012;
+        }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            return nDT + pad + nm0 * nq0 + nm1 * nq1 + nm2 * nq2 +
-                   4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            const unsigned int nmTot = sizeParam3D.nmTot();
-            const unsigned int nmode2 =
-                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-            const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-            return nDT + pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
-                   4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
-        {
-            const unsigned int nmTot = sizeParam3D.nmTot();
-            const unsigned int nmode2 =
-                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-            const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-            return nDT + pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
-                   4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + nmTot;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-            return nDT + pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 +
-                   4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            const unsigned int nmTot = sizeParam3D.nmTot();
-            const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-            return nDT + pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 +
-                   4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 +
-                   nmTot;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            const unsigned int nmTot = sizeParam3D.nmTot();
-            const unsigned int nmode2 =
-                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-            return nDT + pad + nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 +
-                   4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
-        {
-            const unsigned int nmTot = sizeParam3D.nmTot();
-            const unsigned int nmode2 =
-                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-            return nDT + pad + nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 +
-                   4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 +
-                   nmTot;
-        }
+        return SharedMemoryAlignedSize<TData>(nm0 * nq0 + nmode1 * nq1 +
+                                              nmode2 * nq2 + nDT) +
+               wspSize;
     }
 }
 
@@ -699,9 +826,10 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
  * The enable_if on the Implementation tag constrains this definition to
  * SumFacTOP, so the identically named SumFac launcher in
  * IProductWRTDerivBaseBlockOpDeviceSumFacKernels.hpp resolves for that tag
- * instead. The two share one signature, which is why the global-memory
- * workspace @p wsp is accepted and ignored here -- this strategy keeps
- * its intermediates in shared memory.
+ * instead. The two share one signature. The direction field and its
+ * transposed derivative form the workspace, after the derivative matrix in
+ * shared memory with @p useSharedMemoryWsp, else in the thread block's
+ * slice of @p wsp.
  *
  * @tparam SHAPE_TYPE          Shape of the block's elements (Seg).
  * @tparam Implementation      MultiRegions::SumFacTOP.
@@ -718,8 +846,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
  * @param   nelmt       Elements in the block, padding included.
  * @param   inoffset    Stride between the input's coordinate components.
  * @param   isModified  First-direction basis is eModified_A; unused in 1D.
- * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
- * memory.
+ * @param   useSharedMemoryWsp   Stage the workspace in @p shmemptr rather
+ *                      than in @p wsp.
  * @param   basis0      One-dimensional basis table of the expansion.
  * @param   D0          One-dimensional derivative matrix.
  * @param   w0          Quadrature weights of the expansion.
@@ -728,10 +856,14 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
  * @param   jac         Jacobians of the block.
  * @param   in          Physical-space input vector \f${\bf f}\f$.
  * @param   out         Coefficient-space output.
- * @param   wsp         Global-memory workspace; unused here.
+ * @param   wsp         Global-memory workspace, sized by
+ *                      IProductWRTDerivBaseWorkSpaceSize times the
+ *                      (mode, component) pairs; unused if
+ *                      @p useSharedMemoryWsp.
  * @param   scale       Factor applied to the result.
- * @param   shmemptr    Dynamic shared memory holding the direction field
- *                      and its transposed derivative.
+ * @param   shmemptr    Dynamic shared memory holding the transposed
+ *                      derivative matrix and, with @p useSharedMemoryWsp,
+ *                      the workspace.
  * @param   threadBlock Thread-block handle.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
@@ -744,15 +876,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTDerivBaseKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
         const size_t nelmt, const size_t inoffset,
-        [[maybe_unused]] const bool isModified,
-        [[maybe_unused]] const bool useSharedMemoryWsp,
+        [[maybe_unused]] const bool isModified, const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
                   "Template argument must be either of type "
@@ -767,9 +898,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int dfsize  = DEFORMED ? nq0 : 1u;
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
-    TData *deriv0 = (TData *)shmemptr;
-    TData *deriv  = deriv0 + nq0;
-    TData *s_D0T  = deriv + nq0;
+    const unsigned int basisDataSize = nq0 * nq0;
+    TData *s_D0T                     = (TData *)shmemptr;
 
     // Copy to shared memory.
     LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
@@ -778,28 +908,41 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int m     = getBlockIdx<1>(threadBlock);
     const unsigned int c     = getBlockIdx<2>(threadBlock);
     const unsigned int nmode = getBlockRange<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *dfptr  = df + ndf * dfsize * e;
-        const TData *jacptr = jac + jacsize * e;
-        // In 3DH1 (nmode > 1) the input holds three directions per
-        // variable, the z one read by DerivZOp, so the stride between
-        // variables is three even though only ncoord are consumed here.
-        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
-        const TData *inptr =
-            in + nq0 * nelmt * (inDim * nmode * c + m) + nq0 * e;
-        TData *outptr = out + nm0 * nelmt * (nmode * c + m) + nm0 * e;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Workspace: after the derivative matrix, or the block's slice.
+        const size_t iblock = getBlockIdx<0>(threadBlock) +
+                              getBlockRange<0>(threadBlock) * (m + nmode * c);
+        TData *deriv0 =
+            isShared ? s_D0T + SharedMemoryAlignedSize<TData>(basisDataSize)
+                     : wsp + IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE,
+                                                               Implementation>(
+                                 1u, sizeParam1D) *
+                                 iblock;
+        TData *deriv = deriv0 + nq0;
 
-        StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, inoffset, w0,
-                                                     dfptr, jacptr, inptr,
-                                                     deriv0, threadBlock);
-        SumDerivTensor1DSumFacTOPKernel<false, false>(nq0, s_D0T, deriv0, deriv,
-                                                      scale, threadBlock);
-        IProductWRTBaseSegSumFacTOPKernel<true, APPEND>(
-            nm0, nq0, basis0, deriv, outptr, scale, threadBlock);
+        while (e < nelmt)
+        {
+            const TData *dfptr  = df + ndf * dfsize * e;
+            const TData *jacptr = jac + jacsize * e;
+            // In 3DH1 (nmode > 1) the input holds three directions per
+            // variable, the z one read by DerivZOp, so the stride between
+            // variables is three even though only ncoord are consumed here.
+            const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
+            const TData *inptr =
+                in + nq0 * nelmt * (inDim * nmode * c + m) + nq0 * e;
+            TData *outptr = out + nm0 * nelmt * (nmode * c + m) + nm0 * e;
 
-        e += getBlockRange<0>(threadBlock);
-    }
+            StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(
+                ncoord, nq0, inoffset, w0, dfptr, jacptr, inptr, deriv0,
+                threadBlock);
+            SumDerivTensor1DSumFacTOPKernel<false, false>(
+                nq0, s_D0T, deriv0, deriv, scale, threadBlock);
+            IProductWRTBaseSegSumFacTOPKernel<true, APPEND>(
+                nm0, nq0, basis0, deriv, outptr, scale, threadBlock);
+
+            e += getBlockRange<0>(threadBlock);
+        }
+    });
 }
 
 /**
@@ -827,17 +970,22 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam1D Sizes of the expansion.
  * @param   nelmt       Elements in the block, padding included.
  * @param   inoffset    Stride between the input's coordinate components.
- * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
- * memory.
+ * @param   useSharedMemoryWsp   Stage the workspace in @p shmemptr rather
+ *                      than in @p wsp.
  * @param   D0          One-dimensional derivative matrix.
  * @param   w0          Quadrature weights of the expansion.
  * @param   df          Derivative factors of the block.
  * @param   jac         Jacobians of the block.
  * @param   in          Physical-space input vector.
  * @param   out         Physical-space output.
- * @param   wsp         Global-memory workspace; unused here.
+ * @param   wsp         Global-memory workspace, sized by
+ *                      IProductWRTDerivBaseWorkSpaceSize times the
+ *                      (mode, component) pairs; unused if
+ *                      @p useSharedMemoryWsp.
  * @param   scale       Factor applied to the result.
- * @param   shmemptr    Dynamic shared memory holding the direction field.
+ * @param   shmemptr    Dynamic shared memory holding the transposed
+ *                      derivative matrix and, with @p useSharedMemoryWsp,
+ *                      the direction field.
  * @param   threadBlock Thread-block handle.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
@@ -849,12 +997,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter1D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-        const size_t inoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const size_t inoffset, const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
@@ -870,8 +1018,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int dfsize  = DEFORMED ? nq0 : 1u;
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
-    TData *deriv = (TData *)shmemptr;
-    TData *s_D0T = deriv + nq0;
+    const unsigned int basisDataSize = nq0 * nq0;
+    TData *s_D0T                     = (TData *)shmemptr;
 
     // Copy to shared memory.
     LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
@@ -880,44 +1028,58 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int m     = getBlockIdx<1>(threadBlock);
     const unsigned int c     = getBlockIdx<2>(threadBlock);
     const unsigned int nmode = getBlockRange<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *dfptr  = df + ndf * dfsize * e;
-        const TData *jacptr = jac + jacsize * e;
-        // In 3DH1 (nmode > 1) the input holds three directions per
-        // variable, the z one read by DerivZOp, so the stride between
-        // variables is three even though only ncoord are consumed here.
-        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
-        const TData *inptr =
-            in + nq0 * nelmt * (inDim * nmode * c + m) + nq0 * e;
-        TData *outptr = out + nq0 * nelmt * (nmode * c + m) + nq0 * e;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Workspace: after the derivative matrix, or the block's slice.
+        const size_t iblock = getBlockIdx<0>(threadBlock) +
+                              getBlockRange<0>(threadBlock) * (m + nmode * c);
+        TData *deriv =
+            isShared ? s_D0T + SharedMemoryAlignedSize<TData>(basisDataSize)
+                     : wsp + IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE,
+                                                               Implementation>(
+                                 1u, sizeParam1D) *
+                                 iblock;
 
-        StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, inoffset, w0,
-                                                     dfptr, jacptr, inptr,
-                                                     deriv, threadBlock);
-        SumDerivTensor1DSumFacTOPKernel<true, APPEND>(nq0, s_D0T, deriv, outptr,
-                                                      scale, threadBlock);
+        while (e < nelmt)
+        {
+            const TData *dfptr  = df + ndf * dfsize * e;
+            const TData *jacptr = jac + jacsize * e;
+            // In 3DH1 (nmode > 1) the input holds three directions per
+            // variable, the z one read by DerivZOp, so the stride between
+            // variables is three even though only ncoord are consumed here.
+            const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
+            const TData *inptr =
+                in + nq0 * nelmt * (inDim * nmode * c + m) + nq0 * e;
+            TData *outptr = out + nq0 * nelmt * (nmode * c + m) + nq0 * e;
 
-        e += getBlockRange<0>(threadBlock);
-    }
+            StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(
+                ncoord, nq0, inoffset, w0, dfptr, jacptr, inptr, deriv,
+                threadBlock);
+            SumDerivTensor1DSumFacTOPKernel<true, APPEND>(
+                nq0, s_D0T, deriv, outptr, scale, threadBlock);
+
+            e += getBlockRange<0>(threadBlock);
+        }
+    });
 }
 
 /**
  * @brief SumFacTOP quadrilateral or triangle launcher, Coeff output:
  * unpacks the element sizes and computes the inner product.
  *
- * The dynamic shared-memory allocation is carved into the two direction
- * fields, their summed transposed derivative, the intermediate of the
- * basis contraction, the two one-dimensional basis tables and the two
- * transposed derivative matrices (plus, for the nodal triangle, its
- * coefficient vector), in that order and with the
- * sizes IProductWRTDerivBaseSharedMemorySize accounts for; the locals
+ * The dynamic shared-memory allocation starts with the two
+ * one-dimensional basis tables and the two transposed derivative matrices.
+ * The workspace -- the two direction fields, their summed transposed
+ * derivative, the intermediate of the basis contraction and, for the nodal
+ * triangle, its coefficient vector, in that order -- follows them with
+ * @p useSharedMemoryWsp, else is the thread block's slice of @p wsp; the
+ * sizes are those IProductWRTDerivBaseSharedMemorySize and
+ * IProductWRTDerivBaseWorkSpaceSize account for; the locals
  * nmode0 and nmode1 hold the row counts of the two basis tables, which
  * for the triangles follow the collapsed mode ordering. The block's
  * threads copy the basis tables and derivative matrices in, then stride
  * over the elements running
- * the three stages; the nodal triangle writes its coefficients to shared
- * memory and finishes with MatVecSumFacTOPKernel applying the transposed
+ * the three stages; the nodal triangle writes its coefficients to the
+ * workspace and finishes with MatVecSumFacTOPKernel applying the transposed
  * nodal-to-modal matrix, which is where its append flag takes effect.
  *
  * Unlike the SumFac launcher of the same name, this one does use the
@@ -942,8 +1104,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   inoffset        Stride between the input's coordinate
  *                          components.
  * @param   isModified      First-direction basis is eModified_A.
- * @param   useSharedMemoryWsp       Unused: SumFacTOP always stages in shared
- *                          memory.
+ * @param   useSharedMemoryWsp       Stage the workspace in @p shmemptr
+ *                          rather than in @p wsp.
  * @param   index0          Mode-index table of the collapsed ordering
  *                          (triangles).
  * @param   basis0,basis1   One-dimensional basis tables per direction.
@@ -956,7 +1118,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   jac             Jacobians of the block.
  * @param   in              Physical-space input vector.
  * @param   out             Coefficient-space output.
- * @param   wsp             Global-memory workspace; unused here.
+ * @param   wsp             Global-memory workspace, sized by
+ *                          IProductWRTDerivBaseWorkSpaceSize times the
+ *                          (mode, component) pairs; unused if
+ *                          @p useSharedMemoryWsp.
  * @param   scale           Factor applied to the result.
  * @param   shmemptr        Dynamic shared memory, carved up as above.
  * @param   threadBlock     Thread-block handle.
@@ -971,16 +1136,15 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTDerivBaseKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
         const size_t nelmt, const size_t inoffset, const bool isModified,
-        [[maybe_unused]] const bool useSharedMemoryWsp,
-        const unsigned int *NEK_RESTRICT index0,
+        const bool useSharedMemoryWsp, const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
         const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
         const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        TData scale, unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, TData scale,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -995,9 +1159,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nmTot = sizeParam2D.nmTot();
     const unsigned int nq0   = sizeParam2D.nq0();
     const unsigned int nq1   = sizeParam2D.nq1();
+    const unsigned int nqTot = sizeParam2D.nqTot();
 
     const unsigned int ndf     = 2 * ncoord;
-    const unsigned int nqTot   = nq0 * nq1;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
@@ -1016,24 +1180,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1   = nmTot;
     }
 
-    wsp0Size += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
-
-    // The inner product reads rows of length SharedMemoryRowStride. When
-    // nq0 is shorter, its input is loaded into the direction slots, consumed
-    // by then.
-    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
-    const bool isPadded    = (ldi != nq0);
-
-    TData *deriv0   = (TData *)shmemptr;
-    TData *deriv1   = deriv0 + nqTot;
-    TData *deriv    = deriv1 + nqTot;
-    TData *ipb      = (isPadded) ? deriv0 : deriv;
-    TData *s_wsp0   = deriv + SharedMemoryAlignedSize<TData>(nqTot);
-    TData *s_basis0 = s_wsp0 + SharedMemoryAlignedSize<TData>(wsp0Size);
+    const unsigned int basisDataSize =
+        nmode0 * nq0 + nmode1 * nq1 + nq0 * nq0 + nq1 * nq1;
+    TData *s_basis0 = (TData *)shmemptr;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_D0T    = s_basis1 + nmode1 * nq1;
     TData *s_D1T    = s_D0T + nq0 * nq0;
-    TData *s_modal  = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
     LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
@@ -1045,45 +1197,81 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int m     = getBlockIdx<1>(threadBlock);
     const unsigned int c     = getBlockIdx<2>(threadBlock);
     const unsigned int nmode = getBlockRange<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *dfptr  = df + ndf * dfsize * e;
-        const TData *jacptr = jac + jacsize * e;
-        // In 3DH1 (nmode > 1) the input holds three directions per
-        // variable, the z one read by DerivZOp, so the stride between
-        // variables is three even though only ncoord are consumed here.
-        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
-        const TData *inptr =
-            in + nqTot * nelmt * (inDim * nmode * c + m) + nqTot * e;
-        TData *outptr = out + nmTot * nelmt * (nmode * c + m) + nmTot * e;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // In shared memory the inner product reads rows of length
+        // SharedMemoryRowStride -- when nq0 is shorter its input is loaded
+        // into the direction slots, consumed by then -- and its intermediate
+        // carries the row padding, each region rounded to 16 bytes; in
+        // global memory the regions are packed and unpadded.
+        constexpr bool padInput = decltype(isShared)::value;
 
-        StdAlignDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            ncoord, nq0, nq1, inoffset, w0, w1, f0, f1, dfptr, jacptr, inptr,
-            deriv0, deriv1, threadBlock);
-        SumDerivTensor2DSumFacTOPKernel<false, false>(
-            nq0, nq1, s_D0T, s_D1T, deriv0, deriv1, deriv, scale, threadBlock);
-        if (isPadded)
+        // Workspace: after the basis data, or the thread block's slice.
+        const size_t iblock = getBlockIdx<0>(threadBlock) +
+                              getBlockRange<0>(threadBlock) * (m + nmode * c);
+        TData *deriv0 =
+            isShared ? s_basis0 + SharedMemoryAlignedSize<TData>(basisDataSize)
+                     : wsp + IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE,
+                                                               Implementation>(
+                                 1u, sizeParam2D) *
+                                 iblock;
+        const unsigned int ldi =
+            padInput ? SharedMemoryRowStride<TData>(nq0) : nq0;
+        const bool isPadded = (ldi != nq0);
+
+        TData *deriv1 = deriv0 + nqTot;
+        TData *deriv  = deriv1 + nqTot;
+        TData *ipb    = (isPadded) ? deriv0 : deriv;
+        TData *wsp0 =
+            deriv + (isShared ? SharedMemoryAlignedSize<TData>(nqTot) : nqTot);
+        TData *modal =
+            wsp0 +
+            (isShared ? SharedMemoryAlignedSize<TData>(
+                            wsp0Size +
+                            IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(
+                                sizeParam2D))
+                      : wsp0Size);
+
+        while (e < nelmt)
         {
-            LoadWithPaddingToSharedMemory(nq0, nq1, ldi, deriv, ipb,
-                                          threadBlock);
-            localBarrier(threadBlock);
+            const TData *dfptr  = df + ndf * dfsize * e;
+            const TData *jacptr = jac + jacsize * e;
+            // In 3DH1 (nmode > 1) the input holds three directions per
+            // variable, the z one read by DerivZOp, so the stride between
+            // variables is three even though only ncoord are consumed here.
+            const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
+            const TData *inptr =
+                in + nqTot * nelmt * (inDim * nmode * c + m) + nqTot * e;
+            TData *outptr = out + nmTot * nelmt * (nmode * c + m) + nmTot * e;
+
+            StdAlignDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                ncoord, nq0, nq1, inoffset, w0, w1, f0, f1, dfptr, jacptr,
+                inptr, deriv0, deriv1, threadBlock);
+            SumDerivTensor2DSumFacTOPKernel<false, false>(
+                nq0, nq1, s_D0T, s_D1T, deriv0, deriv1, deriv, scale,
+                threadBlock);
+            if (isPadded)
+            {
+                LoadWithPaddingToSharedMemory(nq0, nq1, ldi, deriv, ipb,
+                                              threadBlock);
+                localBarrier(threadBlock);
+            }
+
+            IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, true,
+                                             APPEND && !isNodal, padInput>(
+                nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
+                s_basis1, ipb, isNodal ? modal : outptr, wsp0, scale,
+                threadBlock);
+
+            if constexpr (isNodal)
+            {
+                // Multiply by transpose nodToMod to transform coeffs.
+                MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, modal,
+                                                    outptr, threadBlock);
+            }
+
+            e += getBlockRange<0>(threadBlock);
         }
-
-        IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, true, APPEND && !isNodal,
-                                         true>(
-            nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-            s_basis1, ipb, isNodal ? s_modal : outptr, s_wsp0, scale,
-            threadBlock);
-
-        if constexpr (isNodal)
-        {
-            // Multiply by transpose nodToMod to transform coeffs.
-            MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, s_modal,
-                                                outptr, threadBlock);
-        }
-
-        e += getBlockRange<0>(threadBlock);
-    }
+    });
 }
 
 /**
@@ -1092,13 +1280,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * points.
  *
  * As the Coeff launcher without the basis contraction: the shared memory
- * holds the two direction fields and the transposes of the two
- * one-dimensional derivative matrices, which the block's threads stage
- * there because every element reads them, and SumDerivTensor2DSumFacTOPKernel
- * writes the summed transposed derivative straight to the output, applying the
- * scale and the append flag. The basis tables, the mode-index table and the
- * nodal-to-modal matrix are absent from this signature: the Phys path
- * stops before the basis contraction.
+ * holds the transposes of the two one-dimensional derivative matrices,
+ * which the block's threads stage there because every element reads them,
+ * and the workspace the two direction fields, and
+ * SumDerivTensor2DSumFacTOPKernel writes the summed transposed derivative
+ * straight to the output, applying the scale and the append flag. The basis
+ * tables, the mode-index table and the nodal-to-modal matrix are absent from
+ * this signature: the Phys path stops before the basis contraction.
  *
  * @tparam SHAPE_TYPE              Shape of the block's elements.
  * @tparam Implementation          MultiRegions::SumFacTOP.
@@ -1114,8 +1302,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam2D Sizes per direction.
  * @param   nelmt       Elements in the block, padding included.
  * @param   inoffset    Stride between the input's coordinate components.
- * @param   useSharedMemoryWsp   Unused: SumFacTOP always stages in shared
- * memory.
+ * @param   useSharedMemoryWsp   Stage the workspace in @p shmemptr rather
+ *                      than in @p wsp.
  * @param   D0,D1       One-dimensional derivative matrices per direction.
  * @param   w0,w1       Quadrature weights per direction.
  * @param   f0,f1       Collapsed-coordinate factor tables (triangles).
@@ -1123,7 +1311,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   jac         Jacobians of the block.
  * @param   in          Physical-space input vector.
  * @param   out         Physical-space output.
- * @param   wsp         Global-memory workspace; unused here.
+ * @param   wsp         Global-memory workspace, sized by
+ *                      IProductWRTDerivBaseWorkSpaceSize times the
+ *                      (mode, component) pairs; unused if
+ *                      @p useSharedMemoryWsp.
  * @param   scale       Factor applied to the result.
  * @param   shmemptr    Dynamic shared memory, carved up as above.
  * @param   threadBlock Thread-block handle.
@@ -1137,14 +1328,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter2D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-        const size_t inoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const size_t inoffset, const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
         const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -1156,16 +1347,15 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int ncoord = sizeParam2D.ncoord();
     const unsigned int nq0    = sizeParam2D.nq0();
     const unsigned int nq1    = sizeParam2D.nq1();
+    const unsigned int nqTot  = sizeParam2D.nqTot();
 
     const unsigned int ndf     = 2 * ncoord;
-    const unsigned int nqTot   = nq0 * nq1;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    TData *deriv0 = (TData *)shmemptr;
-    TData *deriv1 = deriv0 + nqTot;
-    TData *s_D0T  = deriv1 + nqTot;
-    TData *s_D1T  = s_D0T + nq0 * nq0;
+    const unsigned int basisDataSize = nq0 * nq0 + nq1 * nq1;
+    TData *s_D0T                     = (TData *)shmemptr;
+    TData *s_D1T                     = s_D0T + nq0 * nq0;
 
     // Copy to shared memory.
     LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
@@ -1175,26 +1365,40 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int m     = getBlockIdx<1>(threadBlock);
     const unsigned int c     = getBlockIdx<2>(threadBlock);
     const unsigned int nmode = getBlockRange<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *dfptr  = df + ndf * dfsize * e;
-        const TData *jacptr = jac + jacsize * e;
-        // In 3DH1 (nmode > 1) the input holds three directions per
-        // variable, the z one read by DerivZOp, so the stride between
-        // variables is three even though only ncoord are consumed here.
-        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
-        const TData *inptr =
-            in + nqTot * nelmt * (inDim * nmode * c + m) + nqTot * e;
-        TData *outptr = out + nqTot * nelmt * (nmode * c + m) + nqTot * e;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Workspace: after the derivative matrices, or the block's slice.
+        const size_t iblock = getBlockIdx<0>(threadBlock) +
+                              getBlockRange<0>(threadBlock) * (m + nmode * c);
+        TData *deriv0 =
+            isShared ? s_D0T + SharedMemoryAlignedSize<TData>(basisDataSize)
+                     : wsp + IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE,
+                                                               Implementation>(
+                                 1u, sizeParam2D) *
+                                 iblock;
+        TData *deriv1 = deriv0 + nqTot;
 
-        StdAlignDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            ncoord, nq0, nq1, inoffset, w0, w1, f0, f1, dfptr, jacptr, inptr,
-            deriv0, deriv1, threadBlock);
-        SumDerivTensor2DSumFacTOPKernel<true, APPEND>(
-            nq0, nq1, s_D0T, s_D1T, deriv0, deriv1, outptr, scale, threadBlock);
+        while (e < nelmt)
+        {
+            const TData *dfptr  = df + ndf * dfsize * e;
+            const TData *jacptr = jac + jacsize * e;
+            // In 3DH1 (nmode > 1) the input holds three directions per
+            // variable, the z one read by DerivZOp, so the stride between
+            // variables is three even though only ncoord are consumed here.
+            const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
+            const TData *inptr =
+                in + nqTot * nelmt * (inDim * nmode * c + m) + nqTot * e;
+            TData *outptr = out + nqTot * nelmt * (nmode * c + m) + nqTot * e;
 
-        e += getBlockRange<0>(threadBlock);
-    }
+            StdAlignDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                ncoord, nq0, nq1, inoffset, w0, w1, f0, f1, dfptr, jacptr,
+                inptr, deriv0, deriv1, threadBlock);
+            SumDerivTensor2DSumFacTOPKernel<true, APPEND>(
+                nq0, nq1, s_D0T, s_D1T, deriv0, deriv1, outptr, scale,
+                threadBlock);
+
+            e += getBlockRange<0>(threadBlock);
+        }
+    });
 }
 
 /**
@@ -1202,12 +1406,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * element sizes and computes the inner product.
  *
  * The 3D form of the quadrilateral/triangle launcher: the shared memory
- * holds the three direction fields, their summed transposed derivative,
- * the two intermediates of the basis contraction (plus, for the nodal
- * shapes, their coefficient vector) and the three one-dimensional basis
- * tables; the locals nmode0 ... nmode2 and wsp0Size / wsp1Size
+ * holds the three one-dimensional basis tables and the three transposed
+ * derivative matrices, and the workspace the three direction fields, their
+ * summed transposed derivative and the two intermediates of the basis
+ * contraction (plus, for the nodal shapes, their coefficient vector); the
+ * locals nmode0 ... nmode2 and wsp0Size / wsp1Size
  * hold the table row counts and intermediate sizes of the shape's
- * collapsed mode ordering, matching IProductWRTDerivBaseSharedMemorySize.
+ * collapsed mode ordering, matching IProductWRTDerivBaseSharedMemorySize
+ * and IProductWRTDerivBaseWorkSpaceSize.
  * The block's threads copy the basis tables in, then stride over the
  * elements running the geometric stage, SumDerivTensor3DSumFacTOPKernel
  * and the IProductWRTBase kernel of the shape, the nodal shapes finishing
@@ -1217,7 +1423,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * by the basis contraction.
  *
  * As in the 2D launcher, the summed transposed derivative always
- * overwrites its shared-memory intermediate, which is reused across the
+ * overwrites its workspace intermediate, which is reused across the
  * element loop; the append flag takes effect in the closing basis
  * contraction onto the output.
  *
@@ -1238,8 +1444,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   inoffset                Stride between the input's coordinate
  *                                  components.
  * @param   isModified              First-direction basis is eModified_A.
- * @param   useSharedMemoryWsp               Unused: SumFacTOP always stages in
- *                                  shared memory.
+ * @param   useSharedMemoryWsp      Stage the workspace in @p shmemptr
+ *                                  rather than in @p wsp.
  * @param   index0,index1,index2    Mode-index tables of the collapsed
  *                                  ordering.
  * @param   basis0,basis1,basis2    One-dimensional basis tables per
@@ -1253,7 +1459,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   jac                     Jacobians of the block.
  * @param   in                      Physical-space input vector.
  * @param   out                     Coefficient-space output.
- * @param   wsp                     Global-memory workspace; unused here.
+ * @param   wsp                     Global-memory workspace, sized by
+ *                                  IProductWRTDerivBaseWorkSpaceSize times
+ *                                  the (mode, component) pairs; unused if
+ *                                  @p useSharedMemoryWsp.
  * @param   scale                   Factor applied to the result.
  * @param   shmemptr                Dynamic shared memory, carved up as
  *                                  above.
@@ -1270,8 +1479,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TSizeParameter3D sizeParam3D,
         [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
         const size_t inoffset, const bool isModified,
-        [[maybe_unused]] const bool useSharedMemoryWsp,
-        const unsigned int *NEK_RESTRICT index0,
+        const bool useSharedMemoryWsp, const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
@@ -1283,8 +1491,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
                   "Template argument must be either of type "
@@ -1303,9 +1511,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nq0   = sizeParam3D.nq0();
     const unsigned int nq1   = sizeParam3D.nq1();
     const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
 
     constexpr unsigned int ndf = 9u;
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
@@ -1346,26 +1554,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
-    const unsigned int wspPadSize =
-        IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
-    wsp0Size += wspPadSize;
-    wsp1Size += wspPadSize;
-
-    // The inner product reads rows of length SharedMemoryRowStride. When
-    // nq0 is shorter, its input is loaded into the direction slots, consumed
-    // by then.
-    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
-    const bool isPadded    = (ldi != nq0);
-
-    TData *deriv0   = (TData *)shmemptr;
-    TData *deriv1   = deriv0 + nqTot;
-    TData *deriv2   = deriv1 + nqTot;
-    TData *deriv    = deriv2 + nqTot;
-    TData *ipb      = (isPadded) ? deriv0 : deriv;
-    TData *s_wsp0   = deriv + SharedMemoryAlignedSize<TData>(nqTot);
-    TData *s_wsp1   = s_wsp0 + SharedMemoryAlignedSize<TData>(wsp0Size);
-    TData *s_wsp2   = s_wsp1 + SharedMemoryAlignedSize<TData>(wsp1Size);
-    TData *s_basis0 = s_wsp2 + (isNodal ? nmTot : 0u);
+    const unsigned int basisDataSize = nmode0 * nq0 + nmode1 * nq1 +
+                                       nmode2 * nq2 + nq0 * nq0 + nq1 * nq1 +
+                                       nq2 * nq2;
+    TData *s_basis0 = (TData *)shmemptr;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
     TData *s_D0T    = s_basis2 + nmode2 * nq2;
@@ -1384,44 +1576,81 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int m     = getBlockIdx<1>(threadBlock);
     const unsigned int c     = getBlockIdx<2>(threadBlock);
     const unsigned int nmode = getBlockRange<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *dfptr  = df + ndf * dfsize * e;
-        const TData *jacptr = jac + jacsize * e;
-        const TData *inptr =
-            in + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
-        TData *outptr = out + nmTot * nelmt * (nmode * c + m) + nmTot * e;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Laid out as in 2D, with a second intermediate.
+        constexpr bool padInput = decltype(isShared)::value;
 
-        StdAlignDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            nq0, nq1, nq2, inoffset, w0, w1, w2, f0, f1, f1m, f2, dfptr, jacptr,
-            inptr, deriv0, deriv1, deriv2, threadBlock);
-        // Always overwrite the shared-memory deriv scratch (it is reused
-        // across the element loop); the op-level append is handled by the
-        // IProductWRTBase kernels writing the global output below.
-        SumDerivTensor3DSumFacTOPKernel<false, false>(
-            nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2, deriv,
-            scale, threadBlock);
-        if (isPadded)
+        // Workspace: after the basis data, or the thread block's slice.
+        const size_t iblock = getBlockIdx<0>(threadBlock) +
+                              getBlockRange<0>(threadBlock) * (m + nmode * c);
+        TData *deriv0 =
+            isShared ? s_basis0 + SharedMemoryAlignedSize<TData>(basisDataSize)
+                     : wsp + IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE,
+                                                               Implementation>(
+                                 1u, sizeParam3D) *
+                                 iblock;
+        const unsigned int ldi =
+            padInput ? SharedMemoryRowStride<TData>(nq0) : nq0;
+        const bool isPadded = (ldi != nq0);
+        const unsigned int wspPadSize =
+            padInput ? IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(
+                           sizeParam3D)
+                     : 0u;
+
+        TData *deriv1 = deriv0 + nqTot;
+        TData *deriv2 = deriv1 + nqTot;
+        TData *deriv  = deriv2 + nqTot;
+        TData *ipb    = (isPadded) ? deriv0 : deriv;
+        TData *wsp0 =
+            deriv + (isShared ? SharedMemoryAlignedSize<TData>(nqTot) : nqTot);
+        TData *wsp1 =
+            wsp0 + (isShared
+                        ? SharedMemoryAlignedSize<TData>(wsp0Size + wspPadSize)
+                        : wsp0Size);
+        TData *wsp2 =
+            wsp1 + (isShared
+                        ? SharedMemoryAlignedSize<TData>(wsp1Size + wspPadSize)
+                        : wsp1Size);
+
+        while (e < nelmt)
         {
-            LoadWithPaddingToSharedMemory(nq0, nq1 * nq2, ldi, deriv, ipb,
-                                          threadBlock);
-            localBarrier(threadBlock);
-        }
+            const TData *dfptr  = df + ndf * dfsize * e;
+            const TData *jacptr = jac + jacsize * e;
+            const TData *inptr =
+                in + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
+            TData *outptr = out + nmTot * nelmt * (nmode * c + m) + nmTot * e;
 
-        IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, true, APPEND && !isNodal,
-                                         true>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-            index1, index2, s_basis0, s_basis1, s_basis2, ipb,
-            isNodal ? s_wsp2 : outptr, s_wsp0, s_wsp1, scale, threadBlock);
+            StdAlignDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                nq0, nq1, nq2, inoffset, w0, w1, w2, f0, f1, f1m, f2, dfptr,
+                jacptr, inptr, deriv0, deriv1, deriv2, threadBlock);
+            // Always overwrite the deriv scratch (it is reused
+            // across the element loop); the op-level append is handled by the
+            // IProductWRTBase kernels writing the global output below.
+            SumDerivTensor3DSumFacTOPKernel<false, false>(
+                nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2,
+                deriv, scale, threadBlock);
+            if (isPadded)
+            {
+                LoadWithPaddingToSharedMemory(nq0, nq1 * nq2, ldi, deriv, ipb,
+                                              threadBlock);
+                localBarrier(threadBlock);
+            }
 
-        if constexpr (isNodal)
-        {
-            // Multiply by transpose nodToMod to transform coeffs.
-            MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, s_wsp2, outptr,
-                                                threadBlock);
+            IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, true,
+                                             APPEND && !isNodal, padInput>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb,
+                isNodal ? wsp2 : outptr, wsp0, wsp1, scale, threadBlock);
+
+            if constexpr (isNodal)
+            {
+                // Multiply by transpose nodToMod to transform coeffs.
+                MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, wsp2,
+                                                    outptr, threadBlock);
+            }
+            e += getBlockRange<0>(threadBlock);
         }
-        e += getBlockRange<0>(threadBlock);
-    }
+    });
 }
 
 /**
@@ -1429,8 +1658,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * element sizes and leaves the derivative at the quadrature points.
  *
  * As the Coeff launcher without the basis contraction: the shared memory
- * holds the three direction fields and the transposes of the three
- * one-dimensional derivative matrices, and SumDerivTensor3DSumFacTOPKernel
+ * holds the transposes of the three one-dimensional derivative matrices,
+ * the workspace the three direction fields, and SumDerivTensor3DSumFacTOPKernel
  * writes the summed transposed derivative straight to the output, applying the
  * scale and the append flag. The basis tables, the mode-index tables and the
  * nodal-to-modal matrix are absent from this signature, all of which
@@ -1451,8 +1680,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   nelmt           Elements in the block, padding included.
  * @param   inoffset        Stride between the input's coordinate
  *                          components.
- * @param   useSharedMemoryWsp       Unused: SumFacTOP always stages in shared
- *                          memory.
+ * @param   useSharedMemoryWsp       Stage the workspace in @p shmemptr
+ *                          rather than in @p wsp.
  * @param   D0,D1,D2        One-dimensional derivative matrices per
  *                          direction.
  * @param   w0,w1,w2        Quadrature weights per direction.
@@ -1461,7 +1690,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   jac             Jacobians of the block.
  * @param   in              Physical-space input vector.
  * @param   out             Physical-space output.
- * @param   wsp             Global-memory workspace; unused here.
+ * @param   wsp             Global-memory workspace, sized by
+ *                          IProductWRTDerivBaseWorkSpaceSize times the
+ *                          (mode, component) pairs; unused if
+ *                          @p useSharedMemoryWsp.
  * @param   scale           Factor applied to the result.
  * @param   shmemptr        Dynamic shared memory, carved up as above.
  * @param   threadBlock     Thread-block handle.
@@ -1475,7 +1707,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter3D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-        const size_t inoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
+        const size_t inoffset, const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
         const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT w0,
         const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
@@ -1483,8 +1715,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        [[maybe_unused]] TData *NEK_RESTRICT wsp, TData scale,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        TData *NEK_RESTRICT wsp, TData scale, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
@@ -1493,21 +1725,19 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
 
     constexpr unsigned int ndf = 9u;
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    TData *deriv0 = (TData *)shmemptr;
-    TData *deriv1 = deriv0 + nqTot;
-    TData *deriv2 = deriv1 + nqTot;
-    TData *s_D0T  = deriv2 + nqTot;
-    TData *s_D1T  = s_D0T + nq0 * nq0;
-    TData *s_D2T  = s_D1T + nq1 * nq1;
+    const unsigned int basisDataSize = nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
+    TData *s_D0T                     = (TData *)shmemptr;
+    TData *s_D1T                     = s_D0T + nq0 * nq0;
+    TData *s_D2T                     = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
     LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
@@ -1518,23 +1748,37 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int m     = getBlockIdx<1>(threadBlock);
     const unsigned int c     = getBlockIdx<2>(threadBlock);
     const unsigned int nmode = getBlockRange<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *dfptr  = df + ndf * dfsize * e;
-        const TData *jacptr = jac + jacsize * e;
-        const TData *inptr =
-            in + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
-        TData *outptr = out + nqTot * nelmt * (nmode * c + m) + nqTot * e;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        // Workspace: after the derivative matrices, or the block's slice.
+        const size_t iblock = getBlockIdx<0>(threadBlock) +
+                              getBlockRange<0>(threadBlock) * (m + nmode * c);
+        TData *deriv0 =
+            isShared ? s_D0T + SharedMemoryAlignedSize<TData>(basisDataSize)
+                     : wsp + IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE,
+                                                               Implementation>(
+                                 1u, sizeParam3D) *
+                                 iblock;
+        TData *deriv1 = deriv0 + nqTot;
+        TData *deriv2 = deriv1 + nqTot;
 
-        StdAlignDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            nq0, nq1, nq2, inoffset, w0, w1, w2, f0, f1, f1m, f2, dfptr, jacptr,
-            inptr, deriv0, deriv1, deriv2, threadBlock);
-        SumDerivTensor3DSumFacTOPKernel<true, APPEND>(
-            nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2, outptr,
-            scale, threadBlock);
+        while (e < nelmt)
+        {
+            const TData *dfptr  = df + ndf * dfsize * e;
+            const TData *jacptr = jac + jacsize * e;
+            const TData *inptr =
+                in + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
+            TData *outptr = out + nqTot * nelmt * (nmode * c + m) + nqTot * e;
 
-        e += getBlockRange<0>(threadBlock);
-    }
+            StdAlignDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                nq0, nq1, nq2, inoffset, w0, w1, w2, f0, f1, f1m, f2, dfptr,
+                jacptr, inptr, deriv0, deriv1, deriv2, threadBlock);
+            SumDerivTensor3DSumFacTOPKernel<true, APPEND>(
+                nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2,
+                outptr, scale, threadBlock);
+
+            e += getBlockRange<0>(threadBlock);
+        }
+    });
 }
 
 #endif

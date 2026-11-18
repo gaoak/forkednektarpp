@@ -119,7 +119,7 @@ NEK_HOSTDEVICE_INLINE constexpr size_t AdvectionDealiasWorkSpaceSize(
     const unsigned int wsp0Stride =
         AdvectionDealiasScratchSize(nq0Fine * nq1, nq0 * nq1Fine);
 
-    return (nderiv * ncoord * nq0 * nq1 + nfine * nq0Fine * nq1Fine +
+    return (nderiv * ncoord * sizeParam2D.nqTot() + nfine * nq0Fine * nq1Fine +
             wsp0Stride) *
            nelmt;
 }
@@ -150,7 +150,7 @@ NEK_HOSTDEVICE_INLINE constexpr size_t AdvectionDealiasWorkSpaceSize(
     const unsigned int wsp1Stride = AdvectionDealiasScratchSize(
         nq0Fine * nq1Fine * nq2, nq0 * nq1 * nq2Fine);
 
-    return (nderiv * ncoord * nq0 * nq1 * nq2 +
+    return (nderiv * ncoord * sizeParam3D.nqTot() +
             nfine * nq0Fine * nq1Fine * nq2Fine + wsp0Stride + wsp1Stride) *
            nelmt;
 }
@@ -610,9 +610,9 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
 
     const unsigned int coordDim = sizeParam1D.ncoord();
     const unsigned int nq0      = sizeParam1D.nq0();
+    const unsigned int nqTot    = sizeParam1D.nqTot();
     const unsigned int nq0Fine  = AdvectionDealiasFineSize(nq0, nq0);
 
-    const unsigned int nqTot     = nq0;
     const unsigned int nqTotFine = nq0Fine;
     const unsigned int dfsize    = DEFORMED ? nqTot : 1u;
 
@@ -768,9 +768,9 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const unsigned int coordDim  = sizeParam2D.ncoord();
     const unsigned int nq0       = sizeParam2D.nq0();
     const unsigned int nq1       = sizeParam2D.nq1();
+    const unsigned int nqTot     = sizeParam2D.nqTot();
     const unsigned int nq0Fine   = AdvectionDealiasFineSize(nq0, nq0);
     const unsigned int nq1Fine   = AdvectionDealiasFineSize(nq0, nq1);
-    const unsigned int nqTot     = nq0 * nq1;
     const unsigned int nqTotFine = nq0Fine * nq1Fine;
     const unsigned int ndf       = 2u * coordDim;
     const unsigned int dfsize    = DEFORMED ? nqTot : 1u;
@@ -947,11 +947,11 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const unsigned int nq0            = sizeParam3D.nq0();
     const unsigned int nq1            = sizeParam3D.nq1();
     const unsigned int nq2            = sizeParam3D.nq2();
+    const unsigned int nqTot          = sizeParam3D.nqTot();
     const unsigned int nq0Fine        = AdvectionDealiasFineSize(nq0, nq0);
     const unsigned int nq1Fine        = AdvectionDealiasFineSize(nq0, nq1);
     const unsigned int nq2Fine        = AdvectionDealiasFineSize(nq0, nq2);
     constexpr unsigned int coordDim3D = 3u;
-    const unsigned int nqTot          = nq0 * nq1 * nq2;
     const unsigned int nqTotFine      = nq0Fine * nq1Fine * nq2Fine;
     constexpr unsigned int ndf        = 9u;
     const unsigned int dfsize         = DEFORMED ? nqTot : 1u;
