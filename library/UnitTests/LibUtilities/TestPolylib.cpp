@@ -321,6 +321,40 @@ BOOST_AUTO_TEST_CASE(TestGaussLobattoIntMatrix)
     TestIntegralMatrix(Polylib::zwglj, Polylib::Qg);
 }
 
+/**
+ * @brief Test the tridiagonal-eigenvalue Gauss-Jacobi rule JacZeros against
+ * zwgj, starting from one point: n = 0 and n = 1 used to write past the end
+ * of the arrays, and n = 1 with alpha + beta = 0 gave a NaN point.
+ */
+BOOST_AUTO_TEST_CASE(TestJacZeros)
+{
+    // Zero points must be a no-op that touches neither array
+    Polylib::JacZeros(0, nullptr, nullptr, 0.0, 0.0);
+
+    std::vector<double> zj(NPUPPER), wj(NPUPPER);
+
+    double alpha = -0.5;
+    while (alpha <= 5.0)
+    {
+        double beta = -0.5;
+        while (beta <= 5.0)
+        {
+            for (int np = 1; np <= NPUPPER; ++np)
+            {
+                Polylib::zwgj(&z[0], &w[0], np, alpha, beta);
+                Polylib::JacZeros(np, &zj[0], &wj[0], alpha, beta);
+                for (int i = 0; i < np; ++i)
+                {
+                    BOOST_CHECK_SMALL(zj[i] - z[i], EPS);
+                    BOOST_CHECK_SMALL((wj[i] - w[i]) / w[i], EPS);
+                }
+            }
+            beta += 0.5;
+        }
+        alpha += 0.5;
+    }
+}
+
 BOOST_AUTO_TEST_CASE(TestGammaFraction)
 {
     double a, c;
