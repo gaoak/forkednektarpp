@@ -217,6 +217,7 @@ v5.11.0
 - Fix NaNs from IncNavierStokesSolver restarts: write lower-order pressure checkpoints in the output expansion, and match trace normals to boundary quadrature and orientation in NormVectorIProductWRTBase and FilterAeroForces (!2792)
 - Add a Lorentz force to support quasi-static MHD simulation (!2625)
 - Fix MovingBody forcing: broadcast cable motion read from file to all processes and fix the Pinned-Pinned sine transforms (!2866)
+- Tidy Redesign VelocityCorrectionScheme and reduce memory storage requirement (!2945)
 
 **ADRSolverRedesign**
 - Add `ADRSolverRedesign` built on the redesign operators and `SolverCore` (!2416)

@@ -37,7 +37,7 @@
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/DisContField.h>
 #include <SolverCore/EquationSystems/EquationSystem.h>
-
+#include <SolverCore/MeanRemoval/MeanRemovalOp.hpp>
 #include <SolverCore/NormOps/NormL2/NormL2Op.hpp>
 #include <SolverCore/NormOps/NormLinf/NormLinfOp.hpp>
 #include <algorithm>
@@ -83,28 +83,24 @@ EquationSystem::EquationSystem(
     : m_comm(session->GetComm()), m_session(session), m_graph(graph)
 {
     const auto &filenames = m_session->GetFilenames();
-    for (size_t i = 0; i < filenames.size(); ++i)
+    for (unsigned int i = 0; i < filenames.size(); ++i)
     {
         m_fieldMetaDataMap["SessionName" + std::to_string(i)] = filenames[i];
     }
 
-    // Get variables and number of variables
-    m_variables  = m_session->GetVariables();
-    m_nVariables = m_variables.size();
-
-    // Get coordinate system (space) dimensions
+    // Get coordinate system (space) dimensions.
     m_coordim = m_graph->GetSpaceDimension();
     m_expdim  = m_graph->GetMeshDimension();
 
-    // Initialise Math
+    // Initialise Math.
     std::string execName =
         MultiRegions::Operator<double>::GetOpExecSpace(m_session);
     m_math = Math::MathHelper(execName);
 
-    // Check and set definitions for homogeneous/Fourier dimensions
+    // Check and set definitions for homogeneous/Fourier dimensions.
     CheckHomogeneousDimensions();
 
-    // Hard set the GlobalSysSoln to the only supported type: IterativeFull
+    // Hard set the GlobalSysSoln to the only supported type: IterativeFull.
     m_session->SetSolverInfo("GlobalSysSoln", "IterativeFull");
 
     // Without a .opt file the expansion lists would time every
@@ -120,13 +116,13 @@ EquationSystem::EquationSystem(
         m_session->SetUpdateOptFile(false);
     }
 
-    // Get projection CG, DG or mixed CG/DG
+    // Get projection CG, DG or mixed CG/DG.
     const std::string projection = m_session->GetSolverInfo("PROJECTION");
     m_projectionType             = GetProjectionType(projection);
 }
 
 /**
- * @brief Publish #m_fields as the solution, as the one physical group, and
+ * @brief Publish #m_phys[0] as the solution, as the one physical group, and
  * the output coefficients of v_GetOutputFieldViews() as the coefficient
  * groups.
  */
@@ -134,8 +130,8 @@ FieldRegistry EquationSystem::v_GetFieldRegistry()
 {
     ASSERTL0(!m_expansionLists.empty(),
              "EquationSystem has no physical fields to publish.");
-    PhysicalFieldView solution{m_fields, m_expansionLists[0], m_coordim,
-                               MakeFieldComponents(m_variables)};
+    PhysicalFieldView solution{m_phys[0], m_expansionLists[0], m_coordim,
+                               MakeFieldComponents(m_variables[0])};
     FieldRegistry registry;
     registry.SetRole(std::string(FieldRoles::Solution), solution);
     registry.SetPhysicalGroups({solution});
@@ -203,13 +199,18 @@ void EquationSystem::v_InitObject(bool declareExpansionLists)
         }
     }
 
-    // Check boundary conditions, if one field uses only Neumann/Periodic BCs
-    m_checkIfSystemSingular = v_GetSystemSingularChecks();
-
-    // Define ExpLists and Fields, ie allocate memory for entire mesh
+    // Group the variables by expansion list and declare the lists, which
+    // also checks whether each system is singular, i.e. has only
+    // Neumann/Periodic BCs.
     if (declareExpansionLists)
     {
         DeclareExpansionLists();
+    }
+    else
+    {
+        // A solver declaring its own lists still gets its variables grouped
+        // and the singular checks.
+        v_SetExpansionVariables();
     }
 }
 
@@ -227,44 +228,40 @@ void EquationSystem::v_Output()
 }
 
 /*
- * Create m_field and m_field_coeff for holding the solution, comparing against
- * an ExactSolution and writing to file. Note any solver implementation can
- * choose to not call EquationSystem::v_InitialiseFields, but still has to
- * initialise m_fields and m_fields_coeff.
- * @param expansionList Allows specialising the expansionList for the Field.
- * @param variables Allows specialising the solution field to contain a subset
- * of all fields.
+ * Create m_phys and m_coeff, one Field per expansion list holding the
+ * variables of its m_variables group, for holding the solution, comparing
+ * against an ExactSolution and writing to file, and the workspaces
+ * m_wsp_phys and m_wsp_coeff of the same layout. Note any solver
+ * implementation can choose to not call EquationSystem::v_InitialiseFields,
+ * but still has to initialise m_phys and m_coeff.
  */
 void EquationSystem::v_InitialiseFields()
 {
-    // Create solution fields in physical space (at quadrature points)
-    auto bAtr_phys = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-        m_expansionLists[0]);
-    m_fields = LibUtilities::Field<double, FieldState::Phys>(
-        "solution", bAtr_phys, m_nVariables, m_npointsZ);
-
-    // Create solution fields in coefficient space (coefficients of polynomial
-    // basis function)
-    auto bAtr_coeff =
-        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            m_expansionLists[0]);
-    m_fields_coeff = LibUtilities::Field<double, FieldState::Coeff>(
-        "solution coeff", bAtr_coeff, m_nVariables, m_npointsZ);
-
-    // Scratch for the discontinuous phys to coeff projection, which needs an
-    // intermediate between the inner product and the inverse mass multiply.
-    // Only ProjectPhysToCoeffs() reads it, and that is discontinuous only, so
-    // a continuous run would carry a whole coefficient field for nothing.
-    if (m_projectionType == MultiRegions::eDiscontinuous)
+    for (unsigned int i = 0; i < m_expansionLists.size(); i++)
     {
-        m_fields_coeff_tmp = LibUtilities::Field<double, FieldState::Coeff>(
-            "solution coeff tmp", bAtr_coeff, m_nVariables, m_npointsZ);
-        m_math.zero(m_fields_coeff_tmp);
-    }
+        // Create solution fields in physical space (at quadrature points)
+        auto bAtr_phys =
+            MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[i]);
+        m_phys.push_back(LibUtilities::Field<double, FieldState::Phys>(
+            "phys", bAtr_phys, m_variables[i], m_npointsZ));
+        m_wsp_phys.push_back(LibUtilities::Field<double, FieldState::Phys>(
+            "wsp (phys)", bAtr_phys, m_variables[i], m_npointsZ));
 
-    // Zero the solution fields
-    m_math.zero(m_fields);
-    m_math.zero(m_fields_coeff);
+        // Create solution fields in coefficient space (coefficients of
+        // polynomial basis function)
+        auto bAtr_coeff =
+            MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+                m_expansionLists[i]);
+        m_coeff.push_back(LibUtilities::Field<double, FieldState::Coeff>(
+            "coeff", bAtr_coeff, m_variables[i], m_npointsZ));
+        m_wsp_coeff.push_back(LibUtilities::Field<double, FieldState::Coeff>(
+            "wsp (coeff)", bAtr_coeff, m_variables[i], m_npointsZ));
+
+        // Zero the solution fields
+        m_math.zero(m_phys[i]);
+        m_math.zero(m_coeff[i]);
+    }
 }
 
 void EquationSystem::v_GenerateSummary(SummaryList &summary)
@@ -293,72 +290,6 @@ void EquationSystem::v_GenerateSummary(SummaryList &summary)
 
     AddSummaryItem(summary, "Projection Type",
                    GetProjectionString(m_projectionType));
-}
-
-void EquationSystem::v_PrintNorms(std::ostream &out)
-{
-    // Create workspace Field at the default interleave widths, those of
-    // m_fields, so that the subtraction below combines consistently laid-out
-    // data. They are taken from the expansion list rather than read off
-    // m_fields' blocks since GetBlocks() can be empty on a rank with no local
-    // elements.
-    auto wsp_phys = LibUtilities::Field<double, FieldState::Phys>(
-        "exact solution",
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            m_expansionLists[0]),
-        m_nVariables, m_npointsZ);
-    m_math.zero(wsp_phys);
-
-    // Evaluate exact solution and compute diff to discrete solution
-    if (m_session->DefinesFunction("ExactSolution"))
-    {
-        SessionFunction exactSolution(m_session, m_expansionLists[0],
-                                      m_variables, "ExactSolution");
-        exactSolution.Evaluate(wsp_phys, m_time);
-    }
-    m_math.sub(m_fields, wsp_phys, wsp_phys);
-
-    // Compute L2 norm
-    auto l2NormOp = NormL2Op<double>::Create(m_expansionLists[0], m_variables);
-    l2NormOp->Apply(wsp_phys);
-    auto l2Errors = l2NormOp->GetNorms();
-
-    // Compute Linf norm
-    auto linfNormOp =
-        NormLinfOp<double>::Create(m_expansionLists[0], m_variables);
-    linfNormOp->Apply(wsp_phys);
-    auto linfErrors = linfNormOp->GetNorms();
-
-    // Print norms
-    for (unsigned int n = 0; n < m_nVariables; ++n)
-    {
-        if (m_comm->GetRank() == 0)
-        {
-            out << "L 2 error (variable " << m_variables[n]
-                << ") : " << l2Errors[n] << std::endl;
-            out << "L inf error (variable " << m_variables[n]
-                << ") : " << linfErrors[n] << std::endl;
-        }
-    }
-}
-
-/**
- * @brief Project the discontinuous physical field into #m_fields_coeff.
- *
- * The element local L2 projection \f$M^{-1}B^{T}W\f$, assembled from the
- * inner product and the inverse mass multiply. m_fwdTransOp cannot serve:
- * it is a global mass matrix solve carrying boundary conditions, and is
- * only built for eGalerkin. Only valid for eDiscontinuous.
- */
-void EquationSystem::ProjectPhysToCoeffs(
-    LibUtilities::Field<double, FieldState::Phys> &phys)
-{
-    ASSERTL1(m_projectionType == MultiRegions::eDiscontinuous,
-             "The element local projection is only built for a discontinuous "
-             "projection; a continuous one goes through m_fwdTransOp.");
-
-    m_iProductWRTBaseOp->Apply(phys, m_fields_coeff_tmp);
-    m_multiplyByElmtInvMassOp->Apply(m_fields_coeff_tmp, m_fields_coeff);
 }
 
 /**
@@ -403,16 +334,17 @@ CoefficientFieldViews EquationSystem::v_GetOutputFieldViews()
     if (m_projectionType == MultiRegions::eGalerkin)
     {
         m_fwdTransOp->UpdateBndCoeffs(m_time);
-        m_math.zero(m_fields_coeff);
-        m_fwdTransOp->Apply(m_fields, m_fields_coeff);
+        m_math.zero(m_coeff[0]);
+        m_fwdTransOp->Apply(m_phys[0], m_coeff[0]);
     }
     else if (m_projectionType == MultiRegions::eDiscontinuous)
     {
-        ProjectPhysToCoeffs(m_fields);
+        m_iProductWRTBaseOp->Apply(m_phys[0], m_wsp_coeff[0]);
+        m_multiplyByElmtInvMassOp->Apply(m_wsp_coeff[0], m_coeff[0]);
     }
 
-    return {{m_fields_coeff, m_expansionLists[0], m_coordim,
-             MakeFieldComponents(m_variables)}};
+    return {{m_coeff[0], m_expansionLists[0], m_coordim,
+             MakeFieldComponents(m_variables[0])}};
 }
 
 /**
@@ -552,80 +484,165 @@ std::vector<bool> EquationSystem::v_GetSystemSingularChecks()
     return std::vector<bool>(m_session->GetVariables().size(), false);
 }
 
+/**
+ * @brief All the session variables share one expansion list.
+ */
+void EquationSystem::v_SetExpansionVariables()
+{
+    m_variables.push_back(m_session->GetVariables());
+    m_checkIfSystemSingular.push_back(v_GetSystemSingularChecks());
+}
+
+/**
+ * @brief Declare one expansion list per group of m_variables, from the
+ * expansion and boundary conditions of the group's first variable. The
+ * maps of the group's other variables are built on demand by
+ * ContField::GetLocalToGlobalMap().
+ */
 void EquationSystem::DeclareExpansionLists()
 {
-    m_expansionLists =
-        std::vector<MultiRegions::ExpListSharedPtr>(m_nVariables);
+    v_SetExpansionVariables();
 
-    ASSERTL0(m_nVariables > 0, "Session must define at least one variable.");
+    ASSERTL0(m_variables[0].size() > 0,
+             "Session must define at least one variable.");
 
     if (m_projectionType == MultiRegions::eGalerkin ||
         m_projectionType == MultiRegions::eMixed_CG_Discontinuous)
     {
+        // Create new expansion.
         auto firstField =
             MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-                m_session, m_graph, m_variables[0], false,
-                m_checkIfSystemSingular[0]);
-        m_expansionLists[0] = firstField;
+                m_session, m_graph, m_variables[0][0], false,
+                m_checkIfSystemSingular[0][0]);
+        m_expansionLists.push_back(firstField);
 
-        // Set up the trace before the other fields are copied from this one,
+        // Set up the trace before the other lists are copied from this one,
         // so that those with the same types of boundary conditions share it
         // rather than each setting up its own below.
         firstField->GetTrace();
 
-        for (int i = 1; i < m_nVariables; ++i)
+        for (unsigned int i = 1; i < m_variables.size(); ++i)
         {
-            if (m_graph->SameExpansionInfo(m_variables[0], m_variables[i]))
+            if (m_graph->SameExpansionInfo(m_variables[0][0],
+                                           m_variables[i][0]))
             {
-                // The copy adds its map to those the first field shares
-                // with it, where the operators set up on the first field
-                // look up the maps of the other variables.
-                m_expansionLists[i] =
+                // Same expansion: a copy of the first list, which adds its
+                // map to those the first list shares with it.
+                m_expansionLists.push_back(
                     MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-                        *firstField, m_graph, m_variables[i], false,
-                        m_checkIfSystemSingular[i]);
+                        *firstField, m_graph, m_variables[i][0], false,
+                        m_checkIfSystemSingular[i][0]));
             }
             else
             {
-                m_expansionLists[i] =
+                // Create new expansion.
+                m_expansionLists.push_back(
                     MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-                        m_session, m_graph, m_variables[i], false,
-                        m_checkIfSystemSingular[i]);
+                        m_session, m_graph, m_variables[i][0], false,
+                        m_checkIfSystemSingular[i][0]));
             }
         }
     }
     else
     {
-        bool setupJustDG = true;
+        // Create new expansion.
+        const bool setupJustDG = true;
         auto firstField =
             MemoryManager<MultiRegions::DisContField>::AllocateSharedPtr(
-                m_session, m_graph, m_variables[0], setupJustDG, false);
-        m_expansionLists[0] = firstField;
-
-        for (int i = 1; i < m_nVariables; ++i)
+                m_session, m_graph, m_variables[0][0], setupJustDG, false);
+        m_expansionLists.push_back(firstField);
+        for (unsigned int i = 1; i < m_variables.size(); ++i)
         {
-            if (m_graph->SameExpansionInfo(m_variables[0], m_variables[i]))
+            if (m_graph->SameExpansionInfo(m_variables[0][0],
+                                           m_variables[i][0]))
             {
-                m_expansionLists[i] =
+                // Same expansion: a copy of the first list.
+                m_expansionLists.push_back(
                     MemoryManager<MultiRegions::DisContField>::
-                        AllocateSharedPtr(*firstField, m_graph, m_variables[i],
-                                          setupJustDG, false);
+                        AllocateSharedPtr(*firstField, m_graph,
+                                          m_variables[i][0], setupJustDG,
+                                          false));
             }
             else
             {
-                m_expansionLists[i] =
+                // Create new expansion.
+                m_expansionLists.push_back(
                     MemoryManager<MultiRegions::DisContField>::
-                        AllocateSharedPtr(m_session, m_graph, m_variables[i],
-                                          setupJustDG, false);
+                        AllocateSharedPtr(m_session, m_graph, m_variables[i][0],
+                                          setupJustDG, false));
             }
         }
     }
 
-    for (int i = 0; i < m_nVariables; ++i)
+    // Initialise DataWarehouse for Operators.
+    for (unsigned int i = 0; i < m_expansionLists.size(); ++i)
     {
-        // Initialise DataWarehouse for Operators
         m_expansionLists[i]->SetDataWarehouse();
         m_expansionLists[i]->GetTrace()->SetDataWarehouse();
+    }
+}
+
+void EquationSystem::PrintNorms(std::ostream &out)
+{
+    for (unsigned int i = 0; i < m_expansionLists.size(); i++)
+    {
+        auto &expansionList = m_expansionLists[i];
+        auto &variables     = m_variables[i];
+
+        // Workspace at the default interleave widths of the expansion list,
+        // those of m_phys[i], so that the subtraction below combines
+        // consistently laid-out data. They are taken from the expansion list
+        // rather than read off m_phys[i]'s blocks since GetBlocks() can be
+        // empty on a rank with no local elements.
+        auto wsp_phys = LibUtilities::Field<double, FieldState::Phys>(
+            "exact solution",
+            MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                expansionList),
+            variables.size(), m_npointsZ);
+        m_math.zero(wsp_phys);
+
+        // Evaluate exact solution and compute diff to discrete solution
+        if (m_session->DefinesFunction("ExactSolution"))
+        {
+            SessionFunction exactSolution(m_session, expansionList, variables,
+                                          "ExactSolution");
+            exactSolution.Evaluate(wsp_phys, m_time);
+        }
+        m_math.sub(m_phys[i], wsp_phys, wsp_phys);
+
+        // A singular system (Neumann/periodic boundaries only) is determined
+        // only up to a constant, so the mean of its error is removed before
+        // the norms. A non-singular one keeps its error, which the boundary
+        // conditions already fix.
+        if (m_checkIfSystemSingular[i][0] && m_meanRemovalOp)
+        {
+            // The solve leaves its Neumann balance set on the shared
+            // operator; the error is reduced to zero mean.
+            m_meanRemovalOp->SetNeumannBalance(nullptr);
+            m_meanRemovalOp->Apply(wsp_phys);
+        }
+
+        // Compute L2 norm
+        auto l2NormOp = NormL2Op<double>::Create(expansionList, variables);
+        l2NormOp->Apply(wsp_phys);
+        auto l2Errors = l2NormOp->GetNorms();
+
+        // Compute Linf norm
+        auto linfNormOp = NormLinfOp<double>::Create(expansionList, variables);
+        linfNormOp->Apply(wsp_phys);
+        auto linfErrors = linfNormOp->GetNorms();
+
+        // Print norms
+        for (unsigned int n = 0; n < variables.size(); ++n)
+        {
+            if (m_comm->GetRank() == 0)
+            {
+                out << "L 2 error (variable " << variables[n]
+                    << ") : " << l2Errors[n] << std::endl;
+                out << "L inf error (variable " << variables[n]
+                    << ") : " << linfErrors[n] << std::endl;
+            }
+        }
     }
 }
 
@@ -742,8 +759,8 @@ void EquationSystem::v_DoProjection(
             // Note we could use the cheaper operators: AvgAssemble or
             // GlobalToLocal
             m_fwdTransOp->UpdateBndCoeffs(time);
-            m_fwdTransOp->Apply(in, m_fields_coeff);
-            m_bwdTransOp->Apply(m_fields_coeff, out);
+            m_fwdTransOp->Apply(in, m_coeff[0]);
+            m_bwdTransOp->Apply(m_coeff[0], out);
             break;
         }
         default:
@@ -759,17 +776,11 @@ void EquationSystem::v_DoProjection(
  */
 void EquationSystem::v_InitialiseOperators()
 {
-    // Set DataWarehouse for operators
-    m_expansionLists[0]->SetDataWarehouse();
-
     // Switch on the projection type (Discontinuous or Continuous)
     switch (m_projectionType)
     {
         case MultiRegions::eDiscontinuous:
         {
-            // Discontinuous projection requires trace datawarehouse
-            m_expansionLists[0]->GetTrace()->SetDataWarehouse();
-
             // Coefficient space is used for file IO even though the solve
             // runs in physical space, so both directions are needed here.
             // BwdTrans is element local and so serves either projection;
@@ -777,23 +788,24 @@ void EquationSystem::v_InitialiseOperators()
             // mass matrix solve carrying boundary conditions, but the element
             // local M^-1 B^T W that a discontinuous field calls for.
             m_bwdTransOp = MultiRegions::BwdTransOp<double>::Create(
-                m_expansionLists[0], m_variables);
+                m_expansionLists[0], m_variables[0]);
             m_iProductWRTBaseOp =
                 MultiRegions::IProductWRTBaseOp<double>::Create(
-                    m_expansionLists[0], m_variables);
+                    m_expansionLists[0], m_variables[0]);
             m_multiplyByElmtInvMassOp =
                 MultiRegions::MultiplyByElmtInvMassOp<double>::Create(
-                    m_expansionLists[0], m_variables);
+                    m_expansionLists[0], m_variables[0]);
             break;
         }
         case MultiRegions::eGalerkin:
         {
             // Continuous projection
             m_bwdTransOp = MultiRegions::BwdTransOp<double>::Create(
-                m_expansionLists[0], m_variables);
+                m_expansionLists[0], m_variables[0]);
 
             // Projection operator
-            m_fwdTransOp = CreateFwdTransOp(m_expansionLists[0], m_variables);
+            m_fwdTransOp =
+                CreateFwdTransOp(m_expansionLists[0], m_variables[0]);
             break;
         }
         default:

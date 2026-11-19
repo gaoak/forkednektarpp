@@ -80,7 +80,7 @@ void NavierStokesCFE::v_InitObject(bool declareExpansionLists)
     ASSERTL0(m_session->DefinesSolverInfo("UPWINDTYPE"),
              "No UPWINDTYPE defined in session.");
 
-    /// Create Field for solution m_fields and others
+    /// Create Fields for solution m_phys, m_coeff and others
     InitialiseFields();
 
     // Create and initialise all operators
@@ -153,7 +153,7 @@ void NavierStokesCFE::v_InitialiseOperators()
 
     // Create advection operators
     m_advDiffusionOp = AdvWeakDGDiffusionIPOp<double>::Create(
-        m_expansionLists[0], m_variables);
+        m_expansionLists[0], m_variables[0]);
 
     std::string riemannMethod = m_session->GetSolverInfo("UpwindType");
 
@@ -163,16 +163,16 @@ void NavierStokesCFE::v_InitialiseOperators()
     std::string AdvDiffMethod = "AdvDiffTraceFluxCFE" + riemannMethod +
                                 EqnOfState; // add prefix for local version
     auto advDiffusionTraceFluxOp = SolverCore::TraceFluxOp<double>::Create(
-        m_expansionLists[0], m_variables, AdvDiffMethod);
+        m_expansionLists[0], m_variables[0], AdvDiffMethod);
     advDiffusionTraceFluxOp->SetViscousTraceForm(ReadViscousTraceForm());
     m_advDiffusionOp->SetAdvDiffTraceFlux(advDiffusionTraceFluxOp);
 
     auto eulerVolFluxOp =
-        EulerVolumeFluxOp<double>::Create(m_expansionLists[0], m_variables);
+        EulerVolumeFluxOp<double>::Create(m_expansionLists[0], m_variables[0]);
     m_advDiffusionOp->SetAdvVolFlux(eulerVolFluxOp);
 
-    auto diffusionVolFluxOp =
-        DiffusionCFEVolFluxOp<double>::Create(m_expansionLists[0], m_variables);
+    auto diffusionVolFluxOp = DiffusionCFEVolFluxOp<double>::Create(
+        m_expansionLists[0], m_variables[0]);
     m_advDiffusionOp->SetDiffVolFlux(diffusionVolFluxOp);
 
     // The average-of-normal-fluxes form needs the viscous flux on its own as
@@ -182,7 +182,7 @@ void NavierStokesCFE::v_InitialiseOperators()
             double>::ViscousTraceForm::AverageOfNormalFluxes)
     {
         m_advDiffusionOp->SetAdvDiffVolFlux(AdvDiffCFEVolFluxOp<double>::Create(
-            m_expansionLists[0], m_variables));
+            m_expansionLists[0], m_variables[0]));
     }
 
     SetUpBoundaryConditions();
@@ -226,58 +226,58 @@ void NavierStokesCFE::SetUpBoundaryConditions()
     // the operator claims only the regions tagged as walls and costs nothing
     // when there are none.
     auto bndCondWallOp =
-        BndCondWallCFEOp<double>::Create(m_expansionLists[0], m_variables);
+        BndCondWallCFEOp<double>::Create(m_expansionLists[0], m_variables[0]);
     m_advDiffusionOp->AddBndCondUpdateOp(bndCondWallOp);
 
     // Likewise for a pressure outflow, which extrapolates the interior state
     // and imposes only the static pressure. Each of these claims its own
     // regions by USERDEFINEDTYPE, so attaching both is not a conflict.
     auto bndCondPressureOutflowOp = BndCondPressureOutflowCFEOp<double>::Create(
-        m_expansionLists[0], m_variables);
+        m_expansionLists[0], m_variables[0]);
     m_advDiffusionOp->AddBndCondUpdateOp(bndCondPressureOutflowOp);
 
     // And for the entropy inflow, which is a condition on the inviscid state
     // and so belongs on both this path and the Euler one.
     auto bndCondEntropyVelocityOp =
         BndCondEnforceEntropyVelocityCFEOp<double>::Create(m_expansionLists[0],
-                                                           m_variables);
+                                                           m_variables[0]);
     m_advDiffusionOp->AddBndCondUpdateOp(bndCondEntropyVelocityOp);
 
     // Its two siblings, which fill the same degree of freedom with the
     // pressure or the total enthalpy instead.
     auto bndCondEntropyPressureOp =
         BndCondEnforceEntropyPressureCFEOp<double>::Create(m_expansionLists[0],
-                                                           m_variables);
+                                                           m_variables[0]);
     m_advDiffusionOp->AddBndCondUpdateOp(bndCondEntropyPressureOp);
 
     auto bndCondEntropyTotalEnthalpyOp =
         BndCondEnforceEntropyTotalEnthalpyCFEOp<double>::Create(
-            m_expansionLists[0], m_variables);
+            m_expansionLists[0], m_variables[0]);
     m_advDiffusionOp->AddBndCondUpdateOp(bndCondEntropyTotalEnthalpyOp);
 
     // An inviscid wall and a symmetry plane, which mirror the momentum, and a
     // zeroth order extrapolation, which claims its regions so they are seeded
     // with the interior state and then leaves them alone.
-    auto bndCondSlipWallOp =
-        BndCondSlipWallCFEOp<double>::Create(m_expansionLists[0], m_variables);
+    auto bndCondSlipWallOp = BndCondSlipWallCFEOp<double>::Create(
+        m_expansionLists[0], m_variables[0]);
     m_advDiffusionOp->AddBndCondUpdateOp(bndCondSlipWallOp);
 
     auto bndCondExtrapOrder0Op = BndCondExtrapOrder0CFEOp<double>::Create(
-        m_expansionLists[0], m_variables);
+        m_expansionLists[0], m_variables[0]);
     m_advDiffusionOp->AddBndCondUpdateOp(bndCondExtrapOrder0Op);
 
     // The characteristic farfield, which takes its freestream from the session
     // parameters rather than from the region's boundary values.
     auto bndCondRiemannInvariantOp =
         BndCondRiemannInvariantCFEOp<double>::Create(m_expansionLists[0],
-                                                     m_variables);
+                                                     m_variables[0]);
     m_advDiffusionOp->AddBndCondUpdateOp(bndCondRiemannInvariantOp);
 
     // And the reservoir inflow, whose session values are a stagnation state
     // and a flow direction rather than a conserved state.
     auto bndCondStagnationInflowOp =
         BndCondStagnationInflowCFEOp<double>::Create(m_expansionLists[0],
-                                                     m_variables);
+                                                     m_variables[0]);
     m_advDiffusionOp->AddBndCondUpdateOp(bndCondStagnationInflowOp);
 }
 
@@ -320,7 +320,7 @@ LibUtilities::Field<double, FieldState::Phys> &NavierStokesCFE::
             "cflVelocity", bAtr_phys, m_coordim + 1, m_npointsZ);
     }
 
-    m_cflVelocityOp->Apply(m_fields, m_cflVelocity);
+    m_cflVelocityOp->Apply(m_phys[0], m_cflVelocity);
 
     return m_cflVelocity;
 }

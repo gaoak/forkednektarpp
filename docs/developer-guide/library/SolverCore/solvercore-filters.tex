@@ -526,8 +526,9 @@ and their files contain its canonical variables.
 
 The equation system's output path must be retained when overriding this
 provider. Continuous fields use the global forward transform, whereas
-discontinuous fields use \texttt{ProjectPhysToCoeffs()}, the element-local
-$L^2$ projection that makes DG restarts exact. Returning stale
+discontinuous fields use the element-local $L^2$ projection,
+\texttt{IProductWRTBaseOp} followed by \texttt{MultiplyByElmtInvMassOp}, that
+makes DG restarts exact. Returning stale
 \texttt{m\_fields\_coeff} storage would make both checkpoints and averages
 incorrect even though the files themselves are structurally valid.
 

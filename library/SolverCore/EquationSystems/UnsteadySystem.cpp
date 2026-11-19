@@ -137,26 +137,13 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
 }
 
 /*
- * Set initial conditions in m_fields and m_fields_coeff using m_variables.
+ * Set initial conditions in m_phys[0] and m_coeff[0] using m_variables[0].
  */
 void UnsteadySystem::v_SetInitialConditions(double initialTime)
 {
     SessionFunction initialConditions(m_session, m_expansionLists[0],
-                                      m_variables, "InitialConditions");
-    SetInitialConditionsFrom(initialConditions, initialTime);
-}
+                                      m_variables[0], "InitialConditions");
 
-/**
- * @brief Set the initial conditions of #m_fields and #m_fields_coeff from
- * @p initialConditions.
- *
- * @param   initialConditions   The InitialConditions function on
- *                              #m_expansionLists[0].
- * @param   initialTime         Time to evaluate it at.
- */
-void UnsteadySystem::SetInitialConditionsFrom(
-    const SessionFunction &initialConditions, double initialTime)
-{
     m_time = initialTime;
 
     // Print to log/console
@@ -167,22 +154,22 @@ void UnsteadySystem::SetInitialConditionsFrom(
     }
 
     // The function at the quadrature points, projected element by element.
-    initialConditions.Evaluate(m_fields, m_time);
+    initialConditions.Evaluate(m_phys[0], m_time);
     auto iprod = LibUtilities::Field<double, FieldState::Coeff>(
         "initial conditions inner product",
         MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
             m_expansionLists[0]),
-        m_variables.size(), m_npointsZ);
+        m_variables[0].size(), m_npointsZ);
     MultiRegions::IProductWRTBaseOp<double>::Create(m_expansionLists[0],
-                                                    m_variables)
-        ->Apply(m_fields, iprod);
+                                                    m_variables[0])
+        ->Apply(m_phys[0], iprod);
     MultiRegions::MultiplyByElmtInvMassOp<double>::Create(m_expansionLists[0],
-                                                          m_variables)
-        ->Apply(iprod, m_fields_coeff);
+                                                          m_variables[0])
+        ->Apply(iprod, m_coeff[0]);
     if (m_projectionType == MultiRegions::eGalerkin)
     {
-        SetContinuousInitialConditions(m_expansionLists[0], m_variables,
-                                       m_fields, m_fields_coeff, m_bwdTransOp,
+        SetContinuousInitialConditions(m_expansionLists[0], m_variables[0],
+                                       m_phys[0], m_coeff[0], m_bwdTransOp,
                                        m_fwdTransOp);
     }
     else if (initialConditions.GetType() ==
@@ -207,7 +194,7 @@ void UnsteadySystem::SetInitialConditionsFrom(
         if (m_initialConditionProjection ==
             InitialConditionProjection::Galerkin)
         {
-            m_bwdTransOp->Apply(m_fields_coeff, m_fields);
+            m_bwdTransOp->Apply(m_coeff[0], m_phys[0]);
         }
         else
         {
@@ -323,7 +310,7 @@ void UnsteadySystem::SetContinuousInitialConditions(
  */
 void UnsteadySystem::v_InitialiseTimeOp()
 {
-    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables);
+    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
     m_timeOp->DefineProjection(&EquationSystem::DoProjection, this);
 }
 
@@ -349,7 +336,7 @@ void UnsteadySystem::v_DoSolve()
         }
 
         // Do time integration
-        m_timeOp->Apply(m_fields);
+        m_timeOp->Apply(m_phys[0]);
         timer.Stop();
         elapsed = timer.TimePerTest(1);
         intTime += elapsed;
@@ -467,8 +454,8 @@ double UnsteadySystem::ComputeCFLInvTimeScale()
 
     if (!m_maxStdVelocityOp)
     {
-        m_maxStdVelocityOp =
-            MaxStdVelocityOp<double>::Create(m_expansionLists[0], m_variables);
+        m_maxStdVelocityOp = MaxStdVelocityOp<double>::Create(
+            m_expansionLists[0], m_variables[0]);
     }
 
     m_maxStdVelocityOp->SetSoundSpeedFactor(v_GetSoundSpeedFactor());
@@ -672,7 +659,7 @@ void UnsteadySystem::CheckForRestartTime(double &time)
 {
     if (m_session->DefinesFunction("InitialConditions"))
     {
-        for (unsigned int i = 0; i < m_expansionLists.size(); ++i)
+        for (unsigned int i = 0; i < m_session->GetVariables().size(); ++i)
         {
             LibUtilities::FunctionType vType;
 
@@ -712,6 +699,7 @@ void UnsteadySystem::CheckForRestartTime(double &time)
             }
         }
     }
+
     if (m_session->DefinesCmdLineArgument("set-start-time"))
     {
         time = std::stod(
@@ -751,15 +739,18 @@ bool UnsteadySystem::CheckAbortConditions()
     // The L2 norm is a sum of squares, which propagates a NaN or an Inf
     // where a max reduction may drop it, and the reduction inside the
     // operator makes the verdict identical on every rank.
-    if (!m_abortNormOp)
+    for (unsigned int i = 0; i < m_expansionLists.size(); i++)
     {
-        m_abortNormOp =
-            NormL2Op<double>::Create(m_expansionLists[0], m_variables);
-    }
-    m_abortNormOp->Apply(m_fields);
-    for (const double &norm : m_abortNormOp->GetNorms())
-    {
-        ASSERTL0(std::isfinite(norm), "NaN found during time integration.");
+        if (m_abortNormOp.size() == i)
+        {
+            m_abortNormOp.push_back(
+                NormL2Op<double>::Create(m_expansionLists[i], m_variables[i]));
+        }
+        m_abortNormOp[i]->Apply(m_phys[i]);
+        for (const double &norm : m_abortNormOp[i]->GetNorms())
+        {
+            ASSERTL0(std::isfinite(norm), "NaN found during time integration.");
+        }
     }
 
     // Rank zero looks for the abort file and consumes it.
@@ -787,9 +778,9 @@ void UnsteadySystem::PrintInitialConditions(
 {
     if (m_session->GetComm()->GetRank() == 0)
     {
-        const auto &variables   = initialConditions.GetVariables();
-        const auto descriptions = initialConditions.Describe();
-        for (std::size_t i = 0; i < variables.size(); ++i)
+        const auto &variables    = initialConditions.GetVariables();
+        const auto &descriptions = initialConditions.Describe();
+        for (size_t i = 0; i < variables.size(); ++i)
         {
             std::cout << "  - Field " << variables[i] << ": " << descriptions[i]
                       << std::endl;
