@@ -178,6 +178,7 @@ v5.11.0
 - LinearSolver: Various tidy-up and allow for warning when max iteration is reached (!2936)
 - Fall back to a global-memory workspace in the device SumFacTOP kernels when the shared memory is insufficient (!2940)
 - Add `BasisDataSize1D`/`2D`/`3D` helpers giving the shared-memory basis data sizes of the device SumFacTOP element operators (!2941)
+- Fix Polylib::JacZeros for zero and one point: it wrote past the end of its arrays, and the one-point Gauss-Legendre point was NaN; the quadrature rules themselves never called it with these sizes (!2942)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

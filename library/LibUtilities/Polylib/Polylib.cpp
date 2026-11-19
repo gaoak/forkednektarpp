@@ -1668,6 +1668,12 @@ void JacZeros(const int n, double *a, double *b, const double alpha,
 {
 
     int i, j;
+
+    if (n <= 0)
+    {
+        return;
+    }
+
     RecCoeff(n, a, b, alpha, beta);
 
     double **z = new double *[n];
@@ -1687,6 +1693,10 @@ void JacZeros(const int n, double *a, double *b, const double alpha,
     // find eigenvalues and eigenvectors
     TriQL(n, a, b, z);
 
+    for (i = 0; i < n; i++)
+    {
+        delete[] z[i];
+    }
     delete[] z;
     return;
 }
@@ -1714,6 +1724,16 @@ static void RecCoeff(const int n, double *a, double *b, const double alpha,
     b[0] = pow(2.0, apb + 1.0) * gammaF(alpha + 1.0) * gammaF(beta + 1.0) /
            gammaF(apbi); // MuZero
     a[0] = (beta - alpha) / apbi;
+
+    // a[0] and b[0] are the whole answer for one point; the terms below
+    // would write b[1], past the end of b, and recompute a[0] as
+    // (beta^2 - alpha^2) / ((alpha + beta) (alpha + beta + 2)), which is
+    // 0/0 when alpha + beta = 0
+    if (n == 1)
+    {
+        return;
+    }
+
     b[1] = (4.0 * (1.0 + alpha) * (1.0 + beta) / ((apbi + 1.0) * apbi * apbi));
 
     a2b2 = beta * beta - alpha * alpha;
