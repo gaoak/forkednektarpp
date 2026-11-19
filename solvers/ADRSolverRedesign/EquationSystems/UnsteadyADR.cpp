@@ -75,7 +75,7 @@ void UnsteadyADR::v_InitObject(bool declareExpansionLists)
     /// Load parameters from session
     InitialiseParameters();
 
-    /// Create Field for solution m_fields and others
+    /// Create Fields for solution m_phys, m_coeff and others
     InitialiseFields();
 
     // Set advection velocity
@@ -207,10 +207,10 @@ void UnsteadyADR::DoImplicit(
             m_linearSystemOp->UpdateBndCoeffs(time);
 
             // Solve implicit ADR problem
-            m_linearSystemOp->Apply(out, m_fields_coeff);
+            m_linearSystemOp->Apply(out, m_coeff[0]);
 
             // Transform to physical space
-            m_bwdTransOp->Apply(m_fields_coeff, out);
+            m_bwdTransOp->Apply(m_coeff[0], out);
             break;
         }
         default:
@@ -387,15 +387,15 @@ void UnsteadyADR::v_InitialiseOperators()
             if (m_advection)
             {
                 m_advectionWeakDGOp = AdvectionWeakDGOp<double>::Create(
-                    m_expansionLists[0], m_variables);
+                    m_expansionLists[0], m_variables[0]);
                 m_volumeFluxOp = LinearAdvVolumeFluxOp<double>::Create(
-                    m_expansionLists[0], m_variables);
+                    m_expansionLists[0], m_variables[0]);
 
                 // Set volume flux and Riemann solver for advection operator
                 m_advectionWeakDGOp->SetVolumeFluxOp(m_volumeFluxOp);
 
                 m_traceFluxOp = ScalarTraceFluxOp<double>::Create(
-                    m_expansionLists[0], m_variables);
+                    m_expansionLists[0], m_variables[0]);
                 m_advectionWeakDGOp->SetTraceFlux(m_traceFluxOp);
 
                 // Set up trace advection velocity on trace for upwind
@@ -420,14 +420,14 @@ void UnsteadyADR::v_InitialiseOperators()
             if (m_diffusion)
             {
                 m_diffusionIPOp = DiffusionIPOp<double>::Create(
-                    m_expansionLists[0], m_variables);
+                    m_expansionLists[0], m_variables[0]);
                 auto diffusionScalarVolFluxOp =
                     DiffusionScalarVolFluxOp<double>::Create(
-                        m_expansionLists[0], m_variables);
+                        m_expansionLists[0], m_variables[0]);
 
                 auto diffusionScalarIPTraceFluxOp =
                     DiffusionScalarIPTraceFluxOp<double>::Create(
-                        m_expansionLists[0], m_variables);
+                        m_expansionLists[0], m_variables[0]);
 
                 diffusionScalarVolFluxOp->SetDiffCoeff(m_diffCoeff);
                 diffusionScalarIPTraceFluxOp->SetDiffCoeff(m_diffCoeff);
@@ -443,7 +443,7 @@ void UnsteadyADR::v_InitialiseOperators()
             if (m_explicitAdvection)
             {
                 m_advectionCGOp = AdvectionOp<double>::Create(
-                    m_expansionLists[0], m_variables);
+                    m_expansionLists[0], m_variables[0]);
                 m_advectionCGOp->SetAdvVel(m_advectionVel);
             }
             if (m_explicitDiffusion)
@@ -506,7 +506,7 @@ void UnsteadyADR::v_InitialiseOperators()
     }
 
     // Load forcing terms, if defined in the session file.
-    m_forcing = Forcing::Load(m_session, m_expansionLists[0], m_variables);
+    m_forcing = Forcing::Load(m_session, m_expansionLists[0], m_variables[0]);
 }
 
 /*
@@ -514,7 +514,7 @@ void UnsteadyADR::v_InitialiseOperators()
  */
 void UnsteadyADR::v_InitialiseFields()
 {
-    // Initialise solution "m_fields" via EquationSystem routine
+    // Initialise solution "m_phys" via EquationSystem routine
     EquationSystem::v_InitialiseFields();
 
     unsigned int numHomoModes = m_npointsZ; // Note read in EquationSystem.cpp

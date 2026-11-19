@@ -51,8 +51,8 @@ public:
 
     void InitialiseTimeOp()
     {
-        ASSERTL0(m_fields.GetNumComponents() == m_variables.size(),
-                 "Number of fields in EquationSystem::m_fields "
+        ASSERTL0(m_phys[0].GetNumComponents() == m_variables[0].size(),
+                 "Number of fields in EquationSystem::m_phys[0] "
                  "must be equal to number of fields for TimeOp.")
         v_InitialiseTimeOp();
     }
@@ -100,7 +100,7 @@ protected:
     /// A file of this name beside the run requests a clean stop; it is
     /// consumed when seen. Session property CheckAbortFile.
     std::string m_abortFile = "abort";
-    std::shared_ptr<NormL2Op<double>> m_abortNormOp;
+    std::vector<std::shared_ptr<NormL2Op<double>>> m_abortNormOp;
 
     /// Test the two conditions under which a run should stop early.
     SOLVER_CORE_EXPORT bool CheckAbortConditions();
@@ -155,10 +155,6 @@ protected:
     // Parse initial conditions
     SOLVER_CORE_EXPORT virtual void v_SetInitialConditions(
         double initialTime = 0.0);
-
-    /// Set the initial conditions of the solution from a given function.
-    SOLVER_CORE_EXPORT void SetInitialConditionsFrom(
-        const SessionFunction &initialConditions, double initialTime);
 
     /// Solves an unsteady problem.
     SOLVER_CORE_EXPORT void v_DoSolve() override;

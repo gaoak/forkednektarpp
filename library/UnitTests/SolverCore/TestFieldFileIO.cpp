@@ -102,12 +102,12 @@ public:
 
     LibUtilities::Field<double, FieldState::Coeff> &Coeffs()
     {
-        return m_fields_coeff;
+        return m_coeff[0];
     }
 
     LibUtilities::Field<double, FieldState::Phys> &Phys()
     {
-        return m_fields;
+        return m_phys[0];
     }
 
     const MultiRegions::ExpListSharedPtr &Expansion() const
@@ -119,7 +119,7 @@ public:
     // projects back to coefficients before writing them.
     void SetPhysFromCoeffs()
     {
-        m_bwdTransOp->Apply(m_fields_coeff, m_fields);
+        m_bwdTransOp->Apply(m_coeff[0], m_phys[0]);
     }
 };
 

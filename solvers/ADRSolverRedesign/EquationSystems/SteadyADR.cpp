@@ -73,7 +73,7 @@ void SteadyADR::v_InitObject(bool declareExpansionLists)
     /// Load parameters from session
     InitialiseParameters();
 
-    /// Create Field for solution m_fields and others
+    /// Create Fields for solution m_phys, m_coeff and others
     InitialiseFields();
 
     // Set advection velocity
@@ -106,8 +106,8 @@ void SteadyADR::v_DoSolve()
     }
 
     // Apply method for solving the SteadyADR problem
-    m_linearSystemOp->Apply(m_wsp_fce, m_fields_coeff);
-    m_bwdTransOp->Apply(m_fields_coeff, m_fields);
+    m_linearSystemOp->Apply(m_wsp_fce, m_coeff[0]);
+    m_bwdTransOp->Apply(m_coeff[0], m_phys[0]);
 }
 
 void SteadyADR::v_GenerateSummary(SummaryList &s)
@@ -273,7 +273,7 @@ void SteadyADR::v_InitialiseOperators()
     }
 
     // Load forcing terms, if defined in the session file.
-    m_forcing = Forcing::Load(m_session, m_expansionLists[0], m_variables);
+    m_forcing = Forcing::Load(m_session, m_expansionLists[0], m_variables[0]);
 }
 
 /*
@@ -283,7 +283,7 @@ void SteadyADR::v_InitialiseOperators()
  */
 void SteadyADR::v_InitialiseFields()
 {
-    // Initialise solution "m_fields" via EquationSystem routine
+    // Initialise solution "m_phys" via EquationSystem routine
     EquationSystem::v_InitialiseFields();
 
     // Get block Attributes.
@@ -297,7 +297,7 @@ void SteadyADR::v_InitialiseFields()
     unsigned int nhomo = m_npointsZ; // Note read in EquationSystem.cpp
 
     m_wsp_fce = LibUtilities::Field<double, FieldState::Phys>(
-        "m_wsp_fce", bAtr_phys, m_nVariables, nhomo);
+        "m_wsp_fce", bAtr_phys, m_variables[0].size(), nhomo);
 
     if (m_session->GetSolverInfo("EQTYPE") == "SteadyADR")
     {

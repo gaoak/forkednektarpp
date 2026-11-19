@@ -710,7 +710,7 @@ rejection of a tagged pressure Neumann condition are checked with
 \label{sec:incns-ic}
 
 \code{VelocityCorrectionScheme::v\_SetInitialConditions} calls
-\code{UnsteadySystem::SetInitialConditionsFrom} for the velocity and scalars
+\code{UnsteadySystem::v\_SetInitialConditions} for the velocity and scalars
 and then treats the pressure in the same way, on its own expansion list. The
 pressure function is evaluated on the velocity expansion, whose quadrature
 points it shares, and projected element by element onto the pressure
@@ -958,8 +958,9 @@ begins sampling after the first completed step.
 
 \subsection{Published fields}
 
-\code{VelocityCorrectionScheme} overrides the registry because pressure has
-separate storage and may have a different expansion. It publishes velocity as
+\code{VelocityCorrectionScheme} overrides the registry because pressure is a
+separate variable group, with its own field and expansion list, and may have
+a different expansion. It publishes velocity as
 the first \code{spaceDimension} components of the solution field, publishes
 pressure as a separate role, and retains passive scalars only in the canonical
 solution group. The physical groups are therefore the complete solution field,
@@ -967,16 +968,16 @@ including passive scalars, and the separate pressure field:
 
 \begin{lstlisting}[language=C++]
 PhysicalFieldView solution{
-    m_fields, m_expansionLists[0], m_coordim,
-    MakeFieldComponents(m_variablesFields)};
+    m_phys[m_velocityIndex], m_expansionLists[m_velocityIndex], m_coordim,
+    MakeFieldComponents(m_variables[m_velocityIndex])};
 
 PhysicalFieldView velocity{
-    m_fields, m_expansionLists[0], m_coordim,
-    MakeFieldComponents(m_variablesFields, 0, m_coordim)};
+    m_phys[m_velocityIndex], m_expansionLists[m_velocityIndex], m_coordim,
+    MakeFieldComponents(m_variables[m_velocityIndex], 0, m_coordim)};
 
 PhysicalFieldView pressure{
-    m_pressure, m_expansionLists[m_pressureIndex], m_coordim,
-    MakeFieldComponents(m_variablesPressure)};
+    m_phys[m_pressureIndex], m_expansionLists[m_pressureIndex], m_coordim,
+    MakeFieldComponents(m_variables[m_pressureIndex])};
 
 registry.SetRole(std::string(FieldRoles::Solution), solution);
 registry.SetRole(std::string(FieldRoles::Velocity), velocity);

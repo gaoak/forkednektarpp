@@ -442,7 +442,7 @@ updated for the stage, it enforces \eqref{hopbc:eq:compatibility} on the
 forcing of the strong form:
 \begin{lstlisting}[style=C++Style]
 m_meanRemovalOp->SetNeumannBalance(m_poissonSolveOp.get());
-m_meanRemovalOp->Apply(m_wsp_phys_1c);
+m_meanRemovalOp->Apply(m_wsp_phys[m_pressureIndex]);
 \end{lstlisting}
 The volume term \((\nabla v,\vect f_w)\) of the weak form vanishes for
 \(v=1\), so the weak form balances the surface integral with a constant
@@ -453,8 +453,8 @@ that each solve adds them with one \code{daxpy}:
 \begin{lstlisting}[style=C++Style]
 m_meanRemovalOp->SetNeumannBalance(m_poissonSolveOp.get());
 const double balancedMean = m_meanRemovalOp->GetBalancedMean()[0];
-m_math.daxpy(-balancedMean, m_pressureBasisIntegrals, m_wsp_coeff_1c,
-             m_wsp_coeff_1c);
+m_math.daxpy(-balancedMean, m_pressureBasisIntegrals,
+             m_wsp_coeff[m_pressureIndex], m_wsp_coeff[m_pressureIndex]);
 \end{lstlisting}
 
 The pieces are:

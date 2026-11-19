@@ -77,7 +77,7 @@ void EulerCFE::v_InitObject(bool declareExpansionLists)
     ASSERTL0(m_session->DefinesSolverInfo("UPWINDTYPE"),
              "No UPWINDTYPE defined in session.");
 
-    /// Create Field for solution m_fields and others
+    /// Create Fields for solution m_phys, m_coeff and others
     InitialiseFields();
 
     // Create and initialise all operators
@@ -147,12 +147,12 @@ void EulerCFE::v_InitialiseOperators()
 
     // Create operators
     m_advectionWeakDGOp =
-        AdvectionWeakDGOp<double>::Create(m_expansionLists[0], m_variables);
+        AdvectionWeakDGOp<double>::Create(m_expansionLists[0], m_variables[0]);
     std::string execName =
         MultiRegions::Operator<double>::GetOpExecSpace(m_session);
     std::string riemannMethod = m_session->GetSolverInfo("UpwindType");
     auto volumeFluxOp =
-        EulerVolumeFluxOp<double>::Create(m_expansionLists[0], m_variables);
+        EulerVolumeFluxOp<double>::Create(m_expansionLists[0], m_variables[0]);
 
     // Set volume flux and for advection operator
     m_advectionWeakDGOp->SetVolumeFluxOp(volumeFluxOp);
@@ -161,7 +161,7 @@ void EulerCFE::v_InitialiseOperators()
         StringUtils::ToUpperCopy(m_session->GetEquationOfState().type);
     riemannMethod    = "AdvTraceFluxCFE" + riemannMethod + EqnOfState;
     auto traceFluxOp = SolverCore::TraceFluxOp<double>::Create(
-        m_expansionLists[0], m_variables, riemannMethod, execName);
+        m_expansionLists[0], m_variables[0], riemannMethod, execName);
 
     // Set trace flux and Riemann solver for advection operator
     m_advectionWeakDGOp->SetTraceFlux(traceFluxOp);
@@ -183,50 +183,50 @@ void EulerCFE::SetUpBoundaryConditions()
     // operator claims only the regions tagged PressureOutflow and costs nothing
     // when there are none.
     auto bndCondPressureOutflowOp = BndCondPressureOutflowCFEOp<double>::Create(
-        m_expansionLists[0], m_variables);
+        m_expansionLists[0], m_variables[0]);
     m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondPressureOutflowOp);
 
     // A subsonic entropy inflow is likewise a condition on the inviscid state.
     auto bndCondEntropyVelocityOp =
         BndCondEnforceEntropyVelocityCFEOp<double>::Create(m_expansionLists[0],
-                                                           m_variables);
+                                                           m_variables[0]);
     m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondEntropyVelocityOp);
 
     // Its two siblings, which fill the same degree of freedom with the
     // pressure or the total enthalpy instead.
     auto bndCondEntropyPressureOp =
         BndCondEnforceEntropyPressureCFEOp<double>::Create(m_expansionLists[0],
-                                                           m_variables);
+                                                           m_variables[0]);
     m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondEntropyPressureOp);
 
     auto bndCondEntropyTotalEnthalpyOp =
         BndCondEnforceEntropyTotalEnthalpyCFEOp<double>::Create(
-            m_expansionLists[0], m_variables);
+            m_expansionLists[0], m_variables[0]);
     m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondEntropyTotalEnthalpyOp);
 
     // An inviscid wall and a symmetry plane, which mirror the momentum, and a
     // zeroth order extrapolation, which claims its regions so they are seeded
     // with the interior state and then leaves them alone.
-    auto bndCondSlipWallOp =
-        BndCondSlipWallCFEOp<double>::Create(m_expansionLists[0], m_variables);
+    auto bndCondSlipWallOp = BndCondSlipWallCFEOp<double>::Create(
+        m_expansionLists[0], m_variables[0]);
     m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondSlipWallOp);
 
     auto bndCondExtrapOrder0Op = BndCondExtrapOrder0CFEOp<double>::Create(
-        m_expansionLists[0], m_variables);
+        m_expansionLists[0], m_variables[0]);
     m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondExtrapOrder0Op);
 
     // The characteristic farfield, which takes its freestream from the session
     // parameters rather than from the region's boundary values.
     auto bndCondRiemannInvariantOp =
         BndCondRiemannInvariantCFEOp<double>::Create(m_expansionLists[0],
-                                                     m_variables);
+                                                     m_variables[0]);
     m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondRiemannInvariantOp);
 
     // And the reservoir inflow, whose session values are a stagnation state
     // and a flow direction rather than a conserved state.
     auto bndCondStagnationInflowOp =
         BndCondStagnationInflowCFEOp<double>::Create(m_expansionLists[0],
-                                                     m_variables);
+                                                     m_variables[0]);
     m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondStagnationInflowOp);
 }
 
@@ -267,7 +267,7 @@ LibUtilities::Field<double, FieldState::Phys> &EulerCFE::v_GetCFLVelocityField()
             "cflVelocity", bAtr_phys, m_coordim + 1, m_npointsZ);
     }
 
-    m_cflVelocityOp->Apply(m_fields, m_cflVelocity);
+    m_cflVelocityOp->Apply(m_phys[0], m_cflVelocity);
 
     return m_cflVelocity;
 }

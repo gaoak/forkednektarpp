@@ -64,7 +64,6 @@ template <typename TData> class PhysDerivOp;
 
 namespace SolverCore
 {
-template <typename TData> class MeanRemovalOp;
 template <typename TData> class PreconOp;
 template <typename TData> class LinearSystemOp;
 template <typename TData> class LinearSolverOp;
@@ -140,22 +139,18 @@ protected:
     // Time stepping coefficient
     double m_lambda;
 
-    // Save variable strings and number for verbose output and looping
-    unsigned int m_pressureIndex;
+    // Indices of the velocity (and added scalar) and pressure groups in
+    // m_variables, m_expansionLists, m_phys and m_coeff
+    const unsigned int m_velocityIndex = 0;
+    const unsigned int m_pressureIndex = 1;
     std::vector<std::string> m_variablesVel;
-    std::vector<std::string> m_variablesFields;
     std::vector<std::string> m_variablesAddScalars;
-    std::vector<std::string> m_variablesPressure;
-    std::vector<std::string> m_variablesTotal;
 
     // Setup workspaces
-    LibUtilities::Field<double, FieldState::Phys> m_pressure;
     // Allocated only with m_implicitAdvection: the advection velocity of the
     // velocity solve.
     LibUtilities::Field<double, FieldState::Phys> m_advVel;
-    LibUtilities::Field<double, FieldState::Phys> m_wsp_phys;
     LibUtilities::Field<double, FieldState::Phys> m_wsp_fields_rhs;
-    LibUtilities::Field<double, FieldState::Phys> m_wsp_explicit_adv_rhs;
     // Allocated only with m_hasMultistepStartup: the solution the active
     // start-up stage starts from.
     LibUtilities::Field<double, FieldState::Phys> m_startupInitialSolution;
@@ -163,11 +158,6 @@ protected:
     LibUtilities::Field<double, FieldState::Phys> m_pressureBCVelocity;
     // Allocated only with m_hasPressureBCExplicitRhs.
     LibUtilities::Field<double, FieldState::Phys> m_pressureBCExplicitRhs;
-    LibUtilities::Field<double, FieldState::Phys> m_wsp_phys_deriv_pressure;
-    LibUtilities::Field<double, FieldState::Phys> m_wsp_phys_1c;
-    LibUtilities::Field<double, FieldState::Coeff> m_pressure_coeff;
-    // Allocated only with m_weakPressure.
-    LibUtilities::Field<double, FieldState::Coeff> m_wsp_coeff_1c;
     // Weak pressure form of a singular system only: the integrals (phi, 1)
     // of the pressure basis.
     LibUtilities::Field<double, FieldState::Coeff> m_pressureBasisIntegrals;
@@ -211,11 +201,6 @@ protected:
     // divergence weight only: the forcing (phi, F) of a physical-space
     // forcing F.
     std::shared_ptr<IProductWRTBaseOp<double>> m_iprodPressureOp;
-
-    // Singular pressure system only: balances the pressure forcing against
-    // the Neumann values of the system and removes the mean of the reported
-    // pressure error.
-    std::shared_ptr<MeanRemovalOp<double>> m_meanRemovalOp;
 
     VelocityCorrectionScheme(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -283,11 +268,11 @@ protected:
 
     void v_InitObject(bool declareExpansionLists = true) override;
 
+    void v_SetExpansionVariables() override;
+
     /// Offer the advection velocity to the Courant estimate.
     LibUtilities::Field<double, FieldState::Phys> &v_GetCFLVelocityField()
         override;
-
-    void v_PrintNorms(std::ostream &out) override;
 
     void v_GenerateSummary(SummaryList &s) override;
 

@@ -55,6 +55,8 @@
 namespace Nektar::SolverCore
 {
 
+template <typename TData> class MeanRemovalOp;
+
 class EquationSystem;
 
 using EquationSystemSharedPtr = std::shared_ptr<EquationSystem>;
@@ -96,7 +98,8 @@ public:
     }
 
     /*
-     * Create m_fields and m_fields_coeff to hold solution.
+     * Create m_phys and m_coeff, one Field per expansion list, to hold the
+     * solution.
      */
     void InitialiseFields()
     {
@@ -106,17 +109,6 @@ public:
     void InitialiseOperators()
     {
         v_InitialiseOperators();
-    }
-
-    /*
-     * Evaluate L2 and Linf norm of solution.
-     * Note the specific format of the error output is essential for the
-     * regression tests to work.
-     * This function may be reimplemented in child classes for different output.
-     */
-    void PrintNorms(std::ostream &out)
-    {
-        v_PrintNorms(out);
     }
 
     void DoProjection(LibUtilities::Field<double, FieldState::Phys> &in,
@@ -181,54 +173,13 @@ public:
 
     void DeclareExpansionLists();
 
+    /// Print the L2 and Linf errors of each variable. The regression tests
+    /// parse this output, so its format must not change.
+    void PrintNorms(std::ostream &out);
+
     void CheckHomogeneousDimensions();
 
 protected:
-    SOLVER_CORE_EXPORT EquationSystem(
-        const LibUtilities::SessionReaderSharedPtr &session,
-        const SpatialDomains::MeshGraphSharedPtr &graph);
-
-    SOLVER_CORE_EXPORT virtual void v_InitObject(
-        bool declareExpansionLists = true);
-    SOLVER_CORE_EXPORT virtual void v_DoInitialise(
-        bool dumpInitialConditions = true);
-    SOLVER_CORE_EXPORT virtual void v_DoSolve();
-    SOLVER_CORE_EXPORT virtual void v_Output();
-    SOLVER_CORE_EXPORT virtual void v_GenerateSummary(SummaryList &summary);
-
-    SOLVER_CORE_EXPORT virtual void v_InitialiseFields();
-    SOLVER_CORE_EXPORT virtual void v_InitialiseOperators();
-    SOLVER_CORE_EXPORT virtual std::vector<bool> v_GetSystemSingularChecks();
-    SOLVER_CORE_EXPORT virtual void v_PrintNorms(std::ostream &out);
-    SOLVER_CORE_EXPORT virtual void v_DoProjection(
-        LibUtilities::Field<double, FieldState::Phys> &in,
-        LibUtilities::Field<double, FieldState::Phys> &out,
-        [[maybe_unused]] const double time);
-
-    /// Publish the fields of the system to the filters.
-    SOLVER_CORE_EXPORT virtual FieldRegistry v_GetFieldRegistry();
-
-    /// Bring the output coefficients up to date and return views of them.
-    SOLVER_CORE_EXPORT virtual CoefficientFieldViews v_GetOutputFieldViews();
-
-    /// Write coefficient fields, scaled by @p scale, to a field file.
-    SOLVER_CORE_EXPORT void WriteOutputFields(
-        const std::string &outname, const CoefficientFieldViews &fields,
-        const LibUtilities::FieldMetaDataMap &metadata,
-        const double scale = 1.0);
-
-    SOLVER_CORE_EXPORT virtual void v_WriteFld(const std::string &outname);
-
-    /// Project the discontinuous physical field into #m_fields_coeff.
-    SOLVER_CORE_EXPORT void ProjectPhysToCoeffs(
-        LibUtilities::Field<double, FieldState::Phys> &phys);
-
-    /// Build the continuous projection, a mass matrix solve, for the fields
-    /// of an expansion list.
-    SOLVER_CORE_EXPORT std::shared_ptr<FwdTransOp<double>> CreateFwdTransOp(
-        const MultiRegions::ExpListSharedPtr &expList,
-        const std::vector<std::string> &variables);
-
     LibUtilities::CommSharedPtr m_comm;
     LibUtilities::SessionReaderSharedPtr m_session;
     SpatialDomains::MeshGraphSharedPtr m_graph;
@@ -237,7 +188,12 @@ protected:
     LibUtilities::FieldMetaDataMap m_fieldMetaDataMap;
     std::string m_sessionName;
 
-    unsigned int m_nVariables                     = 0;
+    /// Session variables grouped by expansion list: group i holds the
+    /// variables of m_expansionLists[i], set by v_SetExpansionVariables().
+    std::vector<std::vector<std::string>> m_variables;
+    /// Whether each variable's system is singular, grouped as m_variables.
+    /// The expansion list of a group takes the check of its first variable.
+    std::vector<std::vector<bool>> m_checkIfSystemSingular;
     unsigned int m_coordim                        = 0;
     unsigned int m_expdim                         = 0;
     double m_time                                 = 0.0;
@@ -257,12 +213,15 @@ protected:
     /// continuous projection, None otherwise.
     InitialConditionProjection m_initialConditionProjection =
         InitialConditionProjection::Average;
-    std::vector<bool> m_checkIfSystemSingular;
-    std::vector<std::string> m_variables;
 
     Math::MathHelper m_math;
-    LibUtilities::Field<double, FieldState::Phys> m_fields;
-    LibUtilities::Field<double, FieldState::Coeff> m_fields_coeff;
+    /// Solution in physical and coefficient space, one Field per expansion
+    /// list holding the variables of its m_variables group.
+    std::vector<LibUtilities::Field<double, FieldState::Phys>> m_phys;
+    std::vector<LibUtilities::Field<double, FieldState::Coeff>> m_coeff;
+    /// Workspaces laid out as m_phys and m_coeff, free between calls.
+    std::vector<LibUtilities::Field<double, FieldState::Phys>> m_wsp_phys;
+    std::vector<LibUtilities::Field<double, FieldState::Coeff>> m_wsp_coeff;
 
     std::shared_ptr<MultiRegions::BwdTransOp<double>> m_bwdTransOp = nullptr;
     std::shared_ptr<FwdTransOp<double>> m_fwdTransOp               = nullptr;
@@ -274,7 +233,11 @@ protected:
         m_iProductWRTBaseOp = nullptr;
     std::shared_ptr<MultiRegions::MultiplyByElmtInvMassOp<double>>
         m_multiplyByElmtInvMassOp = nullptr;
-    LibUtilities::Field<double, FieldState::Coeff> m_fields_coeff_tmp;
+
+    /// Singular system only, built by the solver that has one: balances the
+    /// forcing against the Neumann values of the system and removes the mean
+    /// of the reported error in PrintNorms().
+    std::shared_ptr<MeanRemovalOp<double>> m_meanRemovalOp;
 
     /// HOMOGENEOUS setup
     /// Parameter for homogeneous expansions
@@ -308,6 +271,49 @@ protected:
     bool m_useFFT;
     /// Flag to determine if dealiasing is used for homogeneous space.
     bool m_homogen_dealiasing;
+
+    SOLVER_CORE_EXPORT EquationSystem(
+        const LibUtilities::SessionReaderSharedPtr &session,
+        const SpatialDomains::MeshGraphSharedPtr &graph);
+
+    SOLVER_CORE_EXPORT virtual void v_InitObject(
+        bool declareExpansionLists = true);
+    /// Group the session variables by expansion list into m_variables and
+    /// m_checkIfSystemSingular. The default is a single group of them all.
+    SOLVER_CORE_EXPORT virtual void v_SetExpansionVariables();
+    SOLVER_CORE_EXPORT virtual void v_DoInitialise(
+        bool dumpInitialConditions = true);
+    SOLVER_CORE_EXPORT virtual void v_DoSolve();
+    SOLVER_CORE_EXPORT virtual void v_Output();
+    SOLVER_CORE_EXPORT virtual void v_GenerateSummary(SummaryList &summary);
+
+    SOLVER_CORE_EXPORT virtual void v_InitialiseFields();
+    SOLVER_CORE_EXPORT virtual void v_InitialiseOperators();
+    SOLVER_CORE_EXPORT virtual std::vector<bool> v_GetSystemSingularChecks();
+    SOLVER_CORE_EXPORT virtual void v_DoProjection(
+        LibUtilities::Field<double, FieldState::Phys> &in,
+        LibUtilities::Field<double, FieldState::Phys> &out,
+        [[maybe_unused]] const double time);
+
+    /// Publish the fields of the system to the filters.
+    SOLVER_CORE_EXPORT virtual FieldRegistry v_GetFieldRegistry();
+
+    /// Bring the output coefficients up to date and return views of them.
+    SOLVER_CORE_EXPORT virtual CoefficientFieldViews v_GetOutputFieldViews();
+
+    /// Write coefficient fields, scaled by @p scale, to a field file.
+    SOLVER_CORE_EXPORT void WriteOutputFields(
+        const std::string &outname, const CoefficientFieldViews &fields,
+        const LibUtilities::FieldMetaDataMap &metadata,
+        const double scale = 1.0);
+
+    SOLVER_CORE_EXPORT virtual void v_WriteFld(const std::string &outname);
+
+    /// Build the continuous projection, a mass matrix solve, for the fields
+    /// of an expansion list.
+    SOLVER_CORE_EXPORT std::shared_ptr<FwdTransOp<double>> CreateFwdTransOp(
+        const MultiRegions::ExpListSharedPtr &expList,
+        const std::vector<std::string> &variables);
 };
 
 } // namespace Nektar::SolverCore

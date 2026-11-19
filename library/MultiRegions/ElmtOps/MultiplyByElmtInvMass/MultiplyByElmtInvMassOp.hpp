@@ -47,7 +47,7 @@
  * block-operator counterpart of ExpList::MultiplyByElmtInvMass. Applied to
  * the output of IProductWRTBaseOp it gives the element-local
  * (discontinuous Galerkin) forward transform, which is how
- * SolverCore::EquationSystem::ProjectPhysToCoeffs uses it. The weak-DG
+ * SolverCore::EquationSystem::v_GetOutputFieldViews uses it. The weak-DG
  * advection and diffusion operators invert the element mass matrix of the
  * semi-discrete system through PhysLiftProjectOp instead, which applies the
  * same inverse mass (or, where B is square, its pointwise equivalent) to
