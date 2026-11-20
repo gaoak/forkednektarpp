@@ -34,8 +34,9 @@
 
 /**
  * @file PhysLiftProjectBlockOpDeviceSumFacKernels.hpp
- * @brief Device SumFac kernels of the lift-and-project operator: the fused
- * launches of each form, and the scales the separate-operator route takes.
+ * @brief Device SumFac kernels of the lift-and-project operator: the direct
+ * lift of the Pointwise form, the fused launches of the StdInvMass form, and
+ * the scales the separate-operator route takes.
  *
  * @details
  * As the other SumFac Device kernels, one thread per element: the block is
@@ -49,8 +50,8 @@
  * The fused launches are built from the per-element functions of the
  * IProductWRTPhysTrace, IProductWRTBase and BwdTrans SumFac kernels, as
  * the Mass kernels chain BwdTrans and IProductWRTBase:
- * - PhysLiftProjectKernelLauncher: the Pointwise form, or the StdInvMass
- *   form with a diagonal standard inverse mass, in one launch;
+ * - PhysLiftProjectKernelLauncher: the StdInvMass form with a diagonal
+ *   standard inverse mass, in one launch;
  * - PhysLiftProjectLiftBasisTransposeKernelLauncher and
  *   PhysLiftProjectScaleBwdTransKernelLauncher: the StdInvMass form with a
  *   dense standard inverse mass, either side of the batched product.
@@ -58,7 +59,14 @@
  * intermediate laid out as a block at warpSize.
  *
  * PhysLiftProjectPointwiseKernel and PhysLiftProjectInvMassScaleKernel
- * serve the separate-operator route, which takes the nodal shapes.
+ * serve the separate-operator route, which takes the nodal shapes and the
+ * Pointwise blocks the direct lift does not.
+ *
+ * PhysLiftProjectDirectLiftKernelLauncher, the Pointwise form's direct
+ * lift, takes one thread per point of each element instead, lanes first, a
+ * thread block being a warp as for the other kernels. The quadrature
+ * weights are read
+ * once per point and broadcast across the lanes, as the basis is.
  */
 
 #pragma once
@@ -168,8 +176,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectStage1Size(
  * intermediates living in the global workspace.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          PhysLiftProjectKernel KERNEL, PhysLiftProjectForm FORM,
-          typename TData, typename TSizeParameter, typename TTraceSizeParameter,
+          PhysLiftProjectKernel KERNEL, typename TData, typename TSizeParameter,
+          typename TTraceSizeParameter,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 inline constexpr unsigned int PhysLiftProjectSharedMemorySize(
@@ -224,49 +232,13 @@ NEK_DEVICE_INLINE static void PhysLiftProjectCopyInKernel(
     }
 }
 
-/// The Pointwise form from @p vol: `out (+)= scale / (w_q J) * vol` at
-/// every point of the element of lane @p ilane in group @p iwarp.
-template <bool APPEND, bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void PhysLiftProjectPointScaleKernel(
-    const unsigned int ilane, const size_t iwarp, const size_t e,
-    const unsigned int nqTot, const TData scale,
-    const TData *NEK_RESTRICT weights, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT vol, TData *NEK_RESTRICT out)
-{
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    for (unsigned int q = 0; q < nqTot; ++q)
-    {
-        TData jacobian;
-        if constexpr (DEFORMED)
-        {
-            jacobian = jac[(iwarp * nqTot + q) * warpsize + ilane];
-        }
-        else
-        {
-            jacobian = jac[e];
-        }
-        const TData factor =
-            SafeDivide(scale, weights[q * warpsize + ilane] * jacobian);
-        const unsigned int i = warpsize * q + ilane;
-        if constexpr (APPEND)
-        {
-            out[i] += factor * vol[i];
-        }
-        else
-        {
-            out[i] = factor * vol[i];
-        }
-    }
-}
-
 /**
  * @brief The Pointwise form: `out (+)= scale / (w_q J) * in` at every point,
  * zero on the padding elements, whose Jacobian is zero. Grid dimension 1 is
  * the component.
  *
  * @param   weights  The quadrature weights at every point (WeightsKey at
- *                   warpSize).
+ *                   width one), the same for every lane.
  * @param   jac      The Jacobians (JacobianKey at warpSize), one per
  *                   element, or one per point when @p DEFORMED.
  */
@@ -300,9 +272,8 @@ NEK_DEVICE_KERNEL void PhysLiftProjectPointwiseKernel(
             {
                 jacobian = jac[e];
             }
-            const TData factor =
-                SafeDivide(scale, weights[q * warpsize + ilane] * jacobian);
-            const size_t i = offset + static_cast<size_t>(q) * warpsize;
+            const TData factor = SafeDivide(scale, weights[q] * jacobian);
+            const size_t i     = offset + static_cast<size_t>(q) * warpsize;
             if constexpr (APPEND)
             {
                 out[i] += factor * in[i];
@@ -359,13 +330,12 @@ NEK_DEVICE_KERNEL void PhysLiftProjectInvMassScaleKernel(
 }
 
 /**
- * @brief The fused Pointwise and diagonal-inverse-mass forms in one
+ * @brief The StdInvMass form with a diagonal standard inverse mass in one
  * dimension. See the three-dimensional overload.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          PhysLiftProjectForm FORM, bool APPEND, bool DEFORMED,
-          typename TSizeParameter1D, typename TTraceSizeParameter1D,
-          typename TthreadBlock, typename TData,
+          bool APPEND, typename TSizeParameter1D,
+          typename TTraceSizeParameter1D, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -378,10 +348,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         [[maybe_unused]] const TData *NEK_RESTRICT basis0,
         const TData *NEK_RESTRICT nbasis0,
         [[maybe_unused]] const TData *NEK_RESTRICT tjac,
-        const bool endPtsCollocated0,
-        [[maybe_unused]] const TData *NEK_RESTRICT weights,
-        const TData *NEK_RESTRICT jac,
-        [[maybe_unused]] const TData *NEK_RESTRICT diag, const TData *in,
+        const bool endPtsCollocated0, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT diag, const TData *in,
         const TData *NEK_RESTRICT trace, TData *NEK_RESTRICT out, TData *vol,
         [[maybe_unused]] TData *NEK_RESTRICT coef,
         [[maybe_unused]] unsigned char *shmemptr,
@@ -414,37 +382,28 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                                          trace + 2 * slot, volptr);
         }
 
-        if constexpr (FORM == PhysLiftProjectForm::Pointwise)
+        TData *coefptr = coef + nm0 * slot;
+        IProductWRTBaseSegSumFacKernel<false, false>(
+            ilane, nm0, nq0, basis0, volptr, coefptr, TData(1.0));
+        const TData factor = SafeDivide(scale, jac[e]);
+        for (unsigned int m = 0; m < nm0; ++m)
         {
-            PhysLiftProjectPointScaleKernel<APPEND, DEFORMED>(
-                ilane, iwarp, e, nq0, scale, weights, jac, volptr, outptr);
+            coefptr[warpsize * m + ilane] *= factor * diag[m];
         }
-        else
-        {
-            TData *coefptr = coef + nm0 * slot;
-            IProductWRTBaseSegSumFacKernel<false, false>(
-                ilane, nm0, nq0, basis0, volptr, coefptr, TData(1.0));
-            const TData factor = SafeDivide(scale, jac[e]);
-            for (unsigned int m = 0; m < nm0; ++m)
-            {
-                coefptr[warpsize * m + ilane] *= factor * diag[m];
-            }
-            BwdTransSegSumFacKernel<APPEND>(ilane, nm0, nq0, basis0, coefptr,
-                                            outptr);
-        }
+        BwdTransSegSumFacKernel<APPEND>(ilane, nm0, nq0, basis0, coefptr,
+                                        outptr);
 
         e += getGlobalRange<0>(threadBlock);
     }
 }
 
 /**
- * @brief The fused Pointwise and diagonal-inverse-mass forms in two
+ * @brief The StdInvMass form with a diagonal standard inverse mass in two
  * dimensions. See the three-dimensional overload.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          PhysLiftProjectForm FORM, bool APPEND, bool DEFORMED,
-          typename TSizeParameter2D, typename TTraceSizeParameter2D,
-          typename TthreadBlock, typename TData,
+          bool APPEND, typename TSizeParameter2D,
+          typename TTraceSizeParameter2D, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -460,10 +419,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT tw00, const TData *NEK_RESTRICT tw10,
         const TData *NEK_RESTRICT tjac, const bool isCollocated0,
         const bool isCollocated1, const bool endPtsCollocated0,
-        const bool endPtsCollocated1,
-        [[maybe_unused]] const TData *NEK_RESTRICT weights,
-        const TData *NEK_RESTRICT jac,
-        [[maybe_unused]] const TData *NEK_RESTRICT diag, const TData *in,
+        const bool endPtsCollocated1, const TData *NEK_RESTRICT jac,
+        const TData *NEK_RESTRICT diag, const TData *in,
         const TData *NEK_RESTRICT trace, TData *NEK_RESTRICT out, TData *vol,
         [[maybe_unused]] TData *NEK_RESTRICT coef, TData *NEK_RESTRICT wsp0,
         TData *NEK_RESTRICT lift0, [[maybe_unused]] unsigned char *shmemptr,
@@ -485,7 +442,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nqTotTrace =
         traceSizeParam2D.template nqTotTrace<SHAPE_TYPE>();
     const unsigned int numDataJac =
-        DEFORMED ? nqTotTrace : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+        LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
 
     const unsigned int wsp0Size =
         PhysLiftProjectStage0Size<SHAPE_TYPE, Implementation>(sizeParam2D);
@@ -508,7 +465,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysLiftProjectCopyInKernel(ilane, nqTot, inptr, volptr);
         if (lift)
         {
-            IProductWRTPhysTrace2DKernel<SHAPE_TYPE, DEFORMED, true>(
+            IProductWRTPhysTrace2DKernel<SHAPE_TYPE, false, true>(
                 ilane, nq0, nq1, nbasis0, nbasis1, tnq00, tnq10, tbasis0,
                 tbasis1, tw00, tw10, tjac + numDataJac * warpsize * iwarp,
                 lift0 + lift0Size * slot, trace + nqTotTrace * slot, volptr,
@@ -516,43 +473,33 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 endPtsCollocated1);
         }
 
-        if constexpr (FORM == PhysLiftProjectForm::Pointwise)
+        TData *coefptr = coef + nmTot * slot;
+        TData *wsp0ptr = wsp0 + wsp0Size * slot;
+        IProductWRTBase2DSumFacKernel<SHAPE_TYPE, false, false>(
+            ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, volptr,
+            coefptr, wsp0ptr, TData(1.0));
+        const TData factor = SafeDivide(scale, jac[e]);
+        for (unsigned int m = 0; m < nmTot; ++m)
         {
-            PhysLiftProjectPointScaleKernel<APPEND, DEFORMED>(
-                ilane, iwarp, e, nqTot, scale, weights, jac, volptr, outptr);
+            coefptr[warpsize * m + ilane] *= factor * diag[m];
         }
-        else
-        {
-            TData *coefptr = coef + nmTot * slot;
-            TData *wsp0ptr = wsp0 + wsp0Size * slot;
-            IProductWRTBase2DSumFacKernel<SHAPE_TYPE, false, false>(
-                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, volptr,
-                coefptr, wsp0ptr, TData(1.0));
-            const TData factor = SafeDivide(scale, jac[e]);
-            for (unsigned int m = 0; m < nmTot; ++m)
-            {
-                coefptr[warpsize * m + ilane] *= factor * diag[m];
-            }
-            BwdTrans2DSumFacKernel<SHAPE_TYPE, APPEND>(
-                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, coefptr,
-                outptr, wsp0ptr);
-        }
+        BwdTrans2DSumFacKernel<SHAPE_TYPE, APPEND>(ilane, nm0, nm1, nq0, nq1,
+                                                   isModified, basis0, basis1,
+                                                   coefptr, outptr, wsp0ptr);
 
         e += getGlobalRange<0>(threadBlock);
     }
 }
 
 /**
- * @brief The Pointwise form, or the StdInvMass form with a diagonal
- * standard inverse mass, of a block of three-dimensional elements in one
- * launch, one thread per element at warpSize.
+ * @brief The StdInvMass form with a diagonal standard inverse mass of a
+ * block of affine three-dimensional elements in one launch, one thread per
+ * element at warpSize.
  *
  * Each thread copies its element's inner products into @p vol (unless the
  * input was interleaved into @p vol already), lifts the trace onto them,
- * and then
- * - Pointwise: `out (+)= scale / (w J) * vol`;
- * - StdInvMass: the basis transpose into @p coef, `coef *= scale / J * diag`
- *   and the backward transform into @p out, appending when @p APPEND.
+ * applies the basis transpose into @p coef, `coef *= scale / J * diag` and
+ * the backward transform into @p out, appending when @p APPEND.
  *
  * @p in, @p trace, @p out and the workspace regions @p vol, @p coef,
  * @p wsp0, @p wsp1, @p lift0 and @p lift1 are at warpSize, each region
@@ -563,9 +510,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * index tables are read only by the SumFacTOP counterpart.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          PhysLiftProjectForm FORM, bool APPEND, bool DEFORMED,
-          typename TSizeParameter3D, typename TTraceSizeParameter3D,
-          typename TthreadBlock, typename TData,
+          bool APPEND, typename TSizeParameter3D,
+          typename TTraceSizeParameter3D, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -592,10 +538,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const bool isCollocated11, const bool isCollocated20,
         const bool isCollocated21, const bool endPtsCollocated0,
         const bool endPtsCollocated1, const bool endPtsCollocated2,
-        [[maybe_unused]] const TData *NEK_RESTRICT weights,
-        const TData *NEK_RESTRICT jac,
-        [[maybe_unused]] const TData *NEK_RESTRICT diag, const TData *in,
-        const TData *NEK_RESTRICT trace, TData *NEK_RESTRICT out, TData *vol,
+        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT diag,
+        const TData *in, const TData *NEK_RESTRICT trace,
+        TData *NEK_RESTRICT out, TData *vol,
         [[maybe_unused]] TData *NEK_RESTRICT coef, TData *NEK_RESTRICT wsp0,
         TData *NEK_RESTRICT wsp1, TData *NEK_RESTRICT lift0,
         TData *NEK_RESTRICT lift1, [[maybe_unused]] unsigned char *shmemptr,
@@ -623,7 +568,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nqTotTrace =
         traceSizeParam3D.template nqTotTrace<SHAPE_TYPE>();
     const unsigned int numDataJac =
-        DEFORMED ? nqTotTrace : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+        LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
 
     const unsigned int wsp0Size =
         PhysLiftProjectStage0Size<SHAPE_TYPE, Implementation>(sizeParam3D);
@@ -650,7 +595,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysLiftProjectCopyInKernel(ilane, nqTot, inptr, volptr);
         if (lift)
         {
-            IProductWRTPhysTrace3DFaceKernel<SHAPE_TYPE, DEFORMED, true>(
+            IProductWRTPhysTrace3DFaceKernel<SHAPE_TYPE, false, true>(
                 ilane, nq0, nq1, nq2, nbasis0, nbasis1, nbasis2, tnq00, tnq01,
                 tnq10, tnq11, tnq20, tnq21, tbasis00, tbasis01, tbasis10,
                 tbasis11, tbasis20, tbasis21, tw00, tw01, tw10, tw11, tw20,
@@ -662,28 +607,20 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 endPtsCollocated2);
         }
 
-        if constexpr (FORM == PhysLiftProjectForm::Pointwise)
+        TData *coefptr = coef + nmTot * slot;
+        TData *wsp0ptr = wsp0 + wsp0Size * slot;
+        TData *wsp1ptr = wsp1 + wsp1Size * slot;
+        IProductWRTBase3DSumFacKernel<SHAPE_TYPE, false, false>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, volptr, coefptr, wsp0ptr, wsp1ptr, TData(1.0));
+        const TData factor = SafeDivide(scale, jac[e]);
+        for (unsigned int m = 0; m < nmTot; ++m)
         {
-            PhysLiftProjectPointScaleKernel<APPEND, DEFORMED>(
-                ilane, iwarp, e, nqTot, scale, weights, jac, volptr, outptr);
+            coefptr[warpsize * m + ilane] *= factor * diag[m];
         }
-        else
-        {
-            TData *coefptr = coef + nmTot * slot;
-            TData *wsp0ptr = wsp0 + wsp0Size * slot;
-            TData *wsp1ptr = wsp1 + wsp1Size * slot;
-            IProductWRTBase3DSumFacKernel<SHAPE_TYPE, false, false>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, volptr, coefptr, wsp0ptr, wsp1ptr, TData(1.0));
-            const TData factor = SafeDivide(scale, jac[e]);
-            for (unsigned int m = 0; m < nmTot; ++m)
-            {
-                coefptr[warpsize * m + ilane] *= factor * diag[m];
-            }
-            BwdTrans3DSumFacKernel<SHAPE_TYPE, APPEND>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, coefptr, outptr, wsp0ptr, wsp1ptr);
-        }
+        BwdTrans3DSumFacKernel<SHAPE_TYPE, APPEND>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, coefptr, outptr, wsp0ptr, wsp1ptr);
 
         e += getGlobalRange<0>(threadBlock);
     }
@@ -1098,6 +1035,519 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             wsp1 + wsp1Size * slot);
 
         e += getGlobalRange<0>(threadBlock);
+    }
+}
+
+/**
+ * @brief The factor `scale / (w J)` of the Pointwise form at point @p pt of
+ * element @p e, whose point index is @p i; zero on the padding elements,
+ * whose Jacobian is zero. The weight is read once per point, the same for
+ * every lane.
+ */
+template <bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static TData PhysLiftProjectDirectLiftFactorKernel(
+    const size_t i, const size_t e, const unsigned int pt, const TData scale,
+    const TData *NEK_RESTRICT weights, const TData *NEK_RESTRICT jac)
+{
+    TData jacobian;
+    if constexpr (DEFORMED)
+    {
+        jacobian = jac[i];
+    }
+    else
+    {
+        jacobian = jac[e];
+    }
+    return SafeDivide(scale, weights[pt] * jacobian);
+}
+
+/// `out[ientry] (+)= factor * val`.
+template <bool APPEND, typename TData>
+NEK_DEVICE_INLINE static void PhysLiftProjectDirectLiftStoreKernel(
+    TData *out, const size_t ientry, const TData factor, const TData val)
+{
+    if constexpr (APPEND)
+    {
+        out[ientry] += factor * val;
+    }
+    else
+    {
+        out[ientry] = factor * val;
+    }
+}
+
+/**
+ * @brief The lift of the traces of a one-point element onto its point: the
+ * sum over its traces, in the packed order, of each trace's integral of the
+ * trace values times its Jacobian, times the end-point interpolant of the
+ * point along the trace's normal direction. A one-point direction's
+ * interpolant onto the trace points is one, so no in-trace interpolant is
+ * applied.
+ *
+ * @tparam SHAPE_TYPE  Tri, Tet, Prism or Pyr.
+ * @tparam DEFORMED    The trace Jacobians are per trace point.
+ *
+ * @param   tnq      Trace points of a trace in each normal direction and
+ *                   in-trace direction, `tnq[2 * d + t]` (`tnq[d]` in two
+ *                   dimensions, one in-trace direction).
+ * @param   nbasis   End-point interpolant of each direction, one row.
+ * @param   tw       In-trace weights, in the order of @p tnq.
+ * @param   tjacptr  The element's trace Jacobians, at its lane.
+ * @param   traceptr The element's trace values of the component, at its
+ *                   lane.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static TData PhysLiftProjectOnePointLiftKernel(
+    const unsigned int *tnq, const TData *const *nbasis, const TData *const *tw,
+    const TData *NEK_RESTRICT tjacptr, const TData *NEK_RESTRICT traceptr)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    constexpr unsigned int dim      = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
+    // The traces of each direction, taken at compile time: the host table
+    // cannot be indexed at run time in device code.
+    constexpr unsigned int nface0 =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
+    constexpr unsigned int nface1 =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
+    constexpr unsigned int nface2 =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][2];
+    const unsigned int nfaces[3] = {nface0, nface1, nface2};
+    TData lift                   = 0.0;
+    unsigned int k               = 0;
+    unsigned int iface           = 0;
+    for (unsigned int d = 0; d < dim; ++d)
+    {
+        const unsigned int tnq0 = (dim == 3) ? tnq[2 * d] : tnq[d];
+        const unsigned int tnq1 = (dim == 3) ? tnq[2 * d + 1] : 1u;
+        const TData *tw0        = (dim == 3) ? tw[2 * d] : tw[d];
+        const TData *tw1        = (dim == 3) ? tw[2 * d + 1] : nullptr;
+        for (unsigned int f = 0; f < nfaces[d]; ++f, ++iface)
+        {
+            TData sum = 0.0;
+            for (unsigned int j = 0; j < tnq1; ++j)
+            {
+                for (unsigned int i = 0; i < tnq0; ++i, ++k)
+                {
+                    TData faceJac;
+                    if constexpr (DEFORMED)
+                    {
+                        faceJac = tjacptr[warpsize * k];
+                    }
+                    else
+                    {
+                        faceJac = tjacptr[warpsize * iface];
+                    }
+                    TData val = traceptr[warpsize * k] * faceJac * tw0[i];
+                    if (dim == 3)
+                    {
+                        val *= tw1[j];
+                    }
+                    sum += val;
+                }
+            }
+            lift += sum * nbasis[d][f];
+        }
+    }
+    return lift;
+}
+
+/**
+ * @brief The Pointwise form of a block of segments on SumFac, the trace
+ * lifted directly onto every point: `out (+)= scale / (w J) * (in + h_0(p)
+ * g_0 + h_1(p) g_1)`. See the three-dimensional launcher; a segment's
+ * traces are points, with no Jacobian or weight, and @p tjac is not read.
+ *
+ * One thread per volume point of each element, over every component, the
+ * block at warpSize: thread `i = warpSize * (nqTot * iwarp + pt) + ilane`
+ * takes point @em pt of element `warpSize * iwarp + ilane`, so that
+ * consecutive threads take the same point of consecutive elements. A thread
+ * block is a warp, as in the other SumFac kernels.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, bool DEFORMED, typename TTraceSizeParameter1D,
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter1D>()))
+    PhysLiftProjectDirectLiftKernelLauncher(
+        const TTraceSizeParameter1D traceSizeParam1D, const size_t nelmt,
+        const unsigned int ncomp, const TData scale, const bool lift,
+        const TData *NEK_RESTRICT nbasis0,
+        [[maybe_unused]] const TData *NEK_RESTRICT tjac,
+        const TData *NEK_RESTRICT weights, const TData *NEK_RESTRICT jac,
+        const TData *in, const TData *NEK_RESTRICT trace, TData *out,
+        const TthreadBlock &threadBlock)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    const unsigned int nqTot        = traceSizeParam1D.nm0();
+    const size_t compSize           = static_cast<size_t>(nqTot) * nelmt;
+    const size_t compTraceSize      = 2u * nelmt;
+
+    for (size_t i = getGlobalIdx(threadBlock); i < compSize;
+         i += getGlobalRange(threadBlock))
+    {
+        // Point index i = warpsize * (nqTot * iwarp + p) + ilane: point p of
+        // element warpsize * iwarp + ilane, lanes first.
+        const unsigned int ilane = i % warpsize;
+        const size_t ipoint      = i / warpsize;
+        const size_t iwarp       = ipoint / nqTot;
+        const unsigned int p     = ipoint % nqTot;
+        const size_t e           = warpsize * iwarp + ilane;
+
+        const TData factor = PhysLiftProjectDirectLiftFactorKernel<DEFORMED>(
+            i, e, p, scale, weights, jac);
+        const TData h0 = nbasis0[2u * p];
+        const TData h1 = nbasis0[2u * p + 1u];
+
+        const size_t traceOffset = 2u * warpsize * iwarp + ilane;
+        for (unsigned int c = 0; c < ncomp; ++c)
+        {
+            const size_t ientry = compSize * c + i;
+            TData val           = in[ientry];
+            if (lift)
+            {
+                const TData *traceptr = trace + compTraceSize * c + traceOffset;
+                val += h0 * traceptr[0] + h1 * traceptr[warpsize];
+            }
+            PhysLiftProjectDirectLiftStoreKernel<APPEND>(out, ientry, factor,
+                                                         val);
+        }
+    }
+}
+
+/**
+ * @brief The Pointwise form of a block of two-dimensional elements on SumFac,
+ * the trace lifted directly onto every point. See the three-dimensional
+ * launcher: quadrilaterals whose edges have the volume points, each point
+ * adding its four edges' contributions (the two direction-0 edges, then the
+ * two direction-1 edges), and triangles of one point.
+ *
+ * One thread per volume point of each element, over every component, the
+ * block at warpSize: thread `i = warpSize * (nqTot * iwarp + pt) + ilane`
+ * takes point @em pt of element `warpSize * iwarp + ilane`, so that
+ * consecutive threads take the same point of consecutive elements. A thread
+ * block is a warp, as in the other SumFac kernels.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, bool DEFORMED, typename TTraceSizeParameter2D,
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter2D>()))
+    PhysLiftProjectDirectLiftKernelLauncher(
+        const TTraceSizeParameter2D traceSizeParam2D, const size_t nelmt,
+        const unsigned int ncomp, const TData scale, const bool lift,
+        const TData *NEK_RESTRICT nbasis0, const TData *NEK_RESTRICT nbasis1,
+        const TData *NEK_RESTRICT tw00, const TData *NEK_RESTRICT tw10,
+        const TData *NEK_RESTRICT tjac, const TData *NEK_RESTRICT weights,
+        const TData *NEK_RESTRICT jac, const TData *in,
+        const TData *NEK_RESTRICT trace, TData *out,
+        const TthreadBlock &threadBlock)
+{
+    static_assert(SHAPE_TYPE == LibUtilities::Quad ||
+                      SHAPE_TYPE == LibUtilities::Tri,
+                  "The direct lift takes quadrilaterals and triangles.");
+
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    constexpr bool isCollapsed      = SHAPE_TYPE != LibUtilities::Quad;
+    constexpr unsigned int nedge = LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+
+    // The trace size parameter's nm0() and nm1() are the volume quadrature
+    // point counts here (#m_nm), as in the trace operators.
+    const unsigned int nq0   = traceSizeParam2D.nm0();
+    const unsigned int nq1   = traceSizeParam2D.nm1();
+    const unsigned int nqTot = nq0 * nq1;
+    const unsigned int nqTotTrace =
+        traceSizeParam2D.template nqTotTrace<SHAPE_TYPE>();
+    const unsigned int numDataJac = DEFORMED ? nqTotTrace : nedge;
+
+    const size_t compSize      = static_cast<size_t>(nqTot) * nelmt;
+    const size_t compTraceSize = static_cast<size_t>(nqTotTrace) * nelmt;
+
+    for (size_t i = getGlobalIdx(threadBlock); i < compSize;
+         i += getGlobalRange(threadBlock))
+    {
+        // Point index i = warpsize * (nqTot * iwarp + pt) + ilane: point pt of
+        // element warpsize * iwarp + ilane, lanes first.
+        const unsigned int ilane = i % warpsize;
+        const size_t ipoint      = i / warpsize;
+        const size_t iwarp       = ipoint / nqTot;
+        const unsigned int pt    = ipoint % nqTot;
+        const size_t e           = warpsize * iwarp + ilane;
+
+        const TData factor = PhysLiftProjectDirectLiftFactorKernel<DEFORMED>(
+            i, e, pt, scale, weights, jac);
+        const TData *tjacptr = tjac + numDataJac * warpsize * iwarp + ilane;
+        const size_t traceOffset =
+            static_cast<size_t>(nqTotTrace) * warpsize * iwarp + ilane;
+
+        if constexpr (!isCollapsed)
+        {
+            // The point of each edge beside this point, the edge's weight
+            // there and the end-point interpolant along its normal.
+            const unsigned int p        = pt % nq0;
+            const unsigned int q        = pt / nq0;
+            const unsigned int k[nedge] = {q, nq1 + q, 2u * nq1 + p,
+                                           2u * nq1 + nq0 + p};
+            const TData w[nedge]        = {tw00[q], tw00[q], tw10[p], tw10[p]};
+            const TData h[nedge] = {nbasis0[2u * p], nbasis0[2u * p + 1u],
+                                    nbasis1[2u * q], nbasis1[2u * q + 1u]};
+            // Each edge's factor, formed once for every component.
+            TData coef[nedge];
+            for (unsigned int iedge = 0; iedge < nedge; ++iedge)
+            {
+                TData edgeJac;
+                if constexpr (DEFORMED)
+                {
+                    edgeJac = tjacptr[warpsize * k[iedge]];
+                }
+                else
+                {
+                    edgeJac = tjacptr[warpsize * iedge];
+                }
+                coef[iedge] = edgeJac * w[iedge] * h[iedge];
+            }
+            for (unsigned int c = 0; c < ncomp; ++c)
+            {
+                const size_t ientry = compSize * c + i;
+                TData val           = in[ientry];
+                if (lift)
+                {
+                    const TData *traceptr =
+                        trace + compTraceSize * c + traceOffset;
+                    for (unsigned int iedge = 0; iedge < nedge; ++iedge)
+                    {
+                        val += traceptr[warpsize * k[iedge]] * coef[iedge];
+                    }
+                }
+                PhysLiftProjectDirectLiftStoreKernel<APPEND>(out, ientry,
+                                                             factor, val);
+            }
+        }
+        else
+        {
+            const unsigned int tnq[2] = {traceSizeParam2D.nq00(),
+                                         traceSizeParam2D.nq10()};
+            const TData *nbasis[2]    = {nbasis0, nbasis1};
+            const TData *tw[2]        = {tw00, tw10};
+            for (unsigned int c = 0; c < ncomp; ++c)
+            {
+                const size_t ientry = compSize * c + i;
+                TData val           = in[ientry];
+                if (lift)
+                {
+                    val +=
+                        PhysLiftProjectOnePointLiftKernel<SHAPE_TYPE, DEFORMED>(
+                            tnq, nbasis, tw, tjacptr,
+                            trace + compTraceSize * c + traceOffset);
+                }
+                PhysLiftProjectDirectLiftStoreKernel<APPEND>(out, ientry,
+                                                             factor, val);
+            }
+        }
+    }
+}
+
+/**
+ * @brief The Pointwise form of a block of three-dimensional elements on SumFac,
+ * the trace lifted directly onto every point, over every component: `out
+ * (+)= scale / (w J) * (in + L g)`, zero on the padding elements, whose
+ * Jacobian is zero.
+ *
+ * @details
+ * Hexahedra whose faces have the volume points in both in-face directions:
+ * the lift of face @em f onto volume point (p, q, r) is then the face's
+ * value at the point beside it, times the face's Jacobian there, its two
+ * in-face weights there and the end-point interpolant of the point along
+ * the face's normal direction, \f$h(\pm 1)\f$, a delta where the rule has
+ * its end points. Each point adds its six faces' contributions directly,
+ * with no scratch and no zeroing of a volume field, in the packed trace
+ * order (direction 0's low and high faces, then direction 1's and
+ * direction 2's: the hexahedron's faces 4, 2, 1, 3, 0 and 5), each formed as
+ * the face-by-face lift of IProductWRTPhysTrace forms it.
+ *
+ * Tetrahedra, prisms and pyramids of one point: every face contributes its
+ * integral of the trace values times its Jacobian, times the one-point
+ * end-point interpolant (PhysLiftProjectOnePointLiftKernel()).
+ *
+ * Element `e = warpSize * iwarp + ilane` has its point @em pt at
+ * `nqTot * (nelmt * c + warpSize * iwarp) + warpSize * pt + ilane` in
+ * component @em c, which is `nqTot * nelmt * c + i` for the point's index
+ * `i = warpSize * (nqTot * iwarp + pt) + ilane`: consecutive threads take
+ * the same point of consecutive elements, so every read of a point, a trace
+ * value or a Jacobian is coalesced across the lanes. Its trace values are
+ * at `nqTotTrace * (nelmt * c + warpSize * iwarp) + warpSize * k + ilane`
+ * for trace point @em k, the faces packed as above and each face's points
+ * in its in-face directions in the volume's order. A thread block is a
+ * warp, as in the other SumFac kernels.
+ *
+ * @tparam SHAPE_TYPE  Hex, Tet, Prism or Pyr.
+ * @tparam APPEND      Accumulate onto @p out.
+ * @tparam DEFORMED    The Jacobians are per point.
+ *
+ * @param   traceSizeParam3D  Volume point counts per direction (nm0(),
+ *                            nm1(), nm2()) and trace point counts per face
+ *                            pair.
+ * @param   nelmt     Elements in the block, including padding.
+ * @param   ncomp     Components (times homogeneous modes) of the block.
+ * @param   scale     Factor the result is scaled by.
+ * @param   lift      Lift @p trace; without it only the scale is applied.
+ * @param   nbasis0,nbasis1,nbasis2  End-point interpolant of each
+ *                    direction, `nbasis[p * ntrace + side]`.
+ * @param   tw00,tw01,tw10,tw11,tw20,tw21  Weights of each face pair's
+ *                    in-face directions (FetchTraceTables()).
+ * @param   tjac      Trace Jacobians (JacobianLocTraceKey at warpSize), one
+ *                    per face, or one per trace point when @p DEFORMED.
+ * @param   weights   Quadrature weights at every point (WeightsKey at width
+ *                    one), the same for every lane.
+ * @param   jac       Jacobians (JacobianKey at warpSize), one per element,
+ *                    or one per point when @p DEFORMED.
+ * @param   in        Inner products; may be @p out.
+ * @param   trace     Element-local trace values.
+ * @param   out       Result.
+ * @param   threadBlock  The thread block.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, bool DEFORMED, typename TTraceSizeParameter3D,
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter3D>()))
+    PhysLiftProjectDirectLiftKernelLauncher(
+        const TTraceSizeParameter3D traceSizeParam3D, const size_t nelmt,
+        const unsigned int ncomp, const TData scale, const bool lift,
+        const TData *NEK_RESTRICT nbasis0, const TData *NEK_RESTRICT nbasis1,
+        const TData *NEK_RESTRICT nbasis2, const TData *NEK_RESTRICT tw00,
+        const TData *NEK_RESTRICT tw01, const TData *NEK_RESTRICT tw10,
+        const TData *NEK_RESTRICT tw11, const TData *NEK_RESTRICT tw20,
+        const TData *NEK_RESTRICT tw21, const TData *NEK_RESTRICT tjac,
+        const TData *NEK_RESTRICT weights, const TData *NEK_RESTRICT jac,
+        const TData *in, const TData *NEK_RESTRICT trace, TData *out,
+        const TthreadBlock &threadBlock)
+{
+    static_assert(SHAPE_TYPE == LibUtilities::Hex ||
+                      SHAPE_TYPE == LibUtilities::Tet ||
+                      SHAPE_TYPE == LibUtilities::Prism ||
+                      SHAPE_TYPE == LibUtilities::Pyr,
+                  "The direct lift takes hexahedra, tetrahedra, prisms and "
+                  "pyramids.");
+
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    constexpr bool isCollapsed      = SHAPE_TYPE != LibUtilities::Hex;
+    constexpr unsigned int nface = LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+
+    // The trace size parameter's nm0()..nm2() are the volume quadrature
+    // point counts here (#m_nm), as in the trace operators.
+    const unsigned int nq0   = traceSizeParam3D.nm0();
+    const unsigned int nq1   = traceSizeParam3D.nm1();
+    const unsigned int nq2   = traceSizeParam3D.nm2();
+    const unsigned int nq01  = nq0 * nq1;
+    const unsigned int nqTot = nq01 * nq2;
+    const unsigned int nqTotTrace =
+        traceSizeParam3D.template nqTotTrace<SHAPE_TYPE>();
+    const unsigned int numDataJac = DEFORMED ? nqTotTrace : nface;
+
+    const size_t compSize      = static_cast<size_t>(nqTot) * nelmt;
+    const size_t compTraceSize = static_cast<size_t>(nqTotTrace) * nelmt;
+
+    for (size_t i = getGlobalIdx(threadBlock); i < compSize;
+         i += getGlobalRange(threadBlock))
+    {
+        // Point index i = warpsize * (nqTot * iwarp + pt) + ilane: point pt of
+        // element warpsize * iwarp + ilane, lanes first.
+        const unsigned int ilane = i % warpsize;
+        const size_t ipoint      = i / warpsize;
+        const size_t iwarp       = ipoint / nqTot;
+        const unsigned int pt    = ipoint % nqTot;
+        const size_t e           = warpsize * iwarp + ilane;
+
+        const TData factor = PhysLiftProjectDirectLiftFactorKernel<DEFORMED>(
+            i, e, pt, scale, weights, jac);
+        const TData *tjacptr = tjac + numDataJac * warpsize * iwarp + ilane;
+        const size_t traceOffset =
+            static_cast<size_t>(nqTotTrace) * warpsize * iwarp + ilane;
+
+        if constexpr (!isCollapsed)
+        {
+            const unsigned int p = pt % nq0;
+            const unsigned int q = (pt / nq0) % nq1;
+            const unsigned int r = pt / nq01;
+
+            // The point of each face beside this point, the face's in-face
+            // weights there and the end-point interpolant along its normal.
+            const unsigned int fsz0     = nq1 * nq2;
+            const unsigned int fsz1     = nq0 * nq2;
+            const unsigned int off1     = 2u * fsz0;
+            const unsigned int off2     = off1 + 2u * fsz1;
+            const unsigned int k[nface] = {
+                r * nq1 + q,        fsz0 + r * nq1 + q,
+                off1 + r * nq0 + p, off1 + fsz1 + r * nq0 + p,
+                off2 + q * nq0 + p, off2 + nq01 + q * nq0 + p};
+            const TData w0[nface] = {tw00[q], tw00[q], tw10[p],
+                                     tw10[p], tw20[p], tw20[p]};
+            const TData w1[nface] = {tw01[r], tw01[r], tw11[r],
+                                     tw11[r], tw21[q], tw21[q]};
+            const TData h[nface]  = {nbasis0[2u * p], nbasis0[2u * p + 1u],
+                                     nbasis1[2u * q], nbasis1[2u * q + 1u],
+                                     nbasis2[2u * r], nbasis2[2u * r + 1u]};
+            // Each face's factor, formed once for every component.
+            TData coef[nface];
+            for (unsigned int iface = 0; iface < nface; ++iface)
+            {
+                TData faceJac;
+                if constexpr (DEFORMED)
+                {
+                    faceJac = tjacptr[warpsize * k[iface]];
+                }
+                else
+                {
+                    faceJac = tjacptr[warpsize * iface];
+                }
+                coef[iface] = faceJac * w0[iface] * w1[iface] * h[iface];
+            }
+            for (unsigned int c = 0; c < ncomp; ++c)
+            {
+                const size_t ientry = compSize * c + i;
+                TData val           = in[ientry];
+                if (lift)
+                {
+                    const TData *traceptr =
+                        trace + compTraceSize * c + traceOffset;
+                    for (unsigned int iface = 0; iface < nface; ++iface)
+                    {
+                        val += traceptr[warpsize * k[iface]] * coef[iface];
+                    }
+                }
+                PhysLiftProjectDirectLiftStoreKernel<APPEND>(out, ientry,
+                                                             factor, val);
+            }
+        }
+        else
+        {
+            const unsigned int tnq[6] = {
+                traceSizeParam3D.nq00(), traceSizeParam3D.nq01(),
+                traceSizeParam3D.nq10(), traceSizeParam3D.nq11(),
+                traceSizeParam3D.nq20(), traceSizeParam3D.nq21()};
+            const TData *nbasis[3] = {nbasis0, nbasis1, nbasis2};
+            const TData *tw[6]     = {tw00, tw01, tw10, tw11, tw20, tw21};
+            for (unsigned int c = 0; c < ncomp; ++c)
+            {
+                const size_t ientry = compSize * c + i;
+                TData val           = in[ientry];
+                if (lift)
+                {
+                    val +=
+                        PhysLiftProjectOnePointLiftKernel<SHAPE_TYPE, DEFORMED>(
+                            tnq, nbasis, tw, tjacptr,
+                            trace + compTraceSize * c + traceOffset);
+                }
+                PhysLiftProjectDirectLiftStoreKernel<APPEND>(out, ientry,
+                                                             factor, val);
+            }
+        }
     }
 }
 

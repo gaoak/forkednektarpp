@@ -559,7 +559,9 @@ protected:
      * every count N and the block has that many modes in every direction,
      * the runtime counts otherwise. N - 1 modes only where that is a valid
      * mode count: one at least, and two for the nodal shapes, whose
-     * coefficient counts assert it even in constant evaluation.
+     * coefficient counts assert it even in constant evaluation. N modes on
+     * N points of a segment, quadrilateral or hexahedron is left out: B is
+     * then square, the Pointwise form, so no StdInvMass block reaches it.
      */
     template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter,
               typename TFunc>
@@ -575,14 +577,22 @@ protected:
                                    SHAPE_TYPE == LibUtilities::NodalPrism ||
                                    SHAPE_TYPE == LibUtilities::NodalPyr;
             constexpr unsigned int minModes = nodal ? 2u : 1u;
-            const unsigned int modes        = m_uniformModes ? m_modes[0] : 0u;
+            constexpr bool isCollapsed      = SHAPE_TYPE != LibUtilities::Seg &&
+                                         SHAPE_TYPE != LibUtilities::Quad &&
+                                         SHAPE_TYPE != LibUtilities::Hex;
+            [[maybe_unused]] const unsigned int modes =
+                m_uniformModes ? m_modes[0] : 0u;
             if constexpr (N >= minModes + 1)
             {
-                if (modes == N)
+                if constexpr (isCollapsed)
                 {
-                    func(TemplatedSizeParameter<SHAPE_TYPE, N, N>());
+                    if (modes == N)
+                    {
+                        func(TemplatedSizeParameter<SHAPE_TYPE, N, N>());
+                        return;
+                    }
                 }
-                else if (modes == N - 1)
+                if (modes == N - 1)
                 {
                     func(TemplatedSizeParameter<SHAPE_TYPE, N - 1, N>());
                 }
@@ -591,7 +601,7 @@ protected:
                     func(NonTemplatedSizeParameter<DIM>());
                 }
             }
-            else if constexpr (N >= minModes)
+            else if constexpr (N >= minModes && isCollapsed)
             {
                 if (modes == N)
                 {

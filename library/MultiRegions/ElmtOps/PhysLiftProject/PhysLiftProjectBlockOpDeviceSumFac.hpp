@@ -39,14 +39,33 @@
  * registered for SumFac and SumFacTOP.
  *
  * @details
- * A block of the Pointwise or the StdInvMass form is applied by fused
- * launches built from the per-element functions of the IProductWRTPhysTrace,
- * IProductWRTBase and BwdTrans Device kernels, through the standard
- * ShapeBlock and the trace switch (NEKTAR_BLOCKOP_SWITCH_PHYSTRACE):
- * - Pointwise, and StdInvMass with a diagonal standard inverse mass
+ * A block is applied, through the standard ShapeBlock and the trace switch
+ * (NEKTAR_BLOCKOP_SWITCH_PHYSTRACE), by
+ * - Pointwise: one launch of the implementation's
+ *   PhysLiftProjectDirectLiftKernelLauncher, one thread per point, each
+ *   point adding its traces' contributions to its inner product directly
+ *   and scaling the sum by `scale / (w J)`, with no scratch: on SumFac at
+ *   warpSize, lanes first; on SumFacTOP at width one, several whole
+ *   elements per thread block (physLiftProjectBlockPoints). It takes the blocks
+ * whose trace values lie at volume points (#m_directLift): segments,
+ * quadrilaterals and hexahedra whose traces have the volume points in every
+ * in-trace direction, and triangles, tetrahedra, prisms and pyramids of one
+ * point;
+ * - StdInvMass on SumFacTOP, tetrahedra, prisms and pyramids of at most
+ *   physLiftProjectDenseTailMaxPoints points (PhysLiftProjectDenseTail(),
+ *   #m_denseTail): one launch of PhysLiftProjectLiftJacobianKernelLauncher,
+ *   one thread per point of several whole elements per thread block,
+ *   lifting the trace directly onto its inner product and dividing by the
+ *   Jacobian, then one NekBlas batched product per component
+ *   with the projector \f$P = B M_{\mathrm{std}}^{-1} B^{\mathsf T}\f$, the
+ *   scale its alpha;
+ * - StdInvMass with a diagonal standard inverse mass
  *   (StdRegions::StdExpansion::InvMassIsDiagonal()): one launch
- *   (PhysLiftProjectKernelLauncher), the lift, the basis transpose, the
- *   inverse mass with `scale / J` and the backward transform per element;
+ *   (PhysLiftProjectKernelLauncher), built from the per-element functions
+ *   of the IProductWRTPhysTrace, IProductWRTBase and BwdTrans Device
+ *   kernels: the lift (on SumFacTOP in three dimensions straight onto each
+ *   point, as it is loaded), the basis transpose, the inverse mass with
+ *   `scale / J` and the backward transform per element;
  * - StdInvMass with a dense standard inverse mass: the lift and the basis
  *   transpose in one launch, the NekBlas batched product with the standard
  *   inverse mass, then `scale / J` and the backward transform in one launch.
@@ -55,18 +74,22 @@
  * width is transposed into the workspace (Nektar::transposeBatched) and the
  * output back, so that the operator never writes to its inputs.
  *
- * The nodal shapes, and a SumFacTOP block whose fused launch would not fit
- * in shared memory, take the Device block operators of IProductWRTPhysTrace,
- * IProductWRTBase and BwdTrans in turn instead (ApplySeparate()). A block of
+ * The nodal shapes, a Pointwise block whose trace values do not lie at
+ * volume points, and a SumFacTOP StdInvMass block whose fused launches would
+ * not fit in shared memory take the Device block operators of
+ * IProductWRTPhysTrace, IProductWRTBase and BwdTrans in turn instead
+ * (ApplySeparate()). A block of
  * the ElmtInvMass form takes master's four block operators in sequence
  * (PhysLiftProjectBlockOp::ApplyElmtInvMass()).
  *
  * The kernels are those of PhysLiftProjectBlockOpDeviceSumFacKernels.hpp
- * (SumFac) and PhysLiftProjectBlockOpDeviceSumFacTOPKernels.hpp with
- * PhysLiftProjectBlockOpDeviceKernels.hpp (SumFacTOP, the latter shared with
- * StdMat). The kernels of the two implementations have the same names and
- * arguments, each restricted to its Implementation, so that every launch is
- * `Kernel<Implementation, ...>`, as in BwdTransBlockOpDeviceSumFac.hpp.
+ * (SumFac) and PhysLiftProjectBlockOpDeviceSumFacTOPKernels.hpp
+ * (SumFacTOP), each file holding its implementation's arithmetic. The
+ * kernels of the two implementations have the same names, each restricted
+ * to its Implementation, so that every launch is `Kernel<Implementation,
+ * ...>`, as in BwdTransBlockOpDeviceSumFac.hpp; the SumFacTOP direct lift
+ * also takes the elements per thread block. Each implementation sizes its
+ * launches with its own GetDeviceBlockSize() and GetDeviceGridSize().
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -81,13 +104,13 @@
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 #include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectBlockOp.hpp>
-#include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectBlockOpDeviceKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectBlockOpDeviceSumFacKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectBlockOpDeviceSumFacTOPKernels.hpp>
 #include <MultiRegions/ElmtOps/TraceTables.hpp>
 
 #include <algorithm>
 #include <memory>
+#include <type_traits>
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -156,10 +179,24 @@ public:
             FetchFusedTables(exp, block_idx);
             if (m_form == PhysLiftProjectForm::Pointwise)
             {
+                // Every shape but the segment, quadrilateral and hexahedron
+                // is collapsed, the nodal shapes included: a collapsed shape
+                // takes the direct lift only at one point, which a nodal
+                // shape, with a node at every vertex, never has.
+                const bool isCollapsed = m_shapeType != LibUtilities::Seg &&
+                                         m_shapeType != LibUtilities::Quad &&
+                                         m_shapeType != LibUtilities::Hex;
+                m_directLift =
+                    isCollapsed ? m_nqTot == 1u
+                                : (m_dimension == 1 ||
+                                   std::all_of(m_isCollocated.begin(),
+                                               m_isCollocated.end(),
+                                               [](const bool c) { return c; }));
+                // The weights at width one, read once per point and
+                // broadcast across the lanes.
                 m_weightsptr =
                     this->m_dataWarehouse->template GetData<MemSpace>(
-                        LocalRegions::WeightsKey<TData>(block_idx,
-                                                        m_implInterleaveWidth));
+                        LocalRegions::WeightsKey<TData>(block_idx, 1u));
             }
             else
             {
@@ -202,6 +239,19 @@ public:
                         StdRegions::StdMatKey<TData>(basisKeys,
                                                      exp->DetShapeType(),
                                                      invMassType, nodalType));
+                if constexpr (std::is_same_v<Implementation,
+                                             MultiRegions::SumFacTOP>)
+                {
+                    m_denseTail = PhysLiftProjectDenseTail(exp);
+                }
+                if (m_denseTail)
+                {
+                    m_projptr =
+                        this->m_dataWarehouse->template GetData<MemSpace>(
+                            StdRegions::StdMatKey<TData>(
+                                basisKeys, exp->DetShapeType(),
+                                StdRegions::ePhysProjectStdMat, nodalType));
+                }
             }
         }
     }
@@ -246,6 +296,11 @@ protected:
     /// diagonal (#m_invMassIsDiagonal), otherwise the whole matrix.
     const TData *m_invMassptr = nullptr;
     bool m_invMassIsDiagonal  = false;
+    /// SumFacTOP, StdInvMass: the block takes the dense projector
+    /// (PhysLiftProjectDenseTail()), #m_projptr, the projector
+    /// \f$B M_{\mathrm{std}}^{-1} B^{\mathsf T}\f$, nqTot x nqTot.
+    bool m_denseTail       = false;
+    const TData *m_projptr = nullptr;
     /// The fused launches' tables. #m_nm and #m_nq, the volume and the trace
     /// quadrature counts the generated switch reads, are padded to three
     /// and six entries; #m_liftB, #m_liftW, #m_isCollocated and
@@ -262,6 +317,13 @@ protected:
     std::vector<const TData *> m_liftW;
     std::vector<bool> m_isCollocated;
     std::vector<bool> m_endPtsCollocated;
+    /// A Pointwise block whose trace values lie at volume points, which
+    /// PhysLiftProjectDirectLiftKernelLauncher lifts directly: segments, and
+    /// quadrilaterals and hexahedra whose traces have the volume points in
+    /// every in-trace direction (#m_isCollocated), and triangles,
+    /// tetrahedra, prisms and pyramids of one point. Any other Pointwise
+    /// block takes the separate-operator route.
+    bool m_directLift = false;
     std::vector<const TData *> m_basis;
     std::vector<const unsigned int *> m_index;
     /// The trace Jacobians at #m_implInterleaveWidth; null in one dimension.
@@ -647,7 +709,8 @@ protected:
      * switch chose: compile-time mode counts for the StdInvMass form where
      * every volume and trace count is the same and the modes are as many as
      * the points or one fewer, the runtime ones otherwise. A deformed block
-     * reaching here is Pointwise. The nodal shapes take the
+     * reaching here is Pointwise. The nodal shapes, and a Pointwise block
+     * the direct lift does not take (#m_directLift), take the
      * separate-operator route.
      */
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
@@ -665,33 +728,49 @@ protected:
             "OperatorND expects a trace size parameter matching the "
             "dimension of the shape.");
 
-        if constexpr (SHAPE_TYPE == LibUtilities::NodalTri ||
-                      SHAPE_TYPE == LibUtilities::NodalTet ||
-                      SHAPE_TYPE == LibUtilities::NodalPrism ||
-                      SHAPE_TYPE == LibUtilities::NodalPyr)
+        constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTri ||
+                                 SHAPE_TYPE == LibUtilities::NodalTet ||
+                                 SHAPE_TYPE == LibUtilities::NodalPrism ||
+                                 SHAPE_TYPE == LibUtilities::NodalPyr;
+
+        if constexpr (isNodal)
         {
             ApplySeparate(inblock, outblock);
         }
-        else if constexpr (DEFORMED)
-        {
-            ApplyFused<SHAPE_TYPE, true, PhysLiftProjectForm::Pointwise>(
-                inblock, outblock, NonTemplatedSizeParameter<DIM>(),
-                traceSizeParam);
-        }
-        else if (m_form == PhysLiftProjectForm::Pointwise)
-        {
-            ApplyFused<SHAPE_TYPE, false, PhysLiftProjectForm::Pointwise>(
-                inblock, outblock, NonTemplatedSizeParameter<DIM>(),
-                traceSizeParam);
-        }
         else
         {
-            WithStdInvMassSizeParameter<SHAPE_TYPE>(
-                traceSizeParam, [&](const auto sizeParam) {
-                    this->template ApplyFused<SHAPE_TYPE, false,
-                                              PhysLiftProjectForm::StdInvMass>(
-                        inblock, outblock, sizeParam, traceSizeParam);
-                });
+            if (m_form == PhysLiftProjectForm::Pointwise)
+            {
+                if (!m_directLift)
+                {
+                    ApplySeparate(inblock, outblock);
+                }
+                else
+                {
+                    ApplyFused<SHAPE_TYPE, DEFORMED,
+                               PhysLiftProjectForm::Pointwise>(
+                        inblock, outblock, NonTemplatedSizeParameter<DIM>(),
+                        traceSizeParam);
+                }
+            }
+            else
+            {
+                if constexpr (DEFORMED)
+                {
+                    ASSERTL0(false, "A deformed block reaches only the "
+                                    "Pointwise form.");
+                }
+                else
+                {
+                    WithStdInvMassSizeParameter<SHAPE_TYPE>(
+                        traceSizeParam, [&](const auto sizeParam) {
+                            this->template ApplyFused<
+                                SHAPE_TYPE, false,
+                                PhysLiftProjectForm::StdInvMass>(
+                                inblock, outblock, sizeParam, traceSizeParam);
+                        });
+                }
+            }
         }
     }
 
@@ -703,6 +782,15 @@ protected:
      * the runtime counts otherwise. N - 1 modes only where that is a valid
      * mode count: one at least, and two for the nodal shapes, whose
      * coefficient counts assert it even in constant evaluation.
+     *
+     * Two compile-time forms are left out, as no block reaches them:
+     * - N modes on N points of a segment, quadrilateral or hexahedron,
+     *   whose B is then square, the Pointwise form;
+     * - on SumFacTOP, a tetrahedron, prism or pyramid of at most
+     *   physLiftProjectDenseTailMaxPoints points, which the dense projector
+     *   takes (PhysLiftProjectDenseTail()), its launches reading the trace
+     *   size parameter only.
+     * Either runs on the runtime counts should it ever be reached.
      */
     template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter,
               typename TFunc>
@@ -718,14 +806,32 @@ protected:
                                    SHAPE_TYPE == LibUtilities::NodalPrism ||
                                    SHAPE_TYPE == LibUtilities::NodalPyr;
             constexpr unsigned int minModes = nodal ? 2u : 1u;
-            const unsigned int modes        = m_uniformModes ? m_modes[0] : 0u;
-            if constexpr (N >= minModes + 1)
+            constexpr bool isCollapsed      = SHAPE_TYPE != LibUtilities::Seg &&
+                                         SHAPE_TYPE != LibUtilities::Quad &&
+                                         SHAPE_TYPE != LibUtilities::Hex;
+            constexpr bool isDense =
+                std::is_same_v<Implementation, MultiRegions::SumFacTOP> &&
+                (SHAPE_TYPE == LibUtilities::Tet ||
+                 SHAPE_TYPE == LibUtilities::Prism ||
+                 SHAPE_TYPE == LibUtilities::Pyr) &&
+                N * N * N <= physLiftProjectDenseTailMaxPoints;
+            [[maybe_unused]] const unsigned int modes =
+                m_uniformModes ? m_modes[0] : 0u;
+            if constexpr (isDense)
             {
-                if (modes == N)
+                func(NonTemplatedSizeParameter<DIM>());
+            }
+            else if constexpr (N >= minModes + 1)
+            {
+                if constexpr (isCollapsed)
                 {
-                    func(TemplatedSizeParameter<SHAPE_TYPE, N, N>());
+                    if (modes == N)
+                    {
+                        func(TemplatedSizeParameter<SHAPE_TYPE, N, N>());
+                        return;
+                    }
                 }
-                else if (modes == N - 1)
+                if (modes == N - 1)
                 {
                     func(TemplatedSizeParameter<SHAPE_TYPE, N - 1, N>());
                 }
@@ -734,7 +840,7 @@ protected:
                     func(NonTemplatedSizeParameter<DIM>());
                 }
             }
-            else if constexpr (N >= minModes)
+            else if constexpr (N >= minModes && isCollapsed)
             {
                 if (modes == N)
                 {
@@ -756,26 +862,130 @@ protected:
         }
     }
 
-    /// Dynamic shared memory of fused kernel @p KERNEL for a block of form
-    /// @p FORM, in bytes; zero for SumFac, whose intermediates live in the
+    /// Dynamic shared memory of fused kernel @p KERNEL of the StdInvMass
+    /// form, in bytes; zero for SumFac, whose intermediates live in the
     /// global workspace.
     template <LibUtilities::ShapeType SHAPE_TYPE, PhysLiftProjectKernel KERNEL,
-              PhysLiftProjectForm FORM, typename TSizeParameter,
-              typename TTraceSizeParameter>
+              typename TSizeParameter, typename TTraceSizeParameter>
     static unsigned int SharedMemoryBytes(
         const TSizeParameter sizeParam,
         const TTraceSizeParameter traceSizeParam)
     {
         return sizeof(TData) *
                PhysLiftProjectSharedMemorySize<SHAPE_TYPE, Implementation,
-                                               KERNEL, FORM, TData>(
-                   sizeParam, traceSizeParam);
+                                               KERNEL, TData>(sizeParam,
+                                                              traceSizeParam);
+    }
+
+    /// The faces whose integrals the dense projector's lift forms in shared
+    /// memory (PhysLiftProjectLiftJacobianKernelLauncher), and the
+    /// shared-memory entries they take per element and component.
+    struct LiftJacobianStaging
+    {
+        /// Bit @em d set where the faces normal to direction @em d have an
+        /// in-face direction whose trace points are not the volume's.
+        unsigned int mask = 0u;
+        /// One entry per such face and volume point of its in-face
+        /// directions.
+        unsigned int size = 0u;
+    };
+
+    /// The block's LiftJacobianStaging: a direction is staged unless its
+    /// faces' trace points are the volume points in both in-face directions.
+    template <LibUtilities::ShapeType SHAPE_TYPE>
+    LiftJacobianStaging GetLiftJacobianStaging() const
+    {
+        LiftJacobianStaging staging;
+        for (unsigned int d = 0; d < 3; ++d)
+        {
+            if (m_isCollocated[2 * d] && m_isCollocated[2 * d + 1])
+            {
+                continue;
+            }
+            // The faces normal to direction d, and the volume points of
+            // their two in-face directions.
+            const unsigned int nface =
+                LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][d];
+            const unsigned int nInFace = m_nm[(d + 1) % 3] * m_nm[(d + 2) % 3];
+            staging.mask |= 1u << d;
+            staging.size += nface * nInFace;
+        }
+        return staging;
+    }
+
+    /// The dense projector's lift with @p CHUNK components per thread; the
+    /// staged directions are a template argument where they are none or
+    /// only direction 2, as on tetrahedra on the default rule, and taken at
+    /// run time otherwise (LaunchLiftJacobianWithStageMask()).
+    template <LibUtilities::ShapeType SHAPE_TYPE, unsigned int CHUNK,
+              typename TTraceSizeParameter, unsigned int... ind0,
+              unsigned int... ind1>
+    void LaunchLiftJacobian(const LiftJacobianStaging staging,
+                            const TTraceSizeParameter traceSizeParam,
+                            const size_t nelmt, const unsigned int ncomp,
+                            const bool lift, const TData *inptr,
+                            const TData *traceptr, TData *outptr,
+                            std::integer_sequence<unsigned int, ind0...> seq0,
+                            std::integer_sequence<unsigned int, ind1...> seq1)
+    {
+        if (staging.mask == 0u)
+        {
+            LaunchLiftJacobianWithStageMask<SHAPE_TYPE, CHUNK, 0u>(
+                staging.size, traceSizeParam, nelmt, ncomp, lift, inptr,
+                traceptr, outptr, seq0, seq1);
+        }
+        else if (staging.mask == 4u)
+        {
+            LaunchLiftJacobianWithStageMask<SHAPE_TYPE, CHUNK, 4u>(
+                staging.size, traceSizeParam, nelmt, ncomp, lift, inptr,
+                traceptr, outptr, seq0, seq1);
+        }
+        else
+        {
+            LaunchLiftJacobianWithStageMask<SHAPE_TYPE, CHUNK,
+                                            physLiftProjectStageRunTime>(
+                staging.size, traceSizeParam, nelmt, ncomp, lift, inptr,
+                traceptr, outptr, seq0, seq1);
+        }
+    }
+
+    /// One launch of PhysLiftProjectLiftJacobianKernelLauncher: as many whole
+    /// elements per thread block as fit in physLiftProjectBlockPoints points
+    /// (GetDevicePackedKernelParameters()) and @p CHUNK components, with @p
+    /// stageSize shared-memory entries per element and component where it
+    /// lifts.
+    template <LibUtilities::ShapeType SHAPE_TYPE, unsigned int CHUNK,
+              unsigned int STAGE_MASK, typename TTraceSizeParameter,
+              unsigned int... ind0, unsigned int... ind1>
+    void LaunchLiftJacobianWithStageMask(
+        const unsigned int stageSize, const TTraceSizeParameter traceSizeParam,
+        const size_t nelmt, const unsigned int ncomp, const bool lift,
+        const TData *inptr, const TData *traceptr, TData *outptr,
+        std::integer_sequence<unsigned int, ind0...>,
+        std::integer_sequence<unsigned int, ind1...>)
+    {
+        constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
+        const DevicePackedKernelParameters kernelParams =
+            GetDevicePackedKernelParameters<Implementation>(
+                nelmt, m_nqTot, physLiftProjectBlockPoints,
+                lift ? sizeof(TData) * CHUNK * stageSize : 0u);
+        DEVICE_2DGRID_KERNEL_LAUNCHER(
+            (PhysLiftProjectLiftJacobianKernelLauncher<
+                SHAPE_TYPE, Implementation, CHUNK, STAGE_MASK>),
+            kernelParams.gridSize, (ncomp + CHUNK - 1u) / CHUNK,
+            kernelParams.blockSize, 1, kernelParams.shmemSize, m_streamID,
+            traceSizeParam, nelmt, ncomp, kernelParams.elmtsPerBlock, lift,
+            m_liftB[ind0]..., m_liftB[DIM + ind1]..., m_liftW[ind1]...,
+            m_traceJacptr, (bool)m_isCollocated[ind1]...,
+            (bool)m_endPtsCollocated[ind0]..., m_jacptr, inptr, traceptr,
+            outptr);
     }
 
     /// ApplyFusedImpl() with the index sequences of the shape's dimension;
-    /// a SumFacTOP block whose largest launch, the fused one or one of the
-    /// two either side of a dense standard inverse mass, would exceed the
-    /// shared-memory limit takes the separate-operator route instead.
+    /// a SumFacTOP StdInvMass block whose largest launch, the fused one or
+    /// one of the two either side of a dense standard inverse mass, would
+    /// exceed the shared-memory limit takes the separate-operator route
+    /// instead. The direct lift of the Pointwise form takes none.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               PhysLiftProjectForm FORM, typename TSizeParameter,
               typename TTraceSizeParameter>
@@ -786,51 +996,63 @@ protected:
         const TTraceSizeParameter traceSizeParam)
     {
         constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
-        unsigned int shmemsize =
-            SharedMemoryBytes<SHAPE_TYPE, PhysLiftProjectKernel::Fused, FORM>(
-                sizeParam, traceSizeParam);
         if constexpr (FORM == PhysLiftProjectForm::StdInvMass)
         {
+            if (m_denseTail)
+            {
+                ApplyFusedImpl<SHAPE_TYPE, DEFORMED, FORM>(
+                    inblock, outblock, sizeParam, traceSizeParam,
+                    std::make_integer_sequence<unsigned int, DIM>(),
+                    std::make_integer_sequence<unsigned int, DIM *(DIM - 1)>(),
+                    std::make_integer_sequence<unsigned int, NumStage(DIM)>(),
+                    std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
+                return;
+            }
+            unsigned int shmemsize =
+                SharedMemoryBytes<SHAPE_TYPE, PhysLiftProjectKernel::Fused>(
+                    sizeParam, traceSizeParam);
             if (!m_invMassIsDiagonal)
             {
                 shmemsize = std::max(
-                    SharedMemoryBytes<SHAPE_TYPE,
-                                      PhysLiftProjectKernel::LiftBasisTranspose,
-                                      FORM>(sizeParam, traceSizeParam),
                     SharedMemoryBytes<
-                        SHAPE_TYPE, PhysLiftProjectKernel::ScaleBwdTrans, FORM>(
+                        SHAPE_TYPE, PhysLiftProjectKernel::LiftBasisTranspose>(
+                        sizeParam, traceSizeParam),
+                    SharedMemoryBytes<SHAPE_TYPE,
+                                      PhysLiftProjectKernel::ScaleBwdTrans>(
                         sizeParam, traceSizeParam));
             }
+            if (shmemsize > GetDeviceProperties::SharedMemoryPerBlock())
+            {
+                ApplySeparate(inblock, outblock);
+                return;
+            }
         }
-        if (shmemsize > GetDeviceProperties::SharedMemoryPerBlock())
-        {
-            ApplySeparate(inblock, outblock);
-        }
-        else
-        {
-            ApplyFusedImpl<SHAPE_TYPE, DEFORMED, FORM>(
-                inblock, outblock, sizeParam, traceSizeParam,
-                std::make_integer_sequence<unsigned int, DIM>(),
-                std::make_integer_sequence<unsigned int, DIM *(DIM - 1)>(),
-                std::make_integer_sequence<unsigned int, NumStage(DIM)>(),
-                std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
-        }
+        ApplyFusedImpl<SHAPE_TYPE, DEFORMED, FORM>(
+            inblock, outblock, sizeParam, traceSizeParam,
+            std::make_integer_sequence<unsigned int, DIM>(),
+            std::make_integer_sequence<unsigned int, DIM *(DIM - 1)>(),
+            std::make_integer_sequence<unsigned int, NumStage(DIM)>(),
+            std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
     }
 
     /**
-     * @brief The fused launches of the block's form.
+     * @brief The launches of the block's form: the direct lift of the
+     * Pointwise form, the fused launches of the StdInvMass form.
      *
      * The workspace (BlockOperator's static buffer of the block's stream)
      * holds one region per intermediate, each laid out as a block at
      * #m_implInterleaveWidth: the input, the trace and the output where
-     * they arrive at another width, and, for SumFac, the coefficients and
-     * the stage and lift scratches the kernels keep there. An input or a
+     * they arrive at another width, and, for the StdInvMass form on SumFac,
+     * the coefficients and the stage and lift scratches the kernels keep
+     * there. An input or a
      * trace at another width is transposed into its region and the
      * kernels read it there; an output at another width, or to be left at
      * the input's other width, is written to its region and transposed
      * back, appended to after it is transposed in. The output leaves at
      * the input's width.
      *
+     * @tparam DEFORMED  The block is deformed, which only the Pointwise form
+     *                   reaches.
      * @tparam FORM  Pointwise or StdInvMass.
      * @tparam ind0  One index per direction.
      * @tparam ind1  One per face pair.
@@ -858,15 +1080,14 @@ protected:
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const unsigned int nqTotTrace =
             traceSizeParam.template nqTotTrace<SHAPE_TYPE>();
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
 
         // The workspace sizes per element: the input, the trace and the
-        // output, then SumFac's coefficients, two stage and two lift
-        // scratches.
+        // output, then the StdInvMass form's coefficients, two stage and two
+        // lift scratches on SumFac.
         size_t coefSize = 0, stage0Size = 0, stage1Size = 0, lift0Size = 0,
                lift1Size = 0;
-        if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
+        if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac> &&
+                      FORM == PhysLiftProjectForm::StdInvMass)
         {
             coefSize   = m_nmTot;
             stage0Size = PhysLiftProjectStage0Size<SHAPE_TYPE, Implementation>(
@@ -982,56 +1203,170 @@ protected:
             }
         }
 
-        bool fused = true;
-        if constexpr (FORM == PhysLiftProjectForm::StdInvMass)
+        if constexpr (FORM == PhysLiftProjectForm::Pointwise)
         {
-            fused = m_invMassIsDiagonal;
+            if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
+            {
+                // One thread per point of each element, lanes first, a
+                // thread block being a warp.
+                const unsigned int blocksize =
+                    GetDeviceBlockSize<Implementation>(m_nqTot);
+                const unsigned int gridsize = GetDeviceGridSize<Implementation>(
+                    nelmt * m_nqTot, blocksize, 0);
+                if (this->m_append)
+                {
+                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (PhysLiftProjectDirectLiftKernelLauncher<
+                            SHAPE_TYPE, Implementation, true, DEFORMED>),
+                        gridsize, blocksize, m_streamID, traceSizeParam, nelmt,
+                        ncomp, this->m_scale, lift, m_liftB[ind0]...,
+                        m_liftW[ind1]..., m_traceJacptr, m_weightsptr, m_jacptr,
+                        inptr, traceptr, kernelOut);
+                }
+                else
+                {
+                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (PhysLiftProjectDirectLiftKernelLauncher<
+                            SHAPE_TYPE, Implementation, false, DEFORMED>),
+                        gridsize, blocksize, m_streamID, traceSizeParam, nelmt,
+                        ncomp, this->m_scale, lift, m_liftB[ind0]...,
+                        m_liftW[ind1]..., m_traceJacptr, m_weightsptr, m_jacptr,
+                        inptr, traceptr, kernelOut);
+                }
+            }
+            else
+            {
+                // One thread per point of as many whole elements per thread
+                // block as fit in physLiftProjectBlockPoints points, one at
+                // least.
+                const DevicePackedKernelParameters kernelParams =
+                    GetDevicePackedKernelParameters<Implementation>(
+                        nelmt, m_nqTot, physLiftProjectBlockPoints);
+                if (this->m_append)
+                {
+                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (PhysLiftProjectDirectLiftKernelLauncher<
+                            SHAPE_TYPE, Implementation, true, DEFORMED>),
+                        kernelParams.gridSize, kernelParams.blockSize,
+                        m_streamID, traceSizeParam, nelmt, ncomp,
+                        kernelParams.elmtsPerBlock, this->m_scale, lift,
+                        m_liftB[ind0]..., m_liftW[ind1]..., m_traceJacptr,
+                        m_weightsptr, m_jacptr, inptr, traceptr, kernelOut);
+                }
+                else
+                {
+                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (PhysLiftProjectDirectLiftKernelLauncher<
+                            SHAPE_TYPE, Implementation, false, DEFORMED>),
+                        kernelParams.gridSize, kernelParams.blockSize,
+                        m_streamID, traceSizeParam, nelmt, ncomp,
+                        kernelParams.elmtsPerBlock, this->m_scale, lift,
+                        m_liftB[ind0]..., m_liftW[ind1]..., m_traceJacptr,
+                        m_weightsptr, m_jacptr, inptr, traceptr, kernelOut);
+                }
+            }
         }
-        if (fused)
+        else if (m_denseTail)
         {
+            if constexpr (DIM == 3 &&
+                          std::is_same_v<Implementation,
+                                         MultiRegions::SumFacTOP> &&
+                          (SHAPE_TYPE == LibUtilities::Tet ||
+                           SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::Pyr))
+            {
+                // The lift and the division by the Jacobian, one thread per
+                // point of as many whole elements per thread block as fit,
+                // into the input's region, which the kernel may overwrite in
+                // place; then the projector, one product per component, the
+                // scale its alpha. A thread takes physLiftProjectCompChunk
+                // components where one component per thread would already
+                // fill the device, one otherwise (LaunchLiftJacobian()).
+                const size_t residentThreads =
+                    static_cast<size_t>(
+                        GetDeviceProperties::NumMultiProcessors()) *
+                    GetDeviceProperties::MaxThreadsPerMultiprocessor();
+                const bool chunked =
+                    ncomp > 1 && static_cast<size_t>(m_nqTot) * nelmt * ncomp >=
+                                     residentThreads;
+                const LiftJacobianStaging staging =
+                    GetLiftJacobianStaging<SHAPE_TYPE>();
+                if (chunked)
+                {
+                    LaunchLiftJacobian<SHAPE_TYPE, physLiftProjectCompChunk>(
+                        staging, traceSizeParam, nelmt, ncomp, lift, inptr,
+                        traceptr, inWsp,
+                        std::integer_sequence<unsigned int, ind0...>(),
+                        std::integer_sequence<unsigned int, ind1...>());
+                }
+                else
+                {
+                    LaunchLiftJacobian<SHAPE_TYPE, 1u>(
+                        staging, traceSizeParam, nelmt, ncomp, lift, inptr,
+                        traceptr, inWsp,
+                        std::integer_sequence<unsigned int, ind0...>(),
+                        std::integer_sequence<unsigned int, ind1...>());
+                }
+                const size_t compSize = nelmt * m_nqTot;
+                const TData beta      = (this->m_append) ? 1.0 : 0.0;
+                auto handle =
+                    NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
+                NekBlas::GemmStridedBatched(
+                    handle, "N", "N", m_nqTot, nelmt, m_nqTot, this->m_scale,
+                    m_projptr, m_nqTot, 0, inWsp, m_nqTot, compSize, beta,
+                    kernelOut, m_nqTot, compSize, ncomp);
+            }
+        }
+        else if (m_invMassIsDiagonal)
+        {
+            const unsigned int blocksize =
+                GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
             const unsigned int shmemsize =
-                SharedMemoryBytes<SHAPE_TYPE, PhysLiftProjectKernel::Fused,
-                                  FORM>(sizeParam, traceSizeParam);
+                SharedMemoryBytes<SHAPE_TYPE, PhysLiftProjectKernel::Fused>(
+                    sizeParam, traceSizeParam);
             const unsigned int gridsize =
                 GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
             if (this->m_append)
             {
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (PhysLiftProjectKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   FORM, true, DEFORMED>),
+                                                   true>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam, traceSizeParam, nelmt, this->m_scale, lift,
                     m_isModified, m_index[ind3]..., m_basis[ind0]...,
                     m_liftB[ind0]..., m_liftB[DIM + ind1]..., m_liftW[ind1]...,
                     m_traceJacptr, (bool)m_isCollocated[ind1]...,
-                    (bool)m_endPtsCollocated[ind0]..., m_weightsptr, m_jacptr,
-                    m_invMassptr, inptr, traceptr, kernelOut, inWsp, coefWsp,
-                    stage[ind2]..., liftWsp[ind2]...);
+                    (bool)m_endPtsCollocated[ind0]..., m_jacptr, m_invMassptr,
+                    inptr, traceptr, kernelOut, inWsp, coefWsp, stage[ind2]...,
+                    liftWsp[ind2]...);
             }
             else
             {
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (PhysLiftProjectKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   FORM, false, DEFORMED>),
+                                                   false>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam, traceSizeParam, nelmt, this->m_scale, lift,
                     m_isModified, m_index[ind3]..., m_basis[ind0]...,
                     m_liftB[ind0]..., m_liftB[DIM + ind1]..., m_liftW[ind1]...,
                     m_traceJacptr, (bool)m_isCollocated[ind1]...,
-                    (bool)m_endPtsCollocated[ind0]..., m_weightsptr, m_jacptr,
-                    m_invMassptr, inptr, traceptr, kernelOut, inWsp, coefWsp,
-                    stage[ind2]..., liftWsp[ind2]...);
+                    (bool)m_endPtsCollocated[ind0]..., m_jacptr, m_invMassptr,
+                    inptr, traceptr, kernelOut, inWsp, coefWsp, stage[ind2]...,
+                    liftWsp[ind2]...);
             }
         }
-        else if constexpr (FORM == PhysLiftProjectForm::StdInvMass)
+        else
         {
             // The dense standard inverse mass: the lift and the basis
             // transpose, the batched product, then the scale and the
             // backward transform.
+            const unsigned int blocksize =
+                GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
             SizeScratch(inblock, false);
-            const unsigned int shmemsizeA = SharedMemoryBytes<
-                SHAPE_TYPE, PhysLiftProjectKernel::LiftBasisTranspose, FORM>(
-                sizeParam, traceSizeParam);
+            const unsigned int shmemsizeA =
+                SharedMemoryBytes<SHAPE_TYPE,
+                                  PhysLiftProjectKernel::LiftBasisTranspose>(
+                    sizeParam, traceSizeParam);
             const unsigned int gridsizeA =
                 GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsizeA);
             DEVICE_2DGRID_KERNEL_LAUNCHER(
@@ -1051,7 +1386,7 @@ protected:
                 m_coef2->template GetPtr<MemSpace, ReadWrite>(m_streamID);
             const unsigned int shmemsizeB =
                 SharedMemoryBytes<SHAPE_TYPE,
-                                  PhysLiftProjectKernel::ScaleBwdTrans, FORM>(
+                                  PhysLiftProjectKernel::ScaleBwdTrans>(
                     sizeParam, traceSizeParam);
             const unsigned int gridsizeB =
                 GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsizeB);

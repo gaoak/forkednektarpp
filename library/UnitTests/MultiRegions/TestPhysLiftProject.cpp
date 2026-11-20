@@ -90,6 +90,99 @@ TEST_PHYSLIFTPROJECT(physliftproject_hex, Hex, 1.0E-09)
 
 TEST_PHYSLIFTPROJECT(physliftproject_hex_curved, HexCurved, 1.0E-09)
 
+// Hexahedra with as many points as modes, on Gauss-Legendre points (the
+// orthogonal basis) and on Gauss-Lobatto-Legendre points (the modified
+// basis), affine and deformed: the Device SumFac and SumFacTOP
+// implementations lift the trace directly at every point.
+BOOST_FIXTURE_TEST_CASE(physliftproject_hex_direct_lift, Hex)
+{
+    std::cout << "Run: physliftproject_hex_direct_lift" << std::endl;
+    for (const auto type :
+         {SpatialDomains::eOrthogonal, SpatialDomains::eModified})
+    {
+        for (int nmodes = 2; nmodes <= 5; ++nmodes)
+        {
+            BOOST_TEST(RunExpansion(type, nmodes, nmodes, 1.0E-09));
+        }
+    }
+    BOOST_TEST(m_forms.count("Pointwise/affine/direct lift") == 1u);
+    BOOST_TEST(m_forms.count("Pointwise/deformed/direct lift") == 1u);
+}
+
+// One mode on one point of the orthogonal basis, which makes every shape
+// Pointwise: the Device SumFac and SumFacTOP implementations lift the trace
+// directly, the collapsed shapes each trace's integral onto the one point.
+// The triangles run on a triangle-only mesh: QuadExp::v_ComputeTraceNormal
+// reads past an array on a one-point quadrilateral that is not a
+// parallelogram, as the quadrilaterals of the mixed meshes are.
+#define TEST_PHYSLIFTPROJECT_ONE_POINT(test_name, test, tol, reached)          \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        for (const int npts : {-1, 1})                                         \
+        {                                                                      \
+            BOOST_TEST(                                                        \
+                RunExpansion(SpatialDomains::eOrthogonal, 1, npts, tol));      \
+        }                                                                      \
+        for (const auto &form : m_forms)                                       \
+        {                                                                      \
+            std::cout << "  reached " << form << std::endl;                    \
+        }                                                                      \
+        BOOST_TEST(m_forms.count(reached) == 1u);                              \
+    }
+
+TEST_PHYSLIFTPROJECT_ONE_POINT(physliftproject_one_point_tri, Tri, 1.0E-09,
+                               "Pointwise/affine/direct lift")
+
+TEST_PHYSLIFTPROJECT_ONE_POINT(physliftproject_one_point_tri_curved, TriCurved,
+                               1.0E-09, "Pointwise/deformed/direct lift")
+
+TEST_PHYSLIFTPROJECT_ONE_POINT(physliftproject_one_point_prism, Prism, 1.0E-09,
+                               "Pointwise/affine/direct lift")
+
+TEST_PHYSLIFTPROJECT_ONE_POINT(physliftproject_one_point_prism_curved,
+                               PrismCurved, 1.0E-09,
+                               "Pointwise/deformed/direct lift")
+
+TEST_PHYSLIFTPROJECT_ONE_POINT(physliftproject_one_point_pyr, Pyr, 1.0E-09,
+                               "Pointwise/affine/direct lift")
+
+TEST_PHYSLIFTPROJECT_ONE_POINT(physliftproject_one_point_pyr_curved, PyrCurved,
+                               1.0E-09, "Pointwise/deformed/direct lift")
+
+TEST_PHYSLIFTPROJECT_ONE_POINT(physliftproject_one_point_tet, Tet, 1.0E-09,
+                               "Pointwise/affine/direct lift")
+
+TEST_PHYSLIFTPROJECT_ONE_POINT(physliftproject_one_point_tet_curved, TetCurved,
+                               1.0E-09, "Pointwise/deformed/direct lift")
+
+// Tetrahedra, prisms and pyramids on the default rules of the orthogonal
+// basis (on a tetrahedron, Gauss-Jacobi(1,0) in direction 2, so face 0's
+// points are not the volume's in its second in-face direction): the Device
+// SumFacTOP implementation applies the StdInvMass form through the dense
+// projector up to 125 points, and through the fused kernels above.
+#define TEST_PHYSLIFTPROJECT_DENSE_TAIL(test_name, test, tol)                  \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        for (int nmodes = 2; nmodes <= 6; ++nmodes)                            \
+        {                                                                      \
+            BOOST_TEST(                                                        \
+                RunExpansion(SpatialDomains::eOrthogonal, nmodes, -1, tol));   \
+        }                                                                      \
+        BOOST_TEST(m_forms.count("StdInvMass/affine/dense tail") == 1u);       \
+        BOOST_TEST(m_forms.count("StdInvMass/affine") == 1u);                  \
+    }
+
+TEST_PHYSLIFTPROJECT_DENSE_TAIL(physliftproject_tet_dense_tail, Tet, 1.0E-09)
+
+TEST_PHYSLIFTPROJECT_DENSE_TAIL(physliftproject_prism_dense_tail, Prism,
+                                1.0E-09)
+
+TEST_PHYSLIFTPROJECT_DENSE_TAIL(physliftproject_pyr_dense_tail, Pyr, 1.0E-09)
+
 TEST_PHYSLIFTPROJECT(physliftproject_prism, Prism, 1.0E-09)
 
 TEST_PHYSLIFTPROJECT(physliftproject_prism_curved, PrismCurved, 1.0E-09)

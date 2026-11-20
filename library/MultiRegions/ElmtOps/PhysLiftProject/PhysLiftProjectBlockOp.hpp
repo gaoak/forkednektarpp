@@ -89,10 +89,12 @@ enum class PhysLiftProjectForm
     ElmtInvMass
 };
 
-/// Which of the Device fused kernels a shared-memory size is for.
+/// Which of the Device fused kernels of the StdInvMass form a shared-memory
+/// size is for.
 enum class PhysLiftProjectKernel
 {
-    /// The lift and the form in one launch (PhysLiftProjectKernelLauncher()).
+    /// The lift and the form with a diagonal standard inverse mass in one
+    /// launch (PhysLiftProjectKernelLauncher()).
     Fused,
     /// The lift and the basis transpose, before the dense product
     /// (PhysLiftProjectLiftBasisTransposeKernelLauncher()).
@@ -120,6 +122,61 @@ inline PhysLiftProjectForm PhysLiftProjectFormOf(
         return PhysLiftProjectForm::ElmtInvMass;
     }
     return PhysLiftProjectForm::StdInvMass;
+}
+
+/// The most points per element the Device SumFacTOP implementation applies
+/// the StdInvMass form of a collapsed shape through the dense projector at
+/// (PhysLiftProjectDenseTail()): 125, order 4 on the default rules (5^3
+/// points), the highest order it was measured at, where it is still 1.6 to
+/// 1.8 times faster than the sum-factorised kernel on GH200 and MI210. It is
+/// not tied to the block size: order 5 has 6^3 = 216 points, so any cap from
+/// 125 to 215 admits the same elements. The projector's cost per element
+/// grows as nqTot^2, against about nqTot^(4/3) for sum-factorisation, so the
+/// crossover lies above order 4; the cap moves there once it is measured.
+static constexpr unsigned int physLiftProjectDenseTailMaxPoints = 125u;
+
+/**
+ * @brief Whether the Device SumFacTOP implementation applies the block whose
+ * representative expansion is @p exp through the dense projector: the
+ * StdInvMass form of a tetrahedron, prism or pyramid of at most
+ * #physLiftProjectDenseTailMaxPoints points whose traces have the volume's
+ * points in one in-trace direction at least. On an affine element
+ * \f$B M^{-1} B^{\mathsf T} = J^{-1} P\f$ with
+ * \f$P = B M_{\mathrm{std}}^{-1} B^{\mathsf T}\f$, one nqTot x nqTot matrix
+ * per block, so the trace is lifted directly onto every point with the
+ * division by the Jacobian, and one batched product applies @em P to every
+ * element, in place of the basis transpose, the inverse mass and the
+ * backward transform.
+ */
+inline bool PhysLiftProjectDenseTail(
+    const LocalRegions::ExpansionSharedPtr &exp)
+{
+    const auto shape = exp->DetShapeType();
+    if (PhysLiftProjectFormOf(exp) != PhysLiftProjectForm::StdInvMass ||
+        !(shape == LibUtilities::Tet || shape == LibUtilities::Prism ||
+          shape == LibUtilities::Pyr) ||
+        exp->IsNodalNonTensorialExp() ||
+        static_cast<unsigned int>(exp->GetTotPoints()) >
+            physLiftProjectDenseTailMaxPoints)
+    {
+        return false;
+    }
+    const auto pointsKeys = exp->GetPointsKeys();
+    for (int tr = 0; tr < exp->GetNtraces(); ++tr)
+    {
+        unsigned int collocated = 0;
+        for (unsigned int d = 0; d < 2; ++d)
+        {
+            const auto traceKey = exp->GetTraceBasisKey(tr, d).GetPointsKey();
+            collocated +=
+                pointsKeys[exp->GetGeom()->GetDir(tr, d)] == traceKey ? 1 : 0;
+        }
+        if (collocated == 0)
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace detail

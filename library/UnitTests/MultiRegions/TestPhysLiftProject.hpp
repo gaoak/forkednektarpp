@@ -109,7 +109,11 @@ public:
     }
 
     /// The forms and geometry types the cases run so far reached, as
-    /// "Pointwise/affine" and so on.
+    /// "Pointwise/affine" and so on, with "/direct lift" where the Device
+    /// SumFac and SumFacTOP implementations lift the trace directly
+    /// (DirectLift()) and "/dense tail" where the Device SumFacTOP
+    /// implementation applies the dense projector
+    /// (PhysLiftProjectDenseTail()).
     std::set<std::string> m_forms;
 
 protected:
@@ -135,6 +139,48 @@ protected:
                 Collections::eNoCollection);
     }
 
+    /**
+     * @brief Whether the Device SumFac and SumFacTOP implementations lift
+     * the trace of the block of @p exp directly at every point: Pointwise
+     * blocks whose trace values lie at volume points, segments, and
+     * quadrilaterals and hexahedra whose traces have the volume points in
+     * every in-trace direction, and triangles, tetrahedra, prisms and
+     * pyramids of one point.
+     */
+    static bool DirectLift(const LocalRegions::ExpansionSharedPtr &exp)
+    {
+        if (MultiRegions::detail::PhysLiftProjectFormOf(exp) !=
+            MultiRegions::detail::PhysLiftProjectForm::Pointwise)
+        {
+            return false;
+        }
+        const auto shape = exp->DetShapeType();
+        if (shape == LibUtilities::Tri || shape == LibUtilities::Tet ||
+            shape == LibUtilities::Prism || shape == LibUtilities::Pyr)
+        {
+            return exp->GetTotPoints() == 1;
+        }
+        if (shape != LibUtilities::Seg && shape != LibUtilities::Quad &&
+            shape != LibUtilities::Hex)
+        {
+            return false;
+        }
+        const unsigned int dim = exp->GetShapeDimension();
+        const auto pointsKeys  = exp->GetPointsKeys();
+        for (unsigned int tr = 0; tr < dim; ++tr)
+        {
+            for (unsigned int d = 0; d + 1 < dim; ++d)
+            {
+                if (!(pointsKeys[exp->GetGeom()->GetDir(tr, d)] ==
+                      exp->GetTraceBasisKey(tr, d).GetPointsKey()))
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     /// Note the form and geometry type of every block.
     void RecordForms()
     {
@@ -156,7 +202,11 @@ protected:
                     : "ElmtInvMass";
             const bool deformed =
                 exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
-            m_forms.insert(name + (deformed ? "/deformed" : "/affine"));
+            m_forms.insert(name + (deformed ? "/deformed" : "/affine") +
+                           (DirectLift(exp) ? "/direct lift" : "") +
+                           (MultiRegions::detail::PhysLiftProjectDenseTail(exp)
+                                ? "/dense tail"
+                                : ""));
         }
     }
 
@@ -312,6 +362,8 @@ TEST(Seg, "run/segment.xml")
 TEST(SegCurved, "run/segment_curved.xml")
 TEST(QuadTri, "run/square_all_elements.xml")
 TEST(QuadTriCurved, "run/square_all_elements_curved.xml")
+TEST(Tri, "run/tri.xml")
+TEST(TriCurved, "run/tri_curved.xml")
 TEST(Hex, "run/hex.xml")
 TEST(HexCurved, "run/hex_curved.xml")
 TEST(Prism, "run/prism.xml")
