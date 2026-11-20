@@ -53,7 +53,8 @@ for variant_name, parameter_dict in variants.items():
     # Create simulation and run to steady-state
     sim = myokit.Simulation(model)
     sim.pre(100e3)
-    # Set state to end-state and store Equations
+    # Set state to end-state and store the initial values
     model.set_initial_values(sim.state())
-    initial_states[variant_name] = list(model.inits())
+    initial_states[variant_name] = {
+        var.qname(): var.initial_value(as_float=True) for var in model.states()}
 exporter.runnable('example_initial_states', model, None, variants, initial_states)

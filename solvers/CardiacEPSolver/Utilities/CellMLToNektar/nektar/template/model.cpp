@@ -242,13 +242,13 @@ if initial_states:
     print(tab + 'switch (model_variant) {')
     for variant_name, variant_inits in initial_states.items():
         print(2*tab + 'case e' + variant_name + ':')
-        for eq in variant_inits:
-            print(3*tab + 'Vmath::Fill(m_nq, (NekDouble)' + str(eq.rhs) + ', m_cellSol[' + str(indices[eq.lhs.var().qname()]) + '], 1);')
+        for qname, value in variant_inits.items():
+            print(3*tab + 'Vmath::Fill(m_nq, (NekDouble)' + str(value) + ', m_cellSol[' + str(indices[qname]) + '], 1);')
         print(3*tab + 'break;')
     print(tab + '}')
 else:
-    for eq in model.inits():
-        print(tab + 'Vmath::Fill(m_nq, (NekDouble)' + str(eq.rhs) + ', m_cellSol[' + str(indices[eq.lhs.var().qname()]) + '], 1);')
+    for var in model.states():
+        print(tab + 'Vmath::Fill(m_nq, (NekDouble)' + str(var.initial_value()) + ', m_cellSol[' + str(indices[var.qname()]) + '], 1);')
 ?>
 }
 
