@@ -262,6 +262,9 @@ v5.11.0
 - Keep the IMEX start-up and history extrapolation in the solver (!2911)
 - Move Incompressible Navier-Stokes specific operators to IncNavierStokesSolverRedesign directory (!2933)
 
+**CardiacEPSolver**
+- Fix the CellMLToNektar converter for myokit 1.41, which removed Model.inits(), by reading state initial values through Variable.initial_value() (!2947)
+
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
 - Move using namespace std to avoid name clashes (!2618)
