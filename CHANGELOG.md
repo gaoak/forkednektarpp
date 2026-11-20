@@ -172,6 +172,7 @@ v5.11.0
 - Add 3DH1 support to EnergyOp, the Energy filter, ReynoldsStressOp, AeroForcesOp, HistoryPointsOp and the AeroForces and HistoryPoints filters, and size the filters' cached velocity gradient for the homogeneous derivative (!2930)
 - Add an optional root-only reduction to the SolverCore reducing operators and use it in the filters; reduce over the space communicator, fixing a FilterMean hang in parallel and NormLinf with one local plane per rank (!2930)
 - Remove the unused FlagType enumeration, FlagTypeMap and FlagList class, the unused GeomTol and CoinTol constants, and duplicate integer typedefs (!2917)
+- Device PhysLiftProject: lift the trace directly onto every point, and on SumFacTOP through a dense projector for small tetrahedra, prisms and pyramids (!2934)
 - Choose the default operator implementation per block from a table by execution space, device architecture, shape and order (`DefaultOpImplTable.hpp`), and give each block the matching default interleave width (!2931)
 - Fix the trace normals of deformed quadrilaterals with one Gauss point in a direction, such as order-0 orthogonal expansions, which read past the edge values (!2932)
 - Compute the block attributes of the redesign linear solvers once in the LinearSolverOp base class instead of once per allocated field (!2935)

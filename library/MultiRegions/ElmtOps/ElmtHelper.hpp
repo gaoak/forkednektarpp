@@ -1467,6 +1467,47 @@ static constexpr unsigned int GetMaxThreadPerBlock(void)
 }
 
 /**
+ * @brief The calling thread's place in a thread block that takes several
+ * whole elements (GetDevicePackedKernelParameters()): its element of the block,
+ * and the points it takes, `pt = firstPoint; pt < npts; pt += pointStride`.
+ */
+struct DevicePackedThread
+{
+    /// The thread's element of the block; elmtsPerBlock or more for a
+    /// thread past the block's last element, which takes none.
+    unsigned int elmt;
+    /// The first of the thread's points.
+    unsigned int firstPoint;
+    /// The step between its points.
+    unsigned int pointStride;
+};
+
+/**
+ * @brief Split a packed thread block's threads into its elements, element
+ * first: thread `tid` takes element `tid / npts` of the block and point
+ * `tid % npts`; an element alone in its block strides over its points with
+ * every thread of the block. A kernel loops over the block's element groups
+ * with `e0 = getBlockIdx * elmtsPerBlock`, stepping `getBlockRange *
+ * elmtsPerBlock`, and the thread works on element `e0 + elmt` where
+ * `elmt < elmtsPerBlock` and that element is below the element count; the
+ * block's barriers, if any, are reached by every thread.
+ *
+ * @param   npts           Points (threads) per element.
+ * @param   elmtsPerBlock  Elements per block, from
+ *                         GetDevicePackedKernelParameters().
+ */
+template <typename TthreadBlock>
+NEK_DEVICE_INLINE static DevicePackedThread GetDevicePackedThread(
+    const unsigned int npts, const unsigned int elmtsPerBlock,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int tid = getLocalIdx(threadBlock);
+    const unsigned int stride =
+        (elmtsPerBlock == 1u) ? getLocalRange(threadBlock) : npts;
+    return {tid / stride, tid % stride, stride};
+}
+
+/**
  * @brief Call @p func with `std::true_type` if @p useSharedMemoryWsp and
  * `std::false_type` otherwise.
  *

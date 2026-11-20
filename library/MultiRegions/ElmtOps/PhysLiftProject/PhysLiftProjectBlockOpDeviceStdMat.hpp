@@ -42,9 +42,8 @@
  * Each step is a whole-block launch on the block's stream, at width one:
  * the inner products copied into a scratch block and the trace lifted onto
  * them by the Device IProductWRTPhysTrace block operator (appending), then
- * - Pointwise, where B is square: one launch scaling by `scale / (w J)`,
- *   the kernel the SumFacTOP implementation shares
- *   (PhysLiftProjectBlockOpDeviceKernels.hpp);
+ * - Pointwise, where B is square: one launch scaling by `scale / (w J)`
+ *   (PhysLiftProjectBlockOpDeviceStdMatKernels.hpp);
  * - StdInvMass: the scratch divided by the Jacobian in place
  *   (DivideByJacobian), then one batched product per component, through
  *   NekBlas, with \f$P = B M_{\mathrm{std}}^{-1} B^{\mathsf T}\f$, nqTot x
@@ -64,7 +63,7 @@
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 #include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectBlockOp.hpp>
-#include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectBlockOpDeviceKernels.hpp>
+#include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectBlockOpDeviceStdMatKernels.hpp>
 
 #include <memory>
 

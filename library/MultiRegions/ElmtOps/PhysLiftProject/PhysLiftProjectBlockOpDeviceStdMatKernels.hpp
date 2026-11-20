@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysLiftProjectBlockOpDeviceKernels.hpp
+// File: PhysLiftProjectBlockOpDeviceStdMatKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,28 +28,31 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Device kernel the implementations of the lift-and-project
-// element operator share.
+// Description: Device StdMat kernels of the lift-and-project element
+// operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file PhysLiftProjectBlockOpDeviceKernels.hpp
- * @brief The Device kernel of the Pointwise form at width one, shared by the
- * SumFacTOP and StdMat implementations of the lift-and-project operator:
- * each thread block striding over the elements and its threads over the
- * element's points, so that consecutive threads touch consecutive entries.
- * It is restricted to Implementation SumFacTOP or StdMat and has the name
- * and arguments of the SumFac kernel
- * (PhysLiftProjectBlockOpDeviceSumFacKernels.hpp), so that each caller
- * launches `PhysLiftProjectPointwiseKernel<Implementation, ...>`.
+ * @file PhysLiftProjectBlockOpDeviceStdMatKernels.hpp
+ * @brief Device StdMat kernels of the lift-and-project operator: the
+ * Pointwise form at width one.
+ *
+ * @details
+ * As the other width-one Device kernels, each thread block strides over the
+ * elements and its threads over the element's points, so that consecutive
+ * threads touch consecutive entries. The kernel has the name and arguments
+ * of its SumFac and SumFacTOP counterparts
+ * (PhysLiftProjectBlockOpDeviceSumFacKernels.hpp,
+ * PhysLiftProjectBlockOpDeviceSumFacTOPKernels.hpp), restricted to
+ * Implementation StdMat, so that the caller launches
+ * `PhysLiftProjectPointwiseKernel<Implementation, ...>`.
  */
 
 #pragma once
 
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
 #include <LibUtilities/BasicUtils/SafeDivide.hpp>
-#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp>
 #include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
 
 #include <type_traits>
@@ -71,9 +74,7 @@ namespace Nektar::MultiRegions::detail
  */
 template <typename Implementation, bool APPEND, bool DEFORMED,
           typename TthreadBlock, typename TData,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> ||
-                               std::is_same_v<Implementation, StdMat>,
-                           bool>
+          std::enable_if_t<std::is_same_v<Implementation, StdMat>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void PhysLiftProjectPointwiseKernel(
     const size_t nelmt, const unsigned int nqTot, const TData scale,
@@ -110,6 +111,7 @@ NEK_DEVICE_KERNEL void PhysLiftProjectPointwiseKernel(
         }
     }
 }
+
 #endif
 
 } // namespace Nektar::MultiRegions::detail

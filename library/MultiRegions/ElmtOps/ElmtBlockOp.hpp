@@ -63,7 +63,9 @@
  * ### Device launch helpers
  * When NEKTAR_ENABLE_DEVICE is set this file additionally provides the
  * launch-configuration helpers GetDeviceBlockSize() and
- * GetDeviceGridSize(), which the device implementations call to size
+ * GetDeviceGridSize(), and GetDevicePackedKernelParameters() for the kernels
+ * that take several whole elements per thread block, which the device
+ * implementations call to size
  * their kernel launches for the SumFac and SumFacTOP strategies.
  * The kernel size-parameter types those launches take (runtime and
  * compile-time forms of the element's mode and quadrature counts) and
@@ -539,6 +541,96 @@ NEK_FORCE_INLINE static unsigned int GetDeviceGridSize(
     {
         return 0;
     }
+}
+
+/**
+ * @brief Launch geometry of a SumFacTOP kernel that takes several whole
+ * elements per thread block (GetDevicePackedKernelParameters()).
+ */
+struct DevicePackedKernelParameters
+{
+    /// Whole elements each thread block takes, one at least.
+    unsigned int elmtsPerBlock = 1u;
+    /// Threads per block, from GetDeviceBlockSize().
+    unsigned int blockSize = 0u;
+    /// Thread blocks, one per group of elmtsPerBlock elements at most,
+    /// from GetDeviceGridSize().
+    unsigned int gridSize = 0u;
+    /// Dynamic shared memory per block in bytes: the block's share plus
+    /// elmtsPerBlock times the element's.
+    unsigned int shmemSize = 0u;
+};
+
+/**
+ * @brief Launch geometry of a SumFacTOP kernel that takes several whole
+ * elements per thread block.
+ *
+ * @details
+ * A SumFacTOP kernel gives a thread block one element at a time. Where an
+ * element takes far fewer threads than a block holds (one per point of an
+ * element of a few points, at low order) that leaves most of each block
+ * idle, so a packed kernel gives a block as many whole elements as fit in
+ * @p blockPoints threads, one at least:
+ * `elmtsPerBlock = max(1, blockPoints / threadsPerElmt)`. The block size is
+ * GetDeviceBlockSize() of their threads, and the grid GetDeviceGridSize()
+ * of the groups of elmtsPerBlock elements, one group per block per pass.
+ * Inside the kernel, GetDevicePackedThread() splits a block's threads into
+ * its elements, element first. An element of more threads than the block
+ * holds is taken alone, its points strided over the block.
+ *
+ * @p blockPoints is the operator's own: where packing stops paying is
+ * measured per operator. The kernel's launch bounds must allow the block
+ * size, so a packed kernel takes the default block size as its bound
+ * (GetMaxThreadPerBlock() of a trace size parameter, or of the runtime
+ * forms), not the one-element bound of a compile-time volume size.
+ *
+ * @tparam Implementation  SumFacTOP.
+ * @tparam groupsPerBlock  Groups of elmtsPerBlock elements each block is
+ *                         assumed to take per pass, passed to
+ *                         GetDeviceGridSize(); one by default.
+ *
+ * @param   nelmt           Number of elements to process, including
+ *                          padding.
+ * @param   threadsPerElmt  Threads one element takes: its point count where
+ *                          a thread takes a point.
+ * @param   blockPoints     Threads per block to fill with whole elements.
+ * @param   shmemPerElmt    Dynamic shared memory one element takes, in
+ *                          bytes.
+ * @param   shmemPerBlock   Dynamic shared memory the block takes once
+ *                          whatever its element count, in bytes (tables
+ *                          loaded once per block).
+ * @param   maxBlockSize    Most threads per block, in place of the default
+ *                          block size GetDeviceBlockSize() caps at; a
+ *                          kernel that keeps one
+ *                          thread on each point and cannot stride passes
+ *                          NektarSpaces::Device::maximumBlockSize.
+ */
+template <typename Implementation, unsigned int groupsPerBlock = 1u>
+NEK_FORCE_INLINE static DevicePackedKernelParameters GetDevicePackedKernelParameters(
+    const size_t nelmt, const unsigned int threadsPerElmt,
+    const unsigned int blockPoints, const unsigned int shmemPerElmt = 0u,
+    const unsigned int shmemPerBlock = 0u,
+    const unsigned int maxBlockSize  = NektarSpaces::Device::defaultBlockSize)
+{
+    static_assert(std::is_same_v<Implementation, MultiRegions::SumFacTOP>,
+                  "Only SumFacTOP kernels take several elements per thread "
+                  "block.");
+    DevicePackedKernelParameters kernelParams;
+    kernelParams.elmtsPerBlock =
+        std::max(1u, blockPoints / std::max(1u, threadsPerElmt));
+    // GetDeviceBlockSize() of the elements' threads, capped at maxBlockSize
+    // rather than the default block size: whole warps, at most
+    // maxBlockSize.
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    const unsigned int nthreads = kernelParams.elmtsPerBlock * threadsPerElmt;
+    kernelParams.blockSize      = std::min(
+        (nthreads + warpsize - 1u) / warpsize * warpsize, maxBlockSize);
+    kernelParams.shmemSize =
+        shmemPerBlock + kernelParams.elmtsPerBlock * shmemPerElmt;
+    kernelParams.gridSize = GetDeviceGridSize<Implementation, groupsPerBlock>(
+        (nelmt + kernelParams.elmtsPerBlock - 1u) / kernelParams.elmtsPerBlock,
+        kernelParams.blockSize, kernelParams.shmemSize);
+    return kernelParams;
 }
 
 /**
