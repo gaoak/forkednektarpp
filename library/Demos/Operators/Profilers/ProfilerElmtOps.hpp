@@ -536,31 +536,37 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     }
     else if constexpr (std::is_same_v<Op<TData>, HelmholtzOp<TData>>)
     {
+        auto coordDim = expList->GetCoordim(0);
         std::vector<TData> diffCoeff(6);
         diffCoeff[0] = 1.0; // D00
         diffCoeff[2] = 1.0; // D11
         diffCoeff[5] = 1.0; // D22
+        diffCoeff.resize(coordDim * (coordDim + 1) / 2);
         oper->SetLambda(1.0);
         oper->SetDiffCoeff(diffCoeff);
     }
     else if constexpr (std::is_same_v<Op<TData>, LaplacianOp<TData>>)
     {
+        auto coordDim = expList->GetCoordim(0);
         std::vector<TData> diffCoeff(6);
         diffCoeff[0] = 1.0; // D00
         diffCoeff[2] = 1.0; // D11
         diffCoeff[5] = 1.0; // D22
+        diffCoeff.resize(coordDim * (coordDim + 1) / 2);
         oper->SetDiffCoeff(diffCoeff);
     }
     else if constexpr (std::is_same_v<Op<TData>, LinAdvDiffReactionOp<TData>>)
     {
+        auto coordDim = expList->GetCoordim(0);
         std::vector<TData> diffCoeff(6);
         diffCoeff[0] = 1.0; // D00
         diffCoeff[2] = 1.0; // D11
         diffCoeff[5] = 1.0; // D22
+        diffCoeff.resize(coordDim * (coordDim + 1) / 2);
         auto velblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(expList);
-        vel = Field<TData, FieldState::Phys>("f_out", velblockAttr,
-                                             expList->GetCoordim(0), 1);
+        vel =
+            Field<TData, FieldState::Phys>("f_out", velblockAttr, coordDim, 1);
         vel.template Initialize<NektarSpaces::HostSpace>(1.0);
         oper->SetLambda(-1.0);
         oper->SetDiffCoeff(diffCoeff);

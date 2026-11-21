@@ -278,6 +278,7 @@ v5.11.0
 - Fix OutputVTK compulication error cout without std (!2846)
 - Fix minor improvement for HDF5 reading mesh in parallel not reading all faces (!2788) 
 - Move remaining Operators unit tests to MultiRegions (!2851)
+- Fix ProfilerElmtOps for 1D/2D cases and fix interleaving for ProfilerBP and ProfilerAssmbScatrOps (!2938)
 
 v5.10.0
 -------
