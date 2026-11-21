@@ -326,15 +326,14 @@ void LaunchProfiler(MultiRegions::ContFieldSharedPtr &expList,
         }
     }
 
+    // Reshape.
+    auto interleaveWidth = NektarSpaces::GetVectorWidth<TData>(execName);
+    in.ReshapeStorage(interleaveWidth, execName);
+
     if constexpr (InPlace)
     {
         // Copy input.
         out.template Copy<NektarSpaces::HostSpace>(in);
-    }
-    else
-    {
-        // Initialize the out field to zero.
-        out.template Initialize<NektarSpaces::HostSpace>(0.0);
     }
 
     // Warm-up : fill the cache and memory, and let core temperature/freq
