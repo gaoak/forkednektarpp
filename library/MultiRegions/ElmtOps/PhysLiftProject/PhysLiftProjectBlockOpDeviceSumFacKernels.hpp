@@ -182,7 +182,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int PhysLiftProjectSharedMemorySize(
     [[maybe_unused]] const TSizeParameter sizeParam,
-    [[maybe_unused]] const TTraceSizeParameter traceSizeParam)
+    [[maybe_unused]] const TTraceSizeParameter traceSizeParam,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     return 0u;
 }

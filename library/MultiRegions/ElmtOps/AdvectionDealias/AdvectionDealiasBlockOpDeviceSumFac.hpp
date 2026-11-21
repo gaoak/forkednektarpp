@@ -288,13 +288,16 @@ protected:
         // Choose the shared-memory tier. SumFacTOP moves what fits of the
         // per-element workspace into block-local memory: the fused pipeline,
         // else the tensor-contraction scratch alone. The fused gate is half
-        // the per-block capacity because GetDeviceGridSize divides the
+        // the per-block capacity because GetDeviceKernelParameters divides the
         // per-multiprocessor capacity by the request.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(nqTotFine);
         bool localPipeline = false;
         bool sharedScratch = false;
         if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
         {
             const unsigned int localWspSize =
+                elmtsPerBlock *
                 AdvectionDealiasSharedWorkSpaceSize<SHAPE_TYPE, Implementation>(
                     sizeParam, true, true);
             localPipeline = sizeof(TData) * localWspSize <=
@@ -303,6 +306,7 @@ protected:
             if constexpr (!IsPhysSizeParameter1D_v<TPhysSizeParameter>)
             {
                 const unsigned int scratchWspSize =
+                    elmtsPerBlock *
                     AdvectionDealiasSharedWorkSpaceSize<SHAPE_TYPE,
                                                         Implementation>(
                         sizeParam, false, true);
@@ -320,8 +324,8 @@ protected:
         const unsigned int shmemsizeWithSharedWsp =
             sizeof(TData) *
             AdvectionDealiasSharedMemorySize<SHAPE_TYPE, Implementation>(
-                m_coordDim, nvar, sizeParam, localPipeline, sharedScratch,
-                true);
+                m_coordDim, nvar, sizeParam, elmtsPerBlock, localPipeline,
+                sharedScratch, true);
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
@@ -332,12 +336,10 @@ protected:
                 : sizeof(TData) *
                       AdvectionDealiasSharedMemorySize<SHAPE_TYPE,
                                                        Implementation>(
-                          m_coordDim, nvar, sizeParam, localPipeline,
-                          sharedScratch, false);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(nqTotFine);
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+                          m_coordDim, nvar, sizeParam, elmtsPerBlock,
+                          localPipeline, sharedScratch, false);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            nqTotFine, nelmt, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer. Each plane has its own slab, less
         // the part block-local memory holds.
@@ -380,9 +382,10 @@ protected:
                         (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
                                                         Implementation, true,
                                                         DEFORMED, true, true>),
-                        gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                        sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
-                        m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
+                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                        nvar, nhomo, useSharedMemoryWsp, m_D[ind0]...,
+                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
                         m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
                         advVelPtr, advVelPlaneStride, outptr, outCompStride,
                         wspptr);
@@ -397,9 +400,10 @@ protected:
                         (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
                                                         Implementation, true,
                                                         DEFORMED, false, true>),
-                        gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                        sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
-                        m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
+                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                        nvar, nhomo, useSharedMemoryWsp, m_D[ind0]...,
+                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
                         m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
                         advVelPtr, advVelPlaneStride, outptr, outCompStride,
                         wspptr);
@@ -411,12 +415,12 @@ protected:
                     (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
                                                     true, DEFORMED, false,
                                                     false>),
-                    gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
-                    m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
-                    m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
-                    advVelPtr, advVelPlaneStride, outptr, outCompStride,
-                    wspptr);
+                    kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt, nvar,
+                    nhomo, useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]...,
+                    m_dfptr, m_Binterp[ind0]..., m_Bproject[ind0]...,
+                    this->m_scale, inptr, inCompStride, advVelPtr,
+                    advVelPlaneStride, outptr, outCompStride, wspptr);
             }
         }
         else
@@ -430,9 +434,10 @@ protected:
                         (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
                                                         Implementation, false,
                                                         DEFORMED, true, true>),
-                        gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                        sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
-                        m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
+                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                        nvar, nhomo, useSharedMemoryWsp, m_D[ind0]...,
+                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
                         m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
                         advVelPtr, advVelPlaneStride, outptr, outCompStride,
                         wspptr);
@@ -447,9 +452,10 @@ protected:
                         (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
                                                         Implementation, false,
                                                         DEFORMED, false, true>),
-                        gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                        sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
-                        m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
+                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                        nvar, nhomo, useSharedMemoryWsp, m_D[ind0]...,
+                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
                         m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
                         advVelPtr, advVelPlaneStride, outptr, outCompStride,
                         wspptr);
@@ -461,12 +467,12 @@ protected:
                     (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
                                                     false, DEFORMED, false,
                                                     false>),
-                    gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam, nelmt, nvar, nhomo, useSharedMemoryWsp,
-                    m_D[ind0]..., m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
-                    m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
-                    advVelPtr, advVelPlaneStride, outptr, outCompStride,
-                    wspptr);
+                    kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt, nvar,
+                    nhomo, useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]...,
+                    m_dfptr, m_Binterp[ind0]..., m_Bproject[ind0]...,
+                    this->m_scale, inptr, inCompStride, advVelPtr,
+                    advVelPlaneStride, outptr, outCompStride, wspptr);
             }
         }
 

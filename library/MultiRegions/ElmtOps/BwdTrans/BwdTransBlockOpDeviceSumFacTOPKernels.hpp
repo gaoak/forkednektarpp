@@ -62,10 +62,10 @@
  * fixed for a block's whole element loop, so a single launch covers
  * every component (see BwdTransBlockOpDeviceSumFac.hpp). Neither loop
  * constrains the launch configuration, which is why the block size may
- * be capped -- GetDeviceBlockSize rounds the per-element work count it
- * is given, the element's total mode count, up to whole warps and caps
- * it at the device's default block size -- and the grid sized by an
- * occupancy heuristic (GetDeviceGridSize).
+ * be capped -- GetDeviceKernelParameters rounds the per-element work
+ * count it is given, the element's total mode count, up to whole warps
+ * and caps it at the device's default block size -- and the grid sized
+ * by an occupancy heuristic.
  *
  * ### Shared memory and synchronisation
  * In two and three dimensions a block copies the basis tables into
@@ -250,6 +250,7 @@ inline constexpr size_t BwdTransWorkSpaceSize(
  * @tparam TSizeParameter1D  1D size parameter, runtime or templated.
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
+ * @param   elmtsPerBlock  Unused: the segment launcher has no workspace.
  * @param   useSharedMemoryWsp    Unused: the segment launcher has no
  *                       workspace.
  *
@@ -263,6 +264,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
     const TSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const BasisDataSize1D basisDataSize(sizeParam1D);
@@ -274,16 +276,18 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
  * requests, in TData values.
  *
  * The sum of the pieces the 2D launcher stages: the two basis tables
- * and, with @p useSharedMemoryWsp, one element's workspace as
- * BwdTransWorkSpaceSize gives it. The direction-1 table has nm1 rows for
- * the quadrilateral and, that direction being collapsed, nmTot rows for
- * the triangles.
+ * and, with @p useSharedMemoryWsp, the workspace of @p elmtsPerBlock
+ * elements as BwdTransWorkSpaceSize gives it. The direction-1 table has nm1
+ * rows for the quadrilateral and, that direction being collapsed, nmTot rows
+ * for the triangles.
  *
  * @tparam SHAPE_TYPE        Quad, Tri or NodalTri.
  * @tparam Implementation    MultiRegions::SumFacTOP.
  * @tparam TSizeParameter2D  2D size parameter, runtime or templated.
  *
  * @param   sizeParam2D  Modal and quadrature sizes per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Number of TData values of shared memory per thread block.
@@ -295,14 +299,15 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    const TSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
+    const TSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam2D);
     const unsigned int wspSize =
         useSharedMemoryWsp
             ? static_cast<unsigned int>(
                   BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      1u, sizeParam2D))
+                      elmtsPerBlock, sizeParam2D))
             : 0u;
 
     return basisDataSize.total() + wspSize;
@@ -313,9 +318,9 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
  * requests, in TData values.
  *
  * The sum of the pieces the 3D launcher stages: the three basis tables
- * (BasisDataSize3D) and, with @p useSharedMemoryWsp, one element's workspace
- * as BwdTransWorkSpaceSize gives it -- the nmTot coefficients and the
- * intermediates of the first two stages.
+ * (BasisDataSize3D) and, with @p useSharedMemoryWsp, the workspace of
+ * @p elmtsPerBlock elements as BwdTransWorkSpaceSize gives it -- the nmTot
+ * coefficients and the intermediates of the first two stages, per element.
  *
  * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism,
  *                           Pyr, or NodalPyr.
@@ -323,6 +328,8 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
  * @tparam TSizeParameter3D  3D size parameter, runtime or templated.
  *
  * @param   sizeParam3D  Modal and quadrature sizes per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Number of TData values of shared memory per thread block.
@@ -334,14 +341,15 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    const TSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
+    const TSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam3D);
     const unsigned int wspSize =
         useSharedMemoryWsp
             ? static_cast<unsigned int>(
                   BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      1u, sizeParam3D))
+                      elmtsPerBlock, sizeParam3D))
             : 0u;
 
     return basisDataSize.total() + wspSize;

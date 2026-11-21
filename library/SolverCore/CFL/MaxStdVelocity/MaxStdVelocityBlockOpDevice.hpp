@@ -123,19 +123,12 @@ protected:
         auto dataptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
 
         // Set Kernel parameters.
-        const unsigned int shmemsize = 0;
-        const unsigned int blocksize =
+        const auto kernelParams =
             (interleaveWidth == 1)
-                ? MultiRegions::GetDeviceBlockSize<MultiRegions::SumFacTOP>(
-                      m_nqTot)
-                : MultiRegions::GetDeviceBlockSize<MultiRegions::SumFac>(
-                      m_nqTot);
-        const unsigned int gridsize =
-            (interleaveWidth == 1)
-                ? MultiRegions::GetDeviceGridSize<MultiRegions::SumFacTOP>(
-                      nelmtPad, blocksize, shmemsize)
-                : MultiRegions::GetDeviceGridSize<MultiRegions::SumFac>(
-                      nelmtPad, blocksize, shmemsize);
+                ? MultiRegions::GetDeviceKernelParameters<
+                      MultiRegions::SumFacTOP>(m_nqTot, nelmtPad)
+                : MultiRegions::GetDeviceKernelParameters<MultiRegions::SumFac>(
+                      m_nqTot, nelmtPad);
 
         if (m_isDeformed)
         {
@@ -144,17 +137,19 @@ protected:
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (MaxStdVelocityKernelLauncher<MultiRegions::SumFacTOP,
                                                   true>),
-                    gridsize, blocksize, m_streamID, nelmt, compSize,
-                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor, dfptr,
-                    inptr, dataptr + this->m_block_idx);
+                    kernelParams.gridSize, kernelParams.blockSize, m_streamID,
+                    nelmt, compSize, m_dimension, m_coordDim, m_nqTot,
+                    soundSpeedFactor, dfptr, inptr,
+                    dataptr + this->m_block_idx);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (MaxStdVelocityKernelLauncher<MultiRegions::SumFac, true>),
-                    gridsize, blocksize, m_streamID, nelmt, compSize,
-                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor, dfptr,
-                    inptr, dataptr + this->m_block_idx);
+                    kernelParams.gridSize, kernelParams.blockSize, m_streamID,
+                    nelmt, compSize, m_dimension, m_coordDim, m_nqTot,
+                    soundSpeedFactor, dfptr, inptr,
+                    dataptr + this->m_block_idx);
             }
         }
         else
@@ -164,17 +159,19 @@ protected:
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (MaxStdVelocityKernelLauncher<MultiRegions::SumFacTOP,
                                                   false>),
-                    gridsize, blocksize, m_streamID, nelmt, compSize,
-                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor, dfptr,
-                    inptr, dataptr + this->m_block_idx);
+                    kernelParams.gridSize, kernelParams.blockSize, m_streamID,
+                    nelmt, compSize, m_dimension, m_coordDim, m_nqTot,
+                    soundSpeedFactor, dfptr, inptr,
+                    dataptr + this->m_block_idx);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (MaxStdVelocityKernelLauncher<MultiRegions::SumFac, false>),
-                    gridsize, blocksize, m_streamID, nelmt, compSize,
-                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor, dfptr,
-                    inptr, dataptr + this->m_block_idx);
+                    kernelParams.gridSize, kernelParams.blockSize, m_streamID,
+                    nelmt, compSize, m_dimension, m_coordDim, m_nqTot,
+                    soundSpeedFactor, dfptr, inptr,
+                    dataptr + this->m_block_idx);
             }
         }
     }

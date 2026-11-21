@@ -39,10 +39,9 @@
  * Pointwise form at width one.
  *
  * @details
- * As the other width-one Device kernels, each thread block strides over the
- * elements and its threads over the element's points, so that consecutive
- * threads touch consecutive entries. The kernel has the name and arguments
- * of its SumFac and SumFacTOP counterparts
+ * The threads stride over the points of all the elements, one point
+ * each, so that consecutive threads touch consecutive entries. The kernel
+ * has the name and arguments of its SumFac and SumFacTOP counterparts
  * (PhysLiftProjectBlockOpDeviceSumFacKernels.hpp,
  * PhysLiftProjectBlockOpDeviceSumFacTOPKernels.hpp), restricted to
  * Implementation StdMat, so that the caller launches
@@ -82,32 +81,31 @@ NEK_DEVICE_KERNEL void PhysLiftProjectPointwiseKernel(
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int c = getBlockIdx<1>(threadBlock);
-    for (size_t e = getBlockIdx<0>(threadBlock); e < nelmt;
-         e += getBlockRange<0>(threadBlock))
+    const size_t nsize              = nqTot * nelmt;
+    const unsigned int c            = getBlockIdx<1>(threadBlock);
+    const TData *NEK_RESTRICT inptr = in + nsize * c;
+    TData *NEK_RESTRICT outptr      = out + nsize * c;
+    for (size_t idx = getGlobalIdx<0>(threadBlock); idx < nsize;
+         idx += getGlobalRange<0>(threadBlock))
     {
-        const size_t offset = (nelmt * c + e) * nqTot;
-        for (unsigned int q = getLocalIdx<0>(threadBlock); q < nqTot;
-             q += getLocalRange<0>(threadBlock))
+        const unsigned int q = idx % nqTot;
+        TData jacobian;
+        if constexpr (DEFORMED)
         {
-            TData jacobian;
-            if constexpr (DEFORMED)
-            {
-                jacobian = jac[e * nqTot + q];
-            }
-            else
-            {
-                jacobian = jac[e];
-            }
-            const TData factor = SafeDivide(scale, weights[q] * jacobian);
-            if constexpr (APPEND)
-            {
-                out[offset + q] += factor * in[offset + q];
-            }
-            else
-            {
-                out[offset + q] = factor * in[offset + q];
-            }
+            jacobian = jac[idx];
+        }
+        else
+        {
+            jacobian = jac[idx / nqTot];
+        }
+        const TData factor = SafeDivide(scale, weights[q] * jacobian);
+        if constexpr (APPEND)
+        {
+            outptr[idx] += factor * inptr[idx];
+        }
+        else
+        {
+            outptr[idx] = factor * inptr[idx];
         }
     }
 }

@@ -308,6 +308,11 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+
         // Get static workspace pointer.
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -316,11 +321,6 @@ protected:
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-        const unsigned int gridSize =
-            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
 
         // Directions held per variable in the input block. In 3DH1
         // (nhomo > 1) there are always three (x, y, z) regardless of the base

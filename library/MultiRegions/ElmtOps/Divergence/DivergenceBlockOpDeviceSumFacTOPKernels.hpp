@@ -104,6 +104,7 @@ namespace Nektar::MultiRegions::detail
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Element sizes; unused.
+ * @param   elmtsPerBlock  Elements per thread block; unused.
  *
  * @return Zero.
  */
@@ -114,7 +115,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
-    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D)
+    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     return 0;
 }
@@ -122,7 +124,8 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
 /**
  * @brief Dynamic shared memory, counted in TData entries, that one
  * thread block of the 2D SumFacTOP divergence kernel requires: two
- * per-element workspaces of nq0 * nq1 entries.
+ * per-element workspaces of nq0 * nq1 entries for each of its
+ * @p elmtsPerBlock elements.
  *
  * One workspace holds the component currently being differentiated,
  * the other the running sum. Unlike the SumFac overload this does not
@@ -135,6 +138,8 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  *
  * @return Entry count; the caller multiplies by sizeof(TData).
  */
@@ -145,16 +150,17 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
-    const TPhysSizeParameter2D sizeParam2D)
+    const TPhysSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock)
 {
 
-    return 2 * sizeParam2D.nqTot();
+    return 2 * elmtsPerBlock * sizeParam2D.nqTot();
 }
 
 /**
  * @brief Dynamic shared memory, counted in TData entries, that one
  * thread block of the 3D SumFacTOP divergence kernel requires: two
- * per-element workspaces of nq0 * nq1 * nq2 entries.
+ * per-element workspaces of nq0 * nq1 * nq2 entries for each of its
+ * @p elmtsPerBlock elements.
  *
  * As in two dimensions, one workspace holds the component currently
  * being differentiated and the other the running sum, independently
@@ -166,6 +172,8 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  *
  * @return Entry count; the caller multiplies by sizeof(TData).
  */
@@ -176,10 +184,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
-    const TPhysSizeParameter3D sizeParam3D)
+    const TPhysSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock)
 {
 
-    return 2 * sizeParam3D.nqTot();
+    return 2 * elmtsPerBlock * sizeParam3D.nqTot();
 }
 
 /**

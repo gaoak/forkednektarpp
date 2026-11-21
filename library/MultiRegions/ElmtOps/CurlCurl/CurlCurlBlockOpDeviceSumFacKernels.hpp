@@ -184,6 +184,7 @@ inline constexpr size_t CurlCurlWorkSpaceSize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Element sizes; unused.
+ * @param   elmtsPerBlock  Elements per thread block; unused.
  * @param   useSharedMemoryWsp    Stage the vorticity in shared memory; unused.
  *
  * @return Zero.
@@ -196,6 +197,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
     [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     return 0;
@@ -208,8 +210,8 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  * The collapsed-coordinate factor tables the launcher stages before the element
  * loop, none for quadrilaterals and one entry per quadrature point of each
  * direction for triangles, followed, with @p useSharedMemoryWsp, by the
- * vorticity of the thread block's single warp of elements, laid out as
- * CurlCurlWorkSpaceSize gives for warpSize elements.
+ * vorticity of the thread block's @p elmtsPerBlock elements, laid out as
+ * CurlCurlWorkSpaceSize gives for that many elements.
  *
  * @tparam SHAPE_TYPE            Element shape.
  * @tparam Implementation        Implementation tag; this overload is
@@ -218,6 +220,8 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the vorticity in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
@@ -229,13 +233,14 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
-    const TPhysSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
+    const TPhysSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const unsigned int wspsize =
         useSharedMemoryWsp
             ? static_cast<unsigned int>(
                   CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      NektarSpaces::Device::warpSize, sizeParam2D))
+                      elmtsPerBlock, sizeParam2D))
             : 0u;
 
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
@@ -260,7 +265,7 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  * hexahedra, one table per direction for pyramids, two (directions 0 and
  * 2) for prisms, and four for tetrahedra, which stage two tables over
  * direction 1), followed, with @p useSharedMemoryWsp, by the three vorticity
- * components of the thread block's single warp of elements.
+ * components of the thread block's @p elmtsPerBlock elements.
  *
  * @tparam SHAPE_TYPE            Element shape.
  * @tparam Implementation        Implementation tag; this overload is
@@ -269,6 +274,8 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the vorticity in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
@@ -280,7 +287,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
-    const TPhysSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
+    const TPhysSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
@@ -290,7 +298,7 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
         useSharedMemoryWsp
             ? static_cast<unsigned int>(
                   CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      NektarSpaces::Device::warpSize, sizeParam3D))
+                      elmtsPerBlock, sizeParam3D))
             : 0u;
 
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)

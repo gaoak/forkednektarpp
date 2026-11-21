@@ -448,10 +448,12 @@ protected:
                 : 0;
 
         // Stage intermediates in shared memory if they fit.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
         const unsigned int shmemsizeWithSharedWsp =
             sizeof(TData) *
             LaplacianSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
-                m_coordDim, sizeParam, true);
+                m_coordDim, sizeParam, elmtsPerBlock, true);
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
@@ -462,11 +464,9 @@ protected:
                 : sizeof(TData) *
                       LaplacianSharedMemorySize<SHAPE_TYPE, Implementation,
                                                 TData>(m_coordDim, sizeParam,
-                                                       false);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+                                                       elmtsPerBlock, false);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
@@ -475,7 +475,8 @@ protected:
             useSharedMemoryWsp
                 ? 0
                 : LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      WorkSpaceNumElmts<Implementation>(nelmt,
+                                                        kernelParams.gridSize),
                       m_coordDim, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -493,11 +494,12 @@ protected:
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (LaplacianKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
                                      VARCOEFF>),
-            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            m_coordDim, nelmt, m_isModified, useSharedMemoryWsp,
-            m_index[ind1]..., m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
-            m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr, diffCoeffPtr,
-            varDiffCoeffSize, inblock.GetNumHomoModes(), inptr, outptr, wspptr);
+            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+            kernelParams.shmemSize, m_streamID, sizeParam, m_coordDim, nelmt,
+            m_isModified, useSharedMemoryWsp, m_index[ind1]..., m_B[ind0]...,
+            m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_nodToMod, m_dfptr,
+            m_jacptr, diffCoeffPtr, varDiffCoeffSize, inblock.GetNumHomoModes(),
+            inptr, outptr, wspptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

@@ -282,6 +282,11 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+
         // Get static workspace pointer. The standard derivatives of every
         // component are held at once so that the chain rule is applied to a
         // contiguous workspace.
@@ -291,11 +296,6 @@ protected:
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-        const unsigned int gridSize =
-            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
 
         // Offsets between the components of a block. The derivatives of every
         // component are held at once, so the offset between two directions of

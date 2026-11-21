@@ -206,9 +206,9 @@ inline constexpr size_t LaplacianWorkSpaceSize(
 /**
  * @brief Dynamic shared memory of the SumFac Laplacian, in TData values:
  * the collapsed-coordinate factors of the shape, followed, with
- * @p useSharedMemoryWsp, by the workspace of the thread block's single warp of
- * elements, laid out as LaplacianWorkSpaceSize gives for warpSize
- * elements.
+ * @p useSharedMemoryWsp, by the workspace of the thread block's
+ * @p elmtsPerBlock elements, laid out as LaplacianWorkSpaceSize gives for that
+ * many elements.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData, typename TSizeParameter1D,
@@ -218,12 +218,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int LaplacianSharedMemorySize(
     const unsigned int ncoord, const TSizeParameter1D sizeParam1D,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, ncoord, sizeParam1D))
+                         elmtsPerBlock, ncoord, sizeParam1D))
                : 0u;
 }
 
@@ -237,7 +237,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int LaplacianSharedMemorySize(
     const unsigned int ncoord, const TSizeParameter2D sizeParam2D,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     unsigned int shmemsize = 0;
 
@@ -254,7 +254,7 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
     {
         shmemsize += static_cast<unsigned int>(
             LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                NektarSpaces::Device::warpSize, ncoord, sizeParam2D));
+                elmtsPerBlock, ncoord, sizeParam2D));
     }
 
     return shmemsize;
@@ -270,7 +270,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int LaplacianSharedMemorySize(
     const unsigned int ncoord, const TSizeParameter3D sizeParam3D,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
@@ -298,7 +298,7 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
     {
         shmemsize += static_cast<unsigned int>(
             LaplacianWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                NektarSpaces::Device::warpSize, ncoord, sizeParam3D));
+                elmtsPerBlock, ncoord, sizeParam3D));
     }
 
     return shmemsize;

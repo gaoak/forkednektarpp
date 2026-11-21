@@ -287,7 +287,8 @@ template <typename Implementation, typename TTraceSizeParameter1D,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
-    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
+    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     return 0;
 }
@@ -302,6 +303,7 @@ template <typename Implementation, typename TTraceSizeParameter2D,
               Enable = true>
 inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
     [[maybe_unused]] const TTraceSizeParameter2D sizeParam2D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     [[maybe_unused]] const unsigned int ntrace = 2u)
 {
     return 0;
@@ -316,7 +318,8 @@ template <typename Implementation, typename TTraceSizeParameter3D,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
-    [[maybe_unused]] const TTraceSizeParameter3D sizeParam3D)
+    [[maybe_unused]] const TTraceSizeParameter3D sizeParam3D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     return 0;
 }

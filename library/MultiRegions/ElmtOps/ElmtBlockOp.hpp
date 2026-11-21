@@ -62,11 +62,9 @@
  *
  * ### Device launch helpers
  * When NEKTAR_ENABLE_DEVICE is set this file additionally provides the
- * launch-configuration helpers GetDeviceBlockSize() and
- * GetDeviceGridSize(), and GetDevicePackedKernelParameters() for the kernels
- * that take several whole elements per thread block, which the device
- * implementations call to size
- * their kernel launches for the SumFac and SumFacTOP strategies.
+ * launch-configuration helpers GetElmtsPerBlock() and
+ * GetDeviceKernelParameters(), which the device implementations call to
+ * size their kernel launches for the SumFac and SumFacTOP strategies.
  * The kernel size-parameter types those launches take (runtime and
  * compile-time forms of the element's mode and quadrature counts) and
  * the launch-bounds helper detail::GetMaxThreadPerBlock() are in
@@ -90,17 +88,17 @@
 namespace Nektar::MultiRegions
 {
 
-/// @brief Elements each device thread block is assumed to take per pass
-/// in the SumFacTOP grid-size heuristic (see GetDeviceGridSize()); tuned
-/// per vendor back-end.
+/// @brief Passes over its element groups each device thread block is
+/// assumed to make in the SumFacTOP grid-size heuristic (see
+/// GetDeviceKernelParameters()); tuned per vendor back-end.
 #if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
-static constexpr unsigned int defaultElmtsPerBlock = 8u;
+static constexpr unsigned int defaultPassesPerBlock = 8u;
 #elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
-static constexpr unsigned int defaultElmtsPerBlock = 4u;
+static constexpr unsigned int defaultPassesPerBlock = 4u;
 #elif defined(SYCL_ENABLE_INTEL)
-static constexpr unsigned int defaultElmtsPerBlock = 4u;
+static constexpr unsigned int defaultPassesPerBlock = 4u;
 #else
-static constexpr unsigned int defaultElmtsPerBlock = 1u;
+static constexpr unsigned int defaultPassesPerBlock = 1u;
 #endif
 
 // Core implementation types.
@@ -413,107 +411,153 @@ protected:
 
 #if defined(NEKTAR_ENABLE_DEVICE)
 /**
- * @brief Number of threads per device block for a kernel launch of the
- * given implementation.
+ * @brief Launch geometry of a device kernel, from
+ * GetDeviceKernelParameters().
+ */
+struct DeviceKernelParameters
+{
+    /// Threads per block.
+    unsigned int blockSize = 0u;
+    /// Thread blocks.
+    unsigned int gridSize = 0u;
+    /// Dynamic shared memory per block in bytes.
+    unsigned int shmemSize = 0u;
+    /// Elements each thread block takes per pass.
+    unsigned int elmtsPerBlock = 0u;
+};
+
+/**
+ * @brief Elements each thread block takes per pass.
  *
- * For SumFac one warp is used, with each lane owning one element; the
- * kernels grid-stride over any remaining elements, so the grid size
- * from GetDeviceGridSize() supplies the rest of the parallelism. For
- * SumFacTOP the requested per-element work size is rounded up to a
- * whole number of warps and capped at the device's default block size;
- * the kernels stride their local thread index over the element's work
- * items, so the cap is safe when @p elmtBlockSize exceeds it. Other
- * implementations return 0 (they do not launch through this path).
+ * For SumFac one warp, a lane per element. For SumFacTOP as many whole
+ * elements as fit in @p threadsPerBlock threads, one at least; one where
+ * @p threadsPerBlock is zero.
  *
- * @tparam Implementation   Implementation tag (SumFac or SumFacTOP).
- *
- * @param   elmtBlockSize   Per-element work-item count the block
- *                          should cover (the element's total mode or
- *                          quadrature-point count, whichever the
- *                          kernel is indexed over); unused for SumFac.
- *
- * @return Threads per block. Constexpr, so with a compile-time
- * argument it is also usable inside `__LAUNCH_BOUNDS__` (see
- * detail::GetMaxThreadPerBlock() in ElmtHelper.hpp).
+ * @param   dofsPerElmt      Degrees of freedom of one element, a thread
+ *                           each (SumFacTOP).
+ * @param   threadsPerBlock  Threads per block to fill with whole elements
+ *                           (SumFacTOP), or zero for one element.
  */
 template <typename Implementation>
-NEK_FORCE_INLINE static constexpr unsigned int GetDeviceBlockSize(
-    [[maybe_unused]] const unsigned int elmtBlockSize)
+NEK_FORCE_INLINE static unsigned int GetElmtsPerBlock(
+    [[maybe_unused]] const unsigned int dofsPerElmt,
+    [[maybe_unused]] const unsigned int threadsPerBlock = 0u)
 {
+    static_assert(std::is_same_v<Implementation, MultiRegions::SumFac> ||
+                      std::is_same_v<Implementation, MultiRegions::SumFacTOP>,
+                  "Only SumFac and SumFacTOP kernels use GetElmtsPerBlock().");
+
     if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
     {
-        constexpr auto warpsize = NektarSpaces::Device::warpSize;
-        return warpsize;
+        return NektarSpaces::Device::warpSize;
     }
     else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
     {
-        constexpr auto warpsize = NektarSpaces::Device::warpSize;
-        return std::min(((elmtBlockSize + warpsize - 1u) / warpsize) * warpsize,
-                        NektarSpaces::Device::defaultBlockSize);
-    }
-    else
-    {
-        return 0;
+        return (threadsPerBlock == 0u)
+                   ? 1u
+                   : std::max(1u, threadsPerBlock / std::max(1u, dofsPerElmt));
     }
 }
 
 /**
- * @brief Number of thread blocks (grid size) for a kernel launch of
- * the given implementation.
+ * @brief Launch geometry of a SumFac or SumFacTOP kernel.
  *
- * For SumFac, with one element per thread, this is simply
- * `ceil(nelmt / blockSize)`, capped at the maximum grid dimension.
- * For SumFacTOP a persistent-blocks heuristic is used: the number of
- * blocks resident per multiprocessor is bounded by both the thread and
- * the shared-memory occupancy limits, and enough blocks are launched
- * to keep every multiprocessor's queue filled (scaled by
- * `persistentQueueFactor`), but never more than one block per element
- * and never fewer than one per @p elmtsPerBlock elements -- the
- * in-code comments walk through the three regimes. The requested
- * shared memory is additionally validated against the device limit.
+ * For SumFac a block is one warp of @p elmtsPerBlock lanes, one element
+ * each, and the grid covers the elements in @p passesPerBlock passes, the
+ * kernels striding over the grid. For SumFacTOP the block is the
+ * elements' threads rounded up to whole warps, at most the device's
+ * default block size, and the grid
+ * follows a persistent-blocks heuristic bounded by thread and
+ * shared-memory occupancy, at most one block per group of
+ * @p elmtsPerBlock elements.
  *
- * @tparam Implementation   Implementation tag (SumFac or SumFacTOP;
- *                          others return 0).
- * @tparam elmtsPerBlock    Elements each block is assumed to process
- *                          per pass (SumFacTOP only); defaults to the
- *                          vendor-tuned defaultElmtsPerBlock.
+ * @tparam Implementation  SumFac or SumFacTOP.
  *
- * @param   nelmt       Number of elements to process, including
- *                      padding.
- * @param   blockSize   Threads per block, from GetDeviceBlockSize().
- * @param   shmemsize   Dynamic shared memory per block in bytes
- *                      (SumFacTOP only).
- *
- * @return Number of blocks to launch.
+ * @param   dofsPerElmt     Degrees of freedom of one element, a thread
+ *                          each (SumFacTOP).
+ * @param   nelmt           Number of elements, including padding.
+ * @param   shmemSize       Dynamic shared memory per block in bytes.
+ * @param   elmtsPerBlock   Elements per block per pass, from
+ *                          GetElmtsPerBlock(); zero, the default, for a
+ *                          warp under SumFac and one element under
+ *                          SumFacTOP.
+ * @param   passesPerBlock  Passes, one group of elmtsPerBlock elements
+ *                          each, each block is assumed to make; zero, the
+ *                          default, for one under SumFac and
+ *                          defaultPassesPerBlock under SumFacTOP.
  */
-template <typename Implementation,
-          unsigned int elmtsPerBlock = defaultElmtsPerBlock>
-NEK_FORCE_INLINE static unsigned int GetDeviceGridSize(
-    const size_t nelmt, const unsigned int blockSize,
-    [[maybe_unused]] const unsigned int shmemsize)
+template <typename Implementation>
+NEK_FORCE_INLINE static DeviceKernelParameters GetDeviceKernelParameters(
+    [[maybe_unused]] const unsigned int dofsPerElmt, const size_t nelmt,
+    const unsigned int shmemSize = 0u, const unsigned int elmtsPerBlock = 0u,
+    const unsigned int passesPerBlock = 0u)
 {
+    static_assert(std::is_same_v<Implementation, MultiRegions::SumFac> ||
+                      std::is_same_v<Implementation, MultiRegions::SumFacTOP>,
+                  "Only SumFac and SumFacTOP kernels launch through "
+                  "GetDeviceKernelParameters().");
     constexpr size_t maxGridSize                 = 2147483647;
     constexpr unsigned int persistentQueueFactor = 2u;
 
+    DeviceKernelParameters kernelParams;
+
     if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
     {
-        return std::min((nelmt + blockSize - 1u) / blockSize, maxGridSize);
+        // Zero elmtsPerBlock defaults to a warp, one lane per element, as
+        // GetElmtsPerBlock() gives.
+        kernelParams.elmtsPerBlock =
+            elmtsPerBlock ? elmtsPerBlock : NektarSpaces::Device::warpSize;
+
+        // Each block processes elmtsPerBlock elements per pass.
+        const size_t ngroups = (nelmt + kernelParams.elmtsPerBlock - 1u) /
+                               kernelParams.elmtsPerBlock;
+
+        // Zero passesPerBlock defaults to one pass, a block per group.
+        const unsigned int passes = passesPerBlock ? passesPerBlock : 1u;
+
+        // One lane per element: elmtsPerBlock is the warp size.
+        kernelParams.blockSize = kernelParams.elmtsPerBlock;
+        kernelParams.gridSize  = static_cast<unsigned int>(
+            std::min((ngroups + passes - 1u) / passes, maxGridSize));
+        kernelParams.shmemSize = shmemSize;
     }
     else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
     {
-        GetDeviceProperties::CheckSharedMemoryUsage(shmemsize);
+        // Zero elmtsPerBlock defaults to one element per block, as
+        // GetElmtsPerBlock() gives without threadsPerBlock.
+        kernelParams.elmtsPerBlock = elmtsPerBlock ? elmtsPerBlock : 1u;
+
+        // Each block processes elmtsPerBlock elements per pass.
+        const size_t ngroups = (nelmt + kernelParams.elmtsPerBlock - 1u) /
+                               kernelParams.elmtsPerBlock;
+
+        // Zero passesPerBlock defaults to defaultPassesPerBlock.
+        const unsigned int passes =
+            passesPerBlock ? passesPerBlock : defaultPassesPerBlock;
+
+        // The elements' threads rounded up to whole warps, at most the
+        // default block size.
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+        const unsigned int threadsPerBlock =
+            kernelParams.elmtsPerBlock * dofsPerElmt;
+        kernelParams.blockSize =
+            std::min((threadsPerBlock + warpsize - 1u) / warpsize * warpsize,
+                     NektarSpaces::Device::defaultBlockSize);
+
+        GetDeviceProperties::CheckSharedMemoryUsage(shmemSize);
 
         const auto smCount =
             static_cast<size_t>(GetDeviceProperties::NumMultiProcessors());
         // Number of blocks that can achieve full occupancy on each SM
         const size_t blocksByThreads =
-            GetDeviceProperties::MaxThreadsPerMultiprocessor() / blockSize;
+            GetDeviceProperties::MaxThreadsPerMultiprocessor() /
+            kernelParams.blockSize;
         // Number of blocks that can fully utilize shared memory on each SM
         const size_t blocksByShared =
-            (shmemsize == 0)
+            (shmemSize == 0)
                 ? blocksByThreads
                 : GetDeviceProperties::SharedMemoryPerMultiprocessor() /
-                      shmemsize;
+                      shmemSize;
         const size_t residentBlocks = std::min(blocksByThreads, blocksByShared);
         // Number of blocks to launch to keep all SMs busy, controlled by
         // a customizable QueueFactor. This serves as a lower bound on grid size
@@ -522,114 +566,18 @@ NEK_FORCE_INLINE static unsigned int GetDeviceGridSize(
         const size_t cappedLaunchBlocks =
             std::max<size_t>(1u, std::min(launchBlocks, maxGridSize));
 
-        // Each block processes elmtsPerBlock elements per queue
-        // iteration.
-        const size_t ngroups = (nelmt + elmtsPerBlock - 1u) / elmtsPerBlock;
-
         // 1. If nelmt is big, then grid size is determined by ngroups
-        // to ensure each block has enough work to do;
+        // over the passes to ensure each block has enough work to do;
         // 2. If nelmt is small, then we try to ensure SMs are busy by
         // launching enough blocks;
         // 3. If nelmt is very small, then each block only process
-        // one element to avoid unnecessary idling.
-        const unsigned int gridsize = static_cast<unsigned int>(
-            std::min(nelmt, std::max(ngroups, cappedLaunchBlocks)));
-
-        return gridsize;
+        // one group to avoid unnecessary idling.
+        kernelParams.gridSize = static_cast<unsigned int>(
+            std::min(ngroups, std::max((ngroups + passes - 1u) / passes,
+                                       cappedLaunchBlocks)));
+        kernelParams.shmemSize = shmemSize;
     }
-    else
-    {
-        return 0;
-    }
-}
 
-/**
- * @brief Launch geometry of a SumFacTOP kernel that takes several whole
- * elements per thread block (GetDevicePackedKernelParameters()).
- */
-struct DevicePackedKernelParameters
-{
-    /// Whole elements each thread block takes, one at least.
-    unsigned int elmtsPerBlock = 1u;
-    /// Threads per block, from GetDeviceBlockSize().
-    unsigned int blockSize = 0u;
-    /// Thread blocks, one per group of elmtsPerBlock elements at most,
-    /// from GetDeviceGridSize().
-    unsigned int gridSize = 0u;
-    /// Dynamic shared memory per block in bytes: the block's share plus
-    /// elmtsPerBlock times the element's.
-    unsigned int shmemSize = 0u;
-};
-
-/**
- * @brief Launch geometry of a SumFacTOP kernel that takes several whole
- * elements per thread block.
- *
- * @details
- * A SumFacTOP kernel gives a thread block one element at a time. Where an
- * element takes far fewer threads than a block holds (one per point of an
- * element of a few points, at low order) that leaves most of each block
- * idle, so a packed kernel gives a block as many whole elements as fit in
- * @p blockPoints threads, one at least:
- * `elmtsPerBlock = max(1, blockPoints / threadsPerElmt)`. The block size is
- * GetDeviceBlockSize() of their threads, and the grid GetDeviceGridSize()
- * of the groups of elmtsPerBlock elements, one group per block per pass.
- * Inside the kernel, GetDevicePackedThread() splits a block's threads into
- * its elements, element first. An element of more threads than the block
- * holds is taken alone, its points strided over the block.
- *
- * @p blockPoints is the operator's own: where packing stops paying is
- * measured per operator. The kernel's launch bounds must allow the block
- * size, so a packed kernel takes the default block size as its bound
- * (GetMaxThreadPerBlock() of a trace size parameter, or of the runtime
- * forms), not the one-element bound of a compile-time volume size.
- *
- * @tparam Implementation  SumFacTOP.
- * @tparam groupsPerBlock  Groups of elmtsPerBlock elements each block is
- *                         assumed to take per pass, passed to
- *                         GetDeviceGridSize(); one by default.
- *
- * @param   nelmt           Number of elements to process, including
- *                          padding.
- * @param   threadsPerElmt  Threads one element takes: its point count where
- *                          a thread takes a point.
- * @param   blockPoints     Threads per block to fill with whole elements.
- * @param   shmemPerElmt    Dynamic shared memory one element takes, in
- *                          bytes.
- * @param   shmemPerBlock   Dynamic shared memory the block takes once
- *                          whatever its element count, in bytes (tables
- *                          loaded once per block).
- * @param   maxBlockSize    Most threads per block, in place of the default
- *                          block size GetDeviceBlockSize() caps at; a
- *                          kernel that keeps one
- *                          thread on each point and cannot stride passes
- *                          NektarSpaces::Device::maximumBlockSize.
- */
-template <typename Implementation, unsigned int groupsPerBlock = 1u>
-NEK_FORCE_INLINE static DevicePackedKernelParameters GetDevicePackedKernelParameters(
-    const size_t nelmt, const unsigned int threadsPerElmt,
-    const unsigned int blockPoints, const unsigned int shmemPerElmt = 0u,
-    const unsigned int shmemPerBlock = 0u,
-    const unsigned int maxBlockSize  = NektarSpaces::Device::defaultBlockSize)
-{
-    static_assert(std::is_same_v<Implementation, MultiRegions::SumFacTOP>,
-                  "Only SumFacTOP kernels take several elements per thread "
-                  "block.");
-    DevicePackedKernelParameters kernelParams;
-    kernelParams.elmtsPerBlock =
-        std::max(1u, blockPoints / std::max(1u, threadsPerElmt));
-    // GetDeviceBlockSize() of the elements' threads, capped at maxBlockSize
-    // rather than the default block size: whole warps, at most
-    // maxBlockSize.
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    const unsigned int nthreads = kernelParams.elmtsPerBlock * threadsPerElmt;
-    kernelParams.blockSize      = std::min(
-        (nthreads + warpsize - 1u) / warpsize * warpsize, maxBlockSize);
-    kernelParams.shmemSize =
-        shmemPerBlock + kernelParams.elmtsPerBlock * shmemPerElmt;
-    kernelParams.gridSize = GetDeviceGridSize<Implementation, groupsPerBlock>(
-        (nelmt + kernelParams.elmtsPerBlock - 1u) / kernelParams.elmtsPerBlock,
-        kernelParams.blockSize, kernelParams.shmemSize);
     return kernelParams;
 }
 
@@ -702,13 +650,13 @@ template <typename Implementation>
 NEK_FORCE_INLINE static size_t WorkSpaceNumElmts(const size_t nelmt,
                                                  const unsigned int gridsize)
 {
-    if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
-    {
-        return gridsize;
-    }
-    else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
+    if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
     {
         return nelmt;
+    }
+    else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
+    {
+        return gridsize;
     }
 }
 #endif

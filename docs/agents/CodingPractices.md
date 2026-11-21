@@ -333,8 +333,8 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     `...SerialAVXStdMatKernels.hpp`, `...DeviceSumFacKernels.hpp` and
     `...DeviceSumFacTOPKernels.hpp`; never two implementations in one file.
     Launches are written inline in the `...Device<Impl>.hpp` that makes them,
-    sized by `GetDeviceBlockSize()` and `GetDeviceGridSize()`, not wrapped in
-    launcher helpers.
+    sized by `GetElmtsPerBlock()` and `GetDeviceKernelParameters()`, not
+    wrapped in launcher helpers.
 54. **Small dense products go through `LibxsmmDispatchWrapper`**, dispatched
     once before the element loop, as `BwdTransBlockOpSerialAVXStdMat` does.
     NekBlas is for large products, and a SumFac implementation does not use

@@ -312,9 +312,9 @@ inline constexpr unsigned int HelmholtzSharedWorkSpaceSize(
 /**
  * @brief Dynamic shared memory of the TOP kernels, in TData values: the
  * transposed differentiation matrices and basis tables, 16-byte aligned
- * in 2D and 3D, then, with @p useSharedMemoryWsp, one element's
- * workspace: HelmholtzWorkSpaceSize in 1D, HelmholtzSharedWorkSpaceSize
- * in 2D and 3D.
+ * in 2D and 3D, then, with @p useSharedMemoryWsp, the workspace of
+ * @p elmtsPerBlock elements: HelmholtzWorkSpaceSize in 1D,
+ * HelmholtzSharedWorkSpaceSize per element in 2D and 3D.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData, typename TSizeParameter1D,
@@ -324,7 +324,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int HelmholtzSharedMemorySize(
     const unsigned int ncoord, const TSizeParameter1D sizeParam1D,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam1D.nq0();
 
@@ -335,7 +335,7 @@ inline constexpr unsigned int HelmholtzSharedMemorySize(
         useSharedMemoryWsp
             ? static_cast<unsigned int>(
                   HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      1u, ncoord, sizeParam1D))
+                      elmtsPerBlock, ncoord, sizeParam1D))
             : 0u;
 
     return nDT + wspSize;
@@ -350,7 +350,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int HelmholtzSharedMemorySize(
     [[maybe_unused]] const unsigned int ncoord,
-    const TSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
+    const TSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam2D.nq0();
     const unsigned int nq1 = sizeParam2D.nq1();
@@ -360,9 +361,9 @@ inline constexpr unsigned int HelmholtzSharedMemorySize(
 
     const unsigned int wspSize =
         useSharedMemoryWsp
-            ? static_cast<unsigned int>(
+            ? elmtsPerBlock *
                   HelmholtzSharedWorkSpaceSize<SHAPE_TYPE, Implementation,
-                                               TData>(sizeParam2D))
+                                               TData>(sizeParam2D)
             : 0u;
 
     return SharedMemoryAlignedSize<TData>(
@@ -379,7 +380,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int HelmholtzSharedMemorySize(
     [[maybe_unused]] const unsigned int ncoord,
-    const TSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
+    const TSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
@@ -390,9 +392,9 @@ inline constexpr unsigned int HelmholtzSharedMemorySize(
 
     const unsigned int wspSize =
         useSharedMemoryWsp
-            ? static_cast<unsigned int>(
+            ? elmtsPerBlock *
                   HelmholtzSharedWorkSpaceSize<SHAPE_TYPE, Implementation,
-                                               TData>(sizeParam3D))
+                                               TData>(sizeParam3D)
             : 0u;
 
     return SharedMemoryAlignedSize<TData>(

@@ -193,6 +193,13 @@ protected:
         auto advVelPtr =
             this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+        const unsigned int gridSizeFine =
+            (nelmt * m_nqFineTot + blockSize - 1u) / blockSize;
+
         // Get static workspace pointer. The derivative, the fine-grid
         // gradient and the fine-grid product of every component are held at
         // once - the fine-grid advection velocity is shared across all of
@@ -214,13 +221,6 @@ protected:
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-        const unsigned int gridSize =
-            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
-        const unsigned int gridSizeFine =
-            (nelmt * m_nqFineTot + blockSize - 1u) / blockSize;
 
         // Offsets between the components of a block. The derivative and the
         // fine-grid gradient of every component are held at once, so the

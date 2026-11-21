@@ -436,9 +436,8 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) * FwdTransBCSharedMemorySize(nm0, nq0);
-        const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nq0);
-        const unsigned int gridsize =
-            GetDeviceGridSize<SumFacTOP>(nelmt, blocksize, shmemsize);
+        const auto kernelParams =
+            GetDeviceKernelParameters<SumFacTOP>(nq0, nelmt, shmemsize);
 
         // Loop over components.
         for (unsigned int nc = 0;
@@ -460,9 +459,11 @@ protected:
             {
                 // Launch FwdTransBC kernel
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
-                    (FwdTransBC1DKernelLauncher<DEFORMED>), gridsize, blocksize,
-                    shmemsize, m_streamID, nm0, nq0, nelmt, m_B[0], m_W[0],
-                    m_offset_seg, m_massint_seg[0], m_jacptr, inptr, outptr);
+                    (FwdTransBC1DKernelLauncher<DEFORMED>),
+                    kernelParams.gridSize, kernelParams.blockSize,
+                    kernelParams.shmemSize, m_streamID, nm0, nq0, nelmt, m_B[0],
+                    m_W[0], m_offset_seg, m_massint_seg[0], m_jacptr, inptr,
+                    outptr);
             }
 
             // Reshape back, if necessary.
@@ -518,9 +519,8 @@ protected:
         const unsigned int shmemsize =
             sizeof(TData) *
             FwdTransBCSharedMemorySize(SHAPE_TYPE, nm0, nm1, nmTot, nq0, nq1);
-        const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nqTot);
-        const unsigned int gridsize =
-            GetDeviceGridSize<SumFacTOP>(nelmt, blocksize, shmemsize);
+        const auto kernelParams =
+            GetDeviceKernelParameters<SumFacTOP>(nqTot, nelmt, shmemsize);
 
         // Loop over components.
         for (unsigned int nc = 0;
@@ -542,8 +542,9 @@ protected:
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER(
                     (FwdTransBC2DKernelLauncher<SHAPE_TYPE, DEFORMED>),
-                    gridsize, blocksize, shmemsize, m_streamID, nm0, nm1, nmTot,
-                    nq0, nq1, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
+                    kernelParams.gridSize, kernelParams.blockSize,
+                    kernelParams.shmemSize, m_streamID, nm0, nm1, nmTot, nq0,
+                    nq1, nelmt, m_isModified, m_index[0], m_B[0], m_B[1],
                     m_W[0], m_W[1], m_interp1to0, m_offset_seg,
                     m_massint_seg[0], m_massint_seg[1], m_jacTraceptr,
                     m_traceElmtMapptr, m_traceElmtSignptr, m_nmTotInt,

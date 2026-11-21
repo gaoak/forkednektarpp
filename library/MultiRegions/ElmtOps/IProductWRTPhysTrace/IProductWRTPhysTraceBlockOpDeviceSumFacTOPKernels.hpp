@@ -144,15 +144,19 @@ template <typename Implementation, typename TTraceSizeParameter1D,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
-    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
+    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     return 0;
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: @p ntrace
-/// trace-mode buffers, one element being resident per block at a time.
+/// trace-mode buffers and the element's coefficients, for each of the
+/// @p elmtsPerBlock elements of the block.
 ///
 /// @param   sizeParam2D Volume and trace point counts of the shape.
+/// @param   elmtsPerBlock  Elements per thread block, from
+///                  GetElmtsPerBlock().
 /// @param   ntrace  Edges the buffer must hold at once: two on the bulk
 ///                  path, which integrates an edge pair in one call,
 ///                  and one on the per-trace path.
@@ -162,27 +166,30 @@ template <typename Implementation, typename TTraceSizeParameter2D,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
-    const TTraceSizeParameter2D sizeParam2D, const unsigned int ntrace = 2u)
+    const TTraceSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const unsigned int ntrace = 2u)
 {
-    return ntrace * IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D) +
-           sizeParam2D.nmTot();
+    return elmtsPerBlock *
+           (ntrace * IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D) +
+            sizeParam2D.nmTot());
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: the face
 /// mode block followed by the contraction scratch, the split the kernels
-/// re-derive from the same two helpers. The bulk and the per-trace path
-/// take the same.
+/// re-derive from the same two helpers, then the element's coefficients,
+/// for each of the @p elmtsPerBlock elements of the block. The bulk and the
+/// per-trace path take the same.
 template <typename Implementation, typename TTraceSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
-    const TTraceSizeParameter3D sizeParam3D)
+    const TTraceSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock)
 {
-    return IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D) +
-           IProductWRTPhysTraceFaceScratchSize(sizeParam3D) +
-           sizeParam3D.nmTot();
+    return elmtsPerBlock * (IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D) +
+                            IProductWRTPhysTraceFaceScratchSize(sizeParam3D) +
+                            sizeParam3D.nmTot());
 }
 
 // -----------------------------------------------------------------------------

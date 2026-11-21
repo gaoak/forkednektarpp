@@ -384,12 +384,13 @@ protected:
      *
      * The launch configuration comes from the shared helpers. Dynamic
      * shared memory is BwdTransSharedMemorySize() for the shape and
-     * strategy. Threads per block come from GetDeviceBlockSize(): a warp
-     * under SumFac, and under SumFacTOP the element's total mode count
-     * rounded up to whole warps and capped at the device's default block
-     * size. The grid is two-dimensional, its second dimension being the
-     * component count ncomp (components times homogeneous modes) and its
-     * first coming from GetDeviceGridSize(): one block per group of
+     * strategy. GetElmtsPerBlock() and GetDeviceKernelParameters() give
+     * the threads per block: a warp under SumFac, and under SumFacTOP the
+     * element's total mode count rounded up to whole warps and capped at
+     * the device's default block size. The grid is two-dimensional, its
+     * second dimension being the component count ncomp (components times
+     * homogeneous modes) and its first coming from
+     * GetDeviceKernelParameters(): one block per group of
      * elements under SumFac, and under SumFacTOP a grid sized to the
      * device's occupancy, since there a block serves one element at a
      * time. The global-memory workspace is the static per-stream buffer
@@ -438,10 +439,12 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Stage intermediates in shared memory if they fit.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
         const unsigned int shmemsizeWithSharedWsp =
             sizeof(TData) *
-            BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam,
-                                                                 true);
+            BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
+                sizeParam, elmtsPerBlock, true);
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
@@ -451,11 +454,9 @@ protected:
                 ? shmemsizeWithSharedWsp
                 : sizeof(TData) *
                       BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
-                          sizeParam, false);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+                          sizeParam, elmtsPerBlock, false);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
@@ -464,7 +465,8 @@ protected:
             useSharedMemoryWsp
                 ? 0
                 : BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      WorkSpaceNumElmts<Implementation>(nelmt,
+                                                        kernelParams.gridSize),
                       sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -487,8 +489,9 @@ protected:
             // BwdTrans kernel.
             DEVICE_2DGRID_KERNEL_LAUNCHER(
                 (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, true>),
-                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                nelmt, m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                m_isModified, useSharedMemoryWsp, m_index[ind1]...,
                 m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr);
         }
         else
@@ -496,8 +499,9 @@ protected:
             // BwdTrans kernel.
             DEVICE_2DGRID_KERNEL_LAUNCHER(
                 (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, false>),
-                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                nelmt, m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                m_isModified, useSharedMemoryWsp, m_index[ind1]...,
                 m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr);
         }
 

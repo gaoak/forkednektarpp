@@ -378,6 +378,11 @@ protected:
         auto advVelPtr =
             this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+
         // Get static workspace pointer.
         auto bwdptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -387,11 +392,6 @@ protected:
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
-
-        // Set Kernel parameters.
-        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-        const unsigned int gridSize =
-            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
 
         // Offsets between the components of a block. The derivatives of every
         // component are held at once, so the offset between two directions

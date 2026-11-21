@@ -242,8 +242,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int AdvectionDealiasSharedWorkSpaceSize
            wsp1Stride;
 }
 
-// SumFacTOP assigns one element to each thread block, so block-local memory
-// holds part of that element's workspace - and nothing else. The host picks
+// Block-local memory holds part of the workspace of each of the thread
+// block's elmtsPerBlock elements - and nothing else. The host picks
 // the tier; this is what the pick costs, so ncoord, ncomp and
 // useSharedMemoryWsp are unused.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
@@ -253,11 +253,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 inline constexpr unsigned int AdvectionDealiasSharedMemorySize(
     [[maybe_unused]] const unsigned int ncoord,
     [[maybe_unused]] const unsigned int ncomp,
-    const TPhysSizeParameter sizeParam, const bool localPipeline,
-    const bool sharedScratch, [[maybe_unused]] const bool useSharedMemoryWsp)
+    const TPhysSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+    const bool localPipeline, const bool sharedScratch,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
-    return AdvectionDealiasSharedWorkSpaceSize<SHAPE_TYPE, Implementation>(
-        sizeParam, localPipeline, sharedScratch);
+    return elmtsPerBlock *
+           AdvectionDealiasSharedWorkSpaceSize<SHAPE_TYPE, Implementation>(
+               sizeParam, localPipeline, sharedScratch);
 }
 
 // Stage C: advVel/grad/out are already offset to this single element's

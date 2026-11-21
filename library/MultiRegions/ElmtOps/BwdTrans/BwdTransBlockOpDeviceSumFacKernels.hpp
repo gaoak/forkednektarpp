@@ -60,7 +60,7 @@
  * The BwdTransKernelLauncher overloads stride over the elements of the
  * block: the stride, `getGlobalRange<0>(threadBlock)`, is a whole number
  * of warps -- the launch uses one warp per block, see
- * GetDeviceBlockSize -- so a thread keeps its lane index for every
+ * GetDeviceKernelParameters -- so a thread keeps its lane index for every
  * element it visits. Each thread's component index,
  * `c = getBlockIdx<1>(threadBlock)`, is fixed for that whole stride
  * loop: the grid's second dimension holds `ncomp = GetNumComponents() *
@@ -286,16 +286,18 @@ inline constexpr size_t BwdTransWorkSpaceSize(
  *
  * The SumFac kernels read the basis tables straight from global memory, so the
  * only thing held per thread block is, with @p useSharedMemoryWsp, the
- * workspace of its single warp of elements, laid out as BwdTransWorkSpaceSize
- * gives for warpSize elements. The SumFacTOP overloads of the same name
- * (BwdTransBlockOpDeviceSumFacTOPKernels.hpp) return the size of the staging
- * area that strategy uses.
+ * workspace of its @p elmtsPerBlock elements, laid out as
+ * BwdTransWorkSpaceSize gives for that many elements. The SumFacTOP overloads
+ * of the same name (BwdTransBlockOpDeviceSumFacTOPKernels.hpp) return the size
+ * of the staging area that strategy uses.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
  * @tparam Implementation    MultiRegions::SumFac.
  * @tparam TSizeParameter1D  1D size parameter, runtime or templated.
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage intermediates in shared memory.
  *
  * @return Number of TData values of shared memory per thread block.
@@ -307,12 +309,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    const TSizeParameter1D sizeParam1D, const bool useSharedMemoryWsp)
+    const TSizeParameter1D sizeParam1D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, sizeParam1D))
+                         elmtsPerBlock, sizeParam1D))
                : 0u;
 }
 
@@ -325,12 +328,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    const TSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
+    const TSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, sizeParam2D))
+                         elmtsPerBlock, sizeParam2D))
                : 0u;
 }
 
@@ -343,12 +347,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int BwdTransSharedMemorySize(
-    const TSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
+    const TSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, sizeParam3D))
+                         elmtsPerBlock, sizeParam3D))
                : 0u;
 }
 
