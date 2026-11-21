@@ -181,6 +181,7 @@ v5.11.0
 - Add `BasisDataSize1D`/`2D`/`3D` helpers giving the shared-memory basis data sizes of the device SumFacTOP element operators (!2941)
 - Unify the device SumFac and SumFacTOP launch sizing in `GetDeviceKernelParameters()` and scale the shared-memory sizes by the elements per block (!2948)
 - Fix Polylib::JacZeros for zero and one point: it wrote past the end of its arrays, and the one-point Gauss-Legendre point was NaN; the quadrature rules themselves never called it with these sizes (!2942)
+- Fix intermittent IDR(s) failures in TestLinearADRSolve (!2946)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

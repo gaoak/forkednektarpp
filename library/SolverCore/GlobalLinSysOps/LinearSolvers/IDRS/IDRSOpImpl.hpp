@@ -84,15 +84,24 @@ public:
         m_biOrthCoeffs =
             LibUtilities::MemoryRegion<TData>(2 * m_stage, eHostPinned);
 
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<> dis(0.0, 1.0);
         m_U.ResizeNumField(m_stage);
         m_G.ResizeNumField(m_stage);
         m_P.ResizeNumField(m_stage);
+
+        // Fill m_P with pseudo-random shadow vectors from a fixed seed, so
+        // that a solve is reproducible: the shadow space only needs to be
+        // generic, and the iterates, and with them the accuracy the solve
+        // attains, depend on it. The seed differs by rank so that the
+        // vectors are not repeated across the partitions. The generator's
+        // raw output is scaled to [0, 1) rather than drawn through a
+        // distribution, whose algorithm the standard leaves to the
+        // implementation, so the vectors are the same on every platform.
+        std::mt19937 gen(
+            static_cast<std::mt19937::result_type>(this->m_rowComm->GetRank()));
+        constexpr TData scale =
+            1.0 / (static_cast<TData>(std::mt19937::max()) + 1.0);
         for (unsigned int stage = 0; stage < m_stage; stage++)
         {
-            // Initialzie m_P with normalized random number.
             for (unsigned blk = 0; blk < m_P[stage].GetBlocks().size(); ++blk)
             {
                 auto &block = m_P[stage].GetBlocks()[blk];
@@ -100,7 +109,7 @@ public:
                     block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
                 std::generate(ptr,
                               ptr + block.GetNumComponents() * block.CompSize(),
-                              [&]() { return dis(gen); });
+                              [&]() { return gen() * scale; });
             }
 
             // The reductions assume the padding is zero.

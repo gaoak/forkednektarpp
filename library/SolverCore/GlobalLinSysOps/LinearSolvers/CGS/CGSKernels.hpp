@@ -41,7 +41,8 @@ namespace Nektar::SolverCore::detail
 {
 
 /**
- * @brief u = beta q + r and p = beta q + beta^2 p + u, in one pass.
+ * @brief u = beta q + r and p = beta q + beta^2 p + u, in one pass. The
+ * fields written take the interleave width of r, which the inputs share.
  */
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void UpdateCGSSearchDirection(
@@ -77,13 +78,18 @@ NEK_FORCE_INLINE static void UpdateCGSSearchDirection(
                 pptr[idx] = beta * q0 + beta * beta * pptr[idx] + u0;
                 uptr[idx] = u0;
             });
+
+        const auto width = r.GetBlocks()[blk].GetInterleaveWidth();
+        u.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
+        p.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
     }
 
     Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
- * @brief q = u - alpha s and w = u + q, in one pass.
+ * @brief q = u - alpha s and w = u + q, in one pass. The fields written take
+ * the interleave width of s, which the inputs share.
  */
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void UpdateCGSHalfStep(
@@ -119,6 +125,10 @@ NEK_FORCE_INLINE static void UpdateCGSHalfStep(
                 qptr[idx] = q0;
                 wptr[idx] = u0 + q0;
             });
+
+        const auto width = s.GetBlocks()[blk].GetInterleaveWidth();
+        q.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
+        w.GetBlocks()[blk].template SetInterleaveWidth<TData>(width);
     }
 
     Nektar::LoopExecutionSetStreamID(0);
