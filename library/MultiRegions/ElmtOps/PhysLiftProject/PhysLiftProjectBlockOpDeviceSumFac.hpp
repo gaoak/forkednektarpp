@@ -46,7 +46,7 @@
  *   point adding its traces' contributions to its inner product directly
  *   and scaling the sum by `scale / (w J)`, with no scratch: on SumFac at
  *   warpSize, lanes first; on SumFacTOP at width one, several whole
- *   elements per thread block (physLiftProjectBlockPoints). It takes the blocks
+ *   elements per thread block (128). It takes the blocks
  * whose trace values lie at volume points (#m_directLift): segments,
  * quadrilaterals and hexahedra whose traces have the volume points in every
  * in-trace direction, and triangles, tetrahedra, prisms and pyramids of one
@@ -89,7 +89,7 @@
  * to its Implementation, so that every launch is `Kernel<Implementation,
  * ...>`, as in BwdTransBlockOpDeviceSumFac.hpp; the SumFacTOP direct lift
  * also takes the elements per thread block. Each implementation sizes its
- * launches with its own GetDeviceBlockSize() and GetDeviceGridSize().
+ * launches with GetElmtsPerBlock() and GetDeviceKernelParameters().
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -520,17 +520,16 @@ protected:
             m_coef->template GetPtr<MemSpace, ReadOnly>(m_streamID);
         TData *coef2Ptr =
             m_coef2->template GetPtr<MemSpace, WriteOnly>(m_streamID);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(m_nmTot);
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, 0);
+        const auto kernelParams =
+            GetDeviceKernelParameters<Implementation>(m_nmTot, nelmt);
 
         if (m_invMassIsDiagonal)
         {
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                 (PhysLiftProjectInvMassScaleKernel<Implementation, true>),
-                gridsize, ncomp, blocksize, 1, m_streamID, nelmt, m_nmTot,
-                this->m_scale, m_invMassptr, m_jacptr, coefPtr, coef2Ptr);
+                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                m_streamID, nelmt, m_nmTot, this->m_scale, m_invMassptr,
+                m_jacptr, coefPtr, coef2Ptr);
         }
         else
         {
@@ -538,8 +537,9 @@ protected:
             const TData *noDiag = nullptr;
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                 (PhysLiftProjectInvMassScaleKernel<Implementation, false>),
-                gridsize, ncomp, blocksize, 1, m_streamID, nelmt, m_nmTot,
-                this->m_scale, noDiag, m_jacptr, coef2Ptr, coef2Ptr);
+                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                m_streamID, nelmt, m_nmTot, this->m_scale, noDiag, m_jacptr,
+                coef2Ptr, coef2Ptr);
         }
         m_coef2->template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -559,23 +559,23 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(m_nqTot);
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, 0);
+        const auto kernelParams =
+            GetDeviceKernelParameters<Implementation>(m_nqTot, nelmt);
         if (m_isDeformed)
         {
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                 (PhysLiftProjectPointwiseKernel<Implementation, APPEND, true>),
-                gridsize, ncomp, blocksize, 1, m_streamID, nelmt, m_nqTot,
-                this->m_scale, m_weightsptr, m_jacptr, volPtr, outPtr);
+                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                m_streamID, nelmt, m_nqTot, this->m_scale, m_weightsptr,
+                m_jacptr, volPtr, outPtr);
         }
         else
         {
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                 (PhysLiftProjectPointwiseKernel<Implementation, APPEND, false>),
-                gridsize, ncomp, blocksize, 1, m_streamID, nelmt, m_nqTot,
-                this->m_scale, m_weightsptr, m_jacptr, volPtr, outPtr);
+                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                m_streamID, nelmt, m_nqTot, this->m_scale, m_weightsptr,
+                m_jacptr, volPtr, outPtr);
         }
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -863,18 +863,19 @@ protected:
     }
 
     /// Dynamic shared memory of fused kernel @p KERNEL of the StdInvMass
-    /// form, in bytes; zero for SumFac, whose intermediates live in the
-    /// global workspace.
+    /// form for @p elmtsPerBlock elements per thread block, in bytes; zero for
+    /// SumFac, whose intermediates live in the global workspace.
     template <LibUtilities::ShapeType SHAPE_TYPE, PhysLiftProjectKernel KERNEL,
               typename TSizeParameter, typename TTraceSizeParameter>
     static unsigned int SharedMemoryBytes(
         const TSizeParameter sizeParam,
-        const TTraceSizeParameter traceSizeParam)
+        const TTraceSizeParameter traceSizeParam,
+        const unsigned int elmtsPerBlock)
     {
         return sizeof(TData) *
                PhysLiftProjectSharedMemorySize<SHAPE_TYPE, Implementation,
-                                               KERNEL, TData>(sizeParam,
-                                                              traceSizeParam);
+                                               KERNEL, TData>(
+                   sizeParam, traceSizeParam, elmtsPerBlock);
     }
 
     /// The faces whose integrals the dense projector's lift forms in shared
@@ -950,8 +951,8 @@ protected:
     }
 
     /// One launch of PhysLiftProjectLiftJacobianKernelLauncher: as many whole
-    /// elements per thread block as fit in physLiftProjectBlockPoints points
-    /// (GetDevicePackedKernelParameters()) and @p CHUNK components, with @p
+    /// elements per thread block as fit in 128 points
+    /// (GetElmtsPerBlock()) and @p CHUNK components, with @p
     /// stageSize shared-memory entries per element and component where it
     /// lifts.
     template <LibUtilities::ShapeType SHAPE_TYPE, unsigned int CHUNK,
@@ -965,10 +966,13 @@ protected:
         std::integer_sequence<unsigned int, ind1...>)
     {
         constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
-        const DevicePackedKernelParameters kernelParams =
-            GetDevicePackedKernelParameters<Implementation>(
-                nelmt, m_nqTot, physLiftProjectBlockPoints,
-                lift ? sizeof(TData) * CHUNK * stageSize : 0u);
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(m_nqTot, 128u);
+        const unsigned int shmemsize =
+            lift ? elmtsPerBlock * sizeof(TData) * CHUNK * stageSize : 0u;
+        const unsigned int passesPerBlock = 1u;
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            m_nqTot, nelmt, shmemsize, elmtsPerBlock, passesPerBlock);
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (PhysLiftProjectLiftJacobianKernelLauncher<
                 SHAPE_TYPE, Implementation, CHUNK, STAGE_MASK>),
@@ -1008,18 +1012,20 @@ protected:
                     std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
                 return;
             }
+            const unsigned int elmtsPerBlock =
+                GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
             unsigned int shmemsize =
                 SharedMemoryBytes<SHAPE_TYPE, PhysLiftProjectKernel::Fused>(
-                    sizeParam, traceSizeParam);
+                    sizeParam, traceSizeParam, elmtsPerBlock);
             if (!m_invMassIsDiagonal)
             {
                 shmemsize = std::max(
                     SharedMemoryBytes<
                         SHAPE_TYPE, PhysLiftProjectKernel::LiftBasisTranspose>(
-                        sizeParam, traceSizeParam),
+                        sizeParam, traceSizeParam, elmtsPerBlock),
                     SharedMemoryBytes<SHAPE_TYPE,
                                       PhysLiftProjectKernel::ScaleBwdTrans>(
-                        sizeParam, traceSizeParam));
+                        sizeParam, traceSizeParam, elmtsPerBlock));
             }
             if (shmemsize > GetDeviceProperties::SharedMemoryPerBlock())
             {
@@ -1209,39 +1215,43 @@ protected:
             {
                 // One thread per point of each element, lanes first, a
                 // thread block being a warp.
-                const unsigned int blocksize =
-                    GetDeviceBlockSize<Implementation>(m_nqTot);
-                const unsigned int gridsize = GetDeviceGridSize<Implementation>(
-                    nelmt * m_nqTot, blocksize, 0);
+                const auto kernelParams =
+                    GetDeviceKernelParameters<Implementation>(m_nqTot,
+                                                              nelmt * m_nqTot);
                 if (this->m_append)
                 {
                     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                         (PhysLiftProjectDirectLiftKernelLauncher<
                             SHAPE_TYPE, Implementation, true, DEFORMED>),
-                        gridsize, blocksize, m_streamID, traceSizeParam, nelmt,
-                        ncomp, this->m_scale, lift, m_liftB[ind0]...,
-                        m_liftW[ind1]..., m_traceJacptr, m_weightsptr, m_jacptr,
-                        inptr, traceptr, kernelOut);
+                        kernelParams.gridSize, kernelParams.blockSize,
+                        m_streamID, traceSizeParam, nelmt, ncomp, this->m_scale,
+                        lift, m_liftB[ind0]..., m_liftW[ind1]..., m_traceJacptr,
+                        m_weightsptr, m_jacptr, inptr, traceptr, kernelOut);
                 }
                 else
                 {
                     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                         (PhysLiftProjectDirectLiftKernelLauncher<
                             SHAPE_TYPE, Implementation, false, DEFORMED>),
-                        gridsize, blocksize, m_streamID, traceSizeParam, nelmt,
-                        ncomp, this->m_scale, lift, m_liftB[ind0]...,
-                        m_liftW[ind1]..., m_traceJacptr, m_weightsptr, m_jacptr,
-                        inptr, traceptr, kernelOut);
+                        kernelParams.gridSize, kernelParams.blockSize,
+                        m_streamID, traceSizeParam, nelmt, ncomp, this->m_scale,
+                        lift, m_liftB[ind0]..., m_liftW[ind1]..., m_traceJacptr,
+                        m_weightsptr, m_jacptr, inptr, traceptr, kernelOut);
                 }
             }
             else
             {
                 // One thread per point of as many whole elements per thread
-                // block as fit in physLiftProjectBlockPoints points, one at
+                // block as fit in 128 points, one at
                 // least.
-                const DevicePackedKernelParameters kernelParams =
-                    GetDevicePackedKernelParameters<Implementation>(
-                        nelmt, m_nqTot, physLiftProjectBlockPoints);
+                const unsigned int elmtsPerBlock =
+                    GetElmtsPerBlock<Implementation>(m_nqTot, 128u);
+                const unsigned int shmemsize      = 0u;
+                const unsigned int passesPerBlock = 1u;
+                const auto kernelParams =
+                    GetDeviceKernelParameters<Implementation>(
+                        m_nqTot, nelmt, shmemsize, elmtsPerBlock,
+                        passesPerBlock);
                 if (this->m_append)
                 {
                     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
@@ -1319,23 +1329,24 @@ protected:
         }
         else if (m_invMassIsDiagonal)
         {
-            const unsigned int blocksize =
-                GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
+            const unsigned int elmtsPerBlock =
+                GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
             const unsigned int shmemsize =
                 SharedMemoryBytes<SHAPE_TYPE, PhysLiftProjectKernel::Fused>(
-                    sizeParam, traceSizeParam);
-            const unsigned int gridsize =
-                GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+                    sizeParam, traceSizeParam, elmtsPerBlock);
+            const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+                sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
             if (this->m_append)
             {
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (PhysLiftProjectKernelLauncher<SHAPE_TYPE, Implementation,
                                                    true>),
-                    gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam, traceSizeParam, nelmt, this->m_scale, lift,
-                    m_isModified, m_index[ind3]..., m_basis[ind0]...,
-                    m_liftB[ind0]..., m_liftB[DIM + ind1]..., m_liftW[ind1]...,
-                    m_traceJacptr, (bool)m_isCollocated[ind1]...,
+                    kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam,
+                    traceSizeParam, nelmt, this->m_scale, lift, m_isModified,
+                    m_index[ind3]..., m_basis[ind0]..., m_liftB[ind0]...,
+                    m_liftB[DIM + ind1]..., m_liftW[ind1]..., m_traceJacptr,
+                    (bool)m_isCollocated[ind1]...,
                     (bool)m_endPtsCollocated[ind0]..., m_jacptr, m_invMassptr,
                     inptr, traceptr, kernelOut, inWsp, coefWsp, stage[ind2]...,
                     liftWsp[ind2]...);
@@ -1345,11 +1356,12 @@ protected:
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (PhysLiftProjectKernelLauncher<SHAPE_TYPE, Implementation,
                                                    false>),
-                    gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
-                    sizeParam, traceSizeParam, nelmt, this->m_scale, lift,
-                    m_isModified, m_index[ind3]..., m_basis[ind0]...,
-                    m_liftB[ind0]..., m_liftB[DIM + ind1]..., m_liftW[ind1]...,
-                    m_traceJacptr, (bool)m_isCollocated[ind1]...,
+                    kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam,
+                    traceSizeParam, nelmt, this->m_scale, lift, m_isModified,
+                    m_index[ind3]..., m_basis[ind0]..., m_liftB[ind0]...,
+                    m_liftB[DIM + ind1]..., m_liftW[ind1]..., m_traceJacptr,
+                    (bool)m_isCollocated[ind1]...,
                     (bool)m_endPtsCollocated[ind0]..., m_jacptr, m_invMassptr,
                     inptr, traceptr, kernelOut, inWsp, coefWsp, stage[ind2]...,
                     liftWsp[ind2]...);
@@ -1360,23 +1372,24 @@ protected:
             // The dense standard inverse mass: the lift and the basis
             // transpose, the batched product, then the scale and the
             // backward transform.
-            const unsigned int blocksize =
-                GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
+            const unsigned int elmtsPerBlock =
+                GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
             SizeScratch(inblock, false);
             const unsigned int shmemsizeA =
                 SharedMemoryBytes<SHAPE_TYPE,
                                   PhysLiftProjectKernel::LiftBasisTranspose>(
-                    sizeParam, traceSizeParam);
-            const unsigned int gridsizeA =
-                GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsizeA);
+                    sizeParam, traceSizeParam, elmtsPerBlock);
+            const auto kernelParamsA =
+                GetDeviceKernelParameters<Implementation>(
+                    sizeParam.nmTot(), nelmt, shmemsizeA, elmtsPerBlock);
             DEVICE_2DGRID_KERNEL_LAUNCHER(
                 (PhysLiftProjectLiftBasisTransposeKernelLauncher<
                     SHAPE_TYPE, Implementation>),
-                gridsizeA, ncomp, blocksize, 1, shmemsizeA, m_streamID,
-                sizeParam, traceSizeParam, nelmt, lift, m_isModified,
-                m_index[ind3]..., m_basis[ind0]..., m_liftB[ind0]...,
-                m_liftB[DIM + ind1]..., m_liftW[ind1]..., m_traceJacptr,
-                (bool)m_isCollocated[ind1]...,
+                kernelParamsA.gridSize, ncomp, kernelParamsA.blockSize, 1,
+                kernelParamsA.shmemSize, m_streamID, sizeParam, traceSizeParam,
+                nelmt, lift, m_isModified, m_index[ind3]..., m_basis[ind0]...,
+                m_liftB[ind0]..., m_liftB[DIM + ind1]..., m_liftW[ind1]...,
+                m_traceJacptr, (bool)m_isCollocated[ind1]...,
                 (bool)m_endPtsCollocated[ind0]..., inptr, traceptr,
                 m_coef->template GetPtr<MemSpace, WriteOnly>(m_streamID), inWsp,
                 stage[ind2]..., liftWsp[ind2]...);
@@ -1387,28 +1400,31 @@ protected:
             const unsigned int shmemsizeB =
                 SharedMemoryBytes<SHAPE_TYPE,
                                   PhysLiftProjectKernel::ScaleBwdTrans>(
-                    sizeParam, traceSizeParam);
-            const unsigned int gridsizeB =
-                GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsizeB);
+                    sizeParam, traceSizeParam, elmtsPerBlock);
+            const auto kernelParamsB =
+                GetDeviceKernelParameters<Implementation>(
+                    sizeParam.nmTot(), nelmt, shmemsizeB, elmtsPerBlock);
             if (this->m_append)
             {
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (PhysLiftProjectScaleBwdTransKernelLauncher<
                         SHAPE_TYPE, Implementation, true>),
-                    gridsizeB, ncomp, blocksize, 1, shmemsizeB, m_streamID,
-                    sizeParam, traceSizeParam, nelmt, this->m_scale,
-                    m_isModified, m_index[ind3]..., m_basis[ind0]..., m_jacptr,
-                    coef2Ptr, kernelOut, stage[ind2]...);
+                    kernelParamsB.gridSize, ncomp, kernelParamsB.blockSize, 1,
+                    kernelParamsB.shmemSize, m_streamID, sizeParam,
+                    traceSizeParam, nelmt, this->m_scale, m_isModified,
+                    m_index[ind3]..., m_basis[ind0]..., m_jacptr, coef2Ptr,
+                    kernelOut, stage[ind2]...);
             }
             else
             {
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (PhysLiftProjectScaleBwdTransKernelLauncher<
                         SHAPE_TYPE, Implementation, false>),
-                    gridsizeB, ncomp, blocksize, 1, shmemsizeB, m_streamID,
-                    sizeParam, traceSizeParam, nelmt, this->m_scale,
-                    m_isModified, m_index[ind3]..., m_basis[ind0]..., m_jacptr,
-                    coef2Ptr, kernelOut, stage[ind2]...);
+                    kernelParamsB.gridSize, ncomp, kernelParamsB.blockSize, 1,
+                    kernelParamsB.shmemSize, m_streamID, sizeParam,
+                    traceSizeParam, nelmt, this->m_scale, m_isModified,
+                    m_index[ind3]..., m_basis[ind0]..., m_jacptr, coef2Ptr,
+                    kernelOut, stage[ind2]...);
             }
         }
 

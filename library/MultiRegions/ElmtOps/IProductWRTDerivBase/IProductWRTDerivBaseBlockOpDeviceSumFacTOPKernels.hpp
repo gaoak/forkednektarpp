@@ -342,7 +342,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTDerivBaseSharedWorkSpace
  *
  * The transposed differentiation matrix, nq0 * nq0, rounded to 16 bytes;
  * with @p useSharedMemoryWsp the workspace
- * IProductWRTDerivBaseSharedWorkSpaceSize gives follows. The basis table is
+ * IProductWRTDerivBaseSharedWorkSpaceSize gives, per element, for
+ * @p elmtsPerBlock elements follows. The basis table is
  * read straight from global memory. The output field state is encoded in the
  * size-parameter type: a physical-space size parameter selects the Phys
  * variant, a modal one the Coeff variant.
@@ -356,6 +357,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTDerivBaseSharedWorkSpace
  *                           (see ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Sizes of the expansion.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
@@ -368,15 +371,16 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter1D sizeParam1D, const bool useSharedMemoryWsp)
+    const TSizeParameter1D sizeParam1D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam1D.nq0();
 
     const unsigned int wspSize =
         useSharedMemoryWsp
-            ? IProductWRTDerivBaseSharedWorkSpaceSize<SHAPE_TYPE,
-                                                      Implementation, TData>(
-                  sizeParam1D)
+            ? elmtsPerBlock *
+                  IProductWRTDerivBaseSharedWorkSpaceSize<
+                      SHAPE_TYPE, Implementation, TData>(sizeParam1D)
             : 0u;
 
     return SharedMemoryAlignedSize<TData>(nq0 * nq0) + wspSize;
@@ -396,7 +400,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *   transposed derivative matrices.
  *
  * With @p useSharedMemoryWsp the workspace
- * IProductWRTDerivBaseSharedWorkSpaceSize gives follows.
+ * IProductWRTDerivBaseSharedWorkSpaceSize gives, per element, for
+ * @p elmtsPerBlock elements follows.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements.
  * @tparam Implementation    Implementation tag; this overload is
@@ -408,6 +413,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *                           Phys or Coeff variant.
  *
  * @param   sizeParam2D  Sizes per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
@@ -420,7 +427,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
+    const TSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam2D.nq0();
     const unsigned int nq1 = sizeParam2D.nq1();
@@ -430,9 +438,9 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
 
     const unsigned int wspSize =
         useSharedMemoryWsp
-            ? IProductWRTDerivBaseSharedWorkSpaceSize<SHAPE_TYPE,
-                                                      Implementation, TData>(
-                  sizeParam2D)
+            ? elmtsPerBlock *
+                  IProductWRTDerivBaseSharedWorkSpaceSize<
+                      SHAPE_TYPE, Implementation, TData>(sizeParam2D)
             : 0u;
 
     if constexpr (IsPhysSizeParameter2D_v<TSizeParameter2D>)
@@ -459,7 +467,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *   why they are computed rather than simply nm1 and nm2.
  *
  * With @p useSharedMemoryWsp the workspace
- * IProductWRTDerivBaseSharedWorkSpaceSize gives follows.
+ * IProductWRTDerivBaseSharedWorkSpaceSize gives, per element, for
+ * @p elmtsPerBlock elements follows.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements.
  * @tparam Implementation    Implementation tag; this overload is
@@ -471,6 +480,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *                           Phys or Coeff variant.
  *
  * @param   sizeParam3D  Sizes per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
@@ -483,7 +494,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
+    const TSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
@@ -494,9 +506,9 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
 
     const unsigned int wspSize =
         useSharedMemoryWsp
-            ? IProductWRTDerivBaseSharedWorkSpaceSize<SHAPE_TYPE,
-                                                      Implementation, TData>(
-                  sizeParam3D)
+            ? elmtsPerBlock *
+                  IProductWRTDerivBaseSharedWorkSpaceSize<
+                      SHAPE_TYPE, Implementation, TData>(sizeParam3D)
             : 0u;
 
     if constexpr (IsPhysSizeParameter3D_v<TSizeParameter3D>)

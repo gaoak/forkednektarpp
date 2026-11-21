@@ -345,10 +345,10 @@ protected:
      * collapsed-coordinate tables of the simplex-type shapes and
      * nothing for quadrilaterals and hexahedra; for SumFacTOP two
      * per-element workspaces of nqTot entries), threads per block from
-     * GetDeviceBlockSize (a warp for SumFac; for SumFacTOP the
+     * GetDeviceKernelParameters (a warp for SumFac; for SumFacTOP the
      * element's point count rounded up to whole warps and capped at
      * the device default block size) and the grid from
-     * GetDeviceGridSize (for SumFac enough thread blocks to cover the
+     * GetDeviceKernelParameters (for SumFac enough thread blocks to cover the
      * block's elements, padding included; for SumFacTOP an
      * occupancy-based number of persistent thread blocks that stride
      * over the elements). All input components and planes are
@@ -409,13 +409,14 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nqTot());
         const unsigned int shmemsize =
             sizeof(TData) *
-            DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+            DivergenceSharedMemorySize<SHAPE_TYPE, Implementation>(
+                sizeParam, elmtsPerBlock);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
 
         // Offsets between the components of a block: one component spans all
         // of the planes.
@@ -431,9 +432,9 @@ protected:
         // single launch and the kernel picks its plane from the block index.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (DivergenceKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, nhomo, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            nelmt, inoffset, m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr,
-            outptr);
+            kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
+            kernelParams.shmemSize, m_streamID, sizeParam, nelmt, inoffset,
+            m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr, outptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

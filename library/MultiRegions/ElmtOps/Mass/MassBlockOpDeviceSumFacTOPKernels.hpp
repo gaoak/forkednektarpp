@@ -299,7 +299,7 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int MassSharedWorkSpaceSize(
  *
  * The 1D MassKernelLauncher stages one region only, the element's nq0
  * physical values, which form its workspace; with @p useSharedMemoryWsp
- * that is the request, else nothing.
+ * the request is that of @p elmtsPerBlock elements, else nothing.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
  * @tparam Implementation    MultiRegions::SumFacTOP.
@@ -307,6 +307,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int MassSharedWorkSpaceSize(
  * @tparam TSizeParameter1D  1D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared memory per thread block, in TData values.
@@ -318,9 +320,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter1D sizeParam1D, const bool useSharedMemoryWsp)
+    const TSizeParameter1D sizeParam1D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
-    return useSharedMemoryWsp ? sizeParam1D.nq0() : 0u;
+    return useSharedMemoryWsp ? elmtsPerBlock * sizeParam1D.nq0() : 0u;
 }
 
 /**
@@ -329,8 +332,9 @@ inline constexpr unsigned int MassSharedMemorySize(
  *
  * The copies of both basis tables, the direction-1 table having nmTot rows
  * for the triangles because its rows are indexed by the combined mode,
- * rounded to 16 bytes; with @p useSharedMemoryWsp one element's workspace as
- * MassSharedWorkSpaceSize gives it follows.
+ * rounded to 16 bytes; with @p useSharedMemoryWsp the workspace of
+ * @p elmtsPerBlock elements, each as MassSharedWorkSpaceSize gives it,
+ * follows.
  *
  * @tparam SHAPE_TYPE        Quad, Tri or NodalTri.
  * @tparam Implementation    MultiRegions::SumFacTOP.
@@ -339,6 +343,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @tparam TSizeParameter2D  2D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Modal and quadrature sizes per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared memory per thread block, in TData values.
@@ -350,13 +356,15 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
+    const TSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam2D);
     const unsigned int wspSize =
         useSharedMemoryWsp
-            ? MassSharedWorkSpaceSize<SHAPE_TYPE, Implementation, TData>(
-                  sizeParam2D)
+            ? elmtsPerBlock *
+                  MassSharedWorkSpaceSize<SHAPE_TYPE, Implementation, TData>(
+                      sizeParam2D)
             : 0u;
 
     return SharedMemoryAlignedSize<TData>(basisDataSize.total()) + wspSize;
@@ -385,6 +393,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @tparam TSizeParameter3D  3D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Modal and quadrature sizes per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared memory per thread block, in TData values.
@@ -396,13 +406,15 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
+    const TSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam3D);
     const unsigned int wspSize =
         useSharedMemoryWsp
-            ? MassSharedWorkSpaceSize<SHAPE_TYPE, Implementation, TData>(
-                  sizeParam3D)
+            ? elmtsPerBlock *
+                  MassSharedWorkSpaceSize<SHAPE_TYPE, Implementation, TData>(
+                      sizeParam3D)
             : 0u;
 
     return SharedMemoryAlignedSize<TData>(basisDataSize.total()) + wspSize;

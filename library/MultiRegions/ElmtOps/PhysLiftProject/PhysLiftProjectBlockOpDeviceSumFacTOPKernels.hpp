@@ -59,7 +59,7 @@
  * tables, staged once per
  * thread block; each kernel reserves only the buffers of the stages it runs
  * (PhysLiftProjectSharedLayout()), and its launch is sized from the same
- * sizes. The block size is GetDeviceBlockSize() of the mode count,
+ * sizes. The block size is GetDeviceKernelParameters() of the mode count,
  * as for Mass, the threads striding over points and modes alike.
  *
  * Two kernels take one thread per point of several whole elements per
@@ -69,7 +69,7 @@
  * lift, and PhysLiftProjectLiftJacobianKernelLauncher, the lift and the
  * division by the Jacobian ahead of the dense projector of tetrahedra,
  * prisms and pyramids (PhysLiftProjectDenseTail()). A block takes as many
- * whole elements as fit in #physLiftProjectBlockPoints points, one at least,
+ * whole elements as fit in 128 points, one at least,
  * and each thread computes its element of the block, then its point. Their
  * launch bounds are the default block size, which is what
  * GetMaxThreadPerBlock() gives for a trace size parameter.
@@ -387,8 +387,9 @@ PhysLiftProjectSharedLayout(const TSizeParameter sizeParam,
 
 /**
  * @brief Dynamic shared memory one block of fused SumFacTOP kernel
- * @p KERNEL needs, in TData values: one element resident at a time, its
- * buffers (PhysLiftProjectSharedLayout()) back to back.
+ * @p KERNEL needs, in TData values: the buffers of each of the
+ * @p elmtsPerBlock elements (PhysLiftProjectSharedLayout()) back to back,
+ * the basis tables, which the elements share, once.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           PhysLiftProjectKernel KERNEL, typename TData, typename TSizeParameter,
@@ -396,11 +397,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 inline constexpr unsigned int PhysLiftProjectSharedMemorySize(
-    const TSizeParameter sizeParam, const TTraceSizeParameter traceSizeParam)
+    const TSizeParameter sizeParam, const TTraceSizeParameter traceSizeParam,
+    const unsigned int elmtsPerBlock)
 {
-    return PhysLiftProjectSharedLayout<SHAPE_TYPE, KERNEL, TData>(
-               sizeParam, traceSizeParam)
-        .Total();
+    const PhysLiftProjectSharedSizes size =
+        PhysLiftProjectSharedLayout<SHAPE_TYPE, KERNEL, TData>(sizeParam,
+                                                               traceSizeParam);
+    return elmtsPerBlock * (size.Total() - size.basis) + size.basis;
 }
 
 /// `s_coef *= factor * diag`, or by @p factor alone without @p DIAG, then
@@ -1456,12 +1459,6 @@ NEK_DEVICE_KERNEL void PhysLiftProjectPointwiseKernel(
     }
 }
 
-/// Points per thread block of the kernels that take whole elements per
-/// block, the direct lift (PhysLiftProjectDirectLiftKernelLauncher) and the
-/// dense form's lift (PhysLiftProjectLiftJacobianKernelLauncher): as many
-/// whole elements as fit, one at least.
-static constexpr unsigned int physLiftProjectBlockPoints = 128u;
-
 /**
  * @brief The factor `scale / (w J)` of the Pointwise form at point @p pt of
  * element @p e at width one; zero on the padding elements, whose Jacobian is
@@ -1581,7 +1578,7 @@ NEK_DEVICE_INLINE static TData PhysLiftProjectOnePointLiftTOPKernel(
  *
  * One thread per volume point of a thread block's elements, over every
  * component, the block at width one. A thread block takes @p elmtsPerBlock
- * whole elements at a time, as many as fit in #physLiftProjectBlockPoints
+ * whole elements at a time, as many as fit in 128
  * points (one at least): an element has as few as one point here, so one
  * element per block would leave most of each block idle. Each thread computes
  * its element of the block first, then its point (GetDevicePackedThread());
@@ -1659,7 +1656,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * One thread per volume point of a thread block's elements, over every
  * component, the block at width one. A thread block takes @p elmtsPerBlock
- * whole elements at a time, as many as fit in #physLiftProjectBlockPoints
+ * whole elements at a time, as many as fit in 128
  * points (one at least): an element has as few as one point here, so one
  * element per block would leave most of each block idle. Each thread computes
  * its element of the block first, then its point (GetDevicePackedThread());
@@ -1806,7 +1803,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * One thread per volume point of a thread block's elements, over every
  * component, the block at width one. A thread block takes @p elmtsPerBlock
- * whole elements at a time, as many as fit in #physLiftProjectBlockPoints
+ * whole elements at a time, as many as fit in 128
  * points (one at least): an element has as few as one point here, so one
  * element per block would leave most of each block idle. Each thread computes
  * its element of the block first, then its point (GetDevicePackedThread());
@@ -1844,7 +1841,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   nelmt     Elements in the block, including padding.
  * @param   ncomp     Components (times homogeneous modes) of the block.
  * @param   elmtsPerBlock  Elements per thread block
- *                    (GetDevicePackedKernelParameters()).
+ *                    (GetElmtsPerBlock()).
  * @param   scale     Factor the result is scaled by.
  * @param   lift      Lift @p trace; without it only the scale is applied.
  * @param   nbasis0,nbasis1,nbasis2  End-point interpolant of each

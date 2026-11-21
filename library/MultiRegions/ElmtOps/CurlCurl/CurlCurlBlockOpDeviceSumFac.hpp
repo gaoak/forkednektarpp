@@ -373,7 +373,7 @@ protected:
      * time, its thread count the element's number of quadrature points
      * rounded up to a warp multiple and capped at the default block size,
      * and an occupancy-based number of thread blocks that stride over the
-     * remaining elements (GetDeviceBlockSize() and GetDeviceGridSize()).
+     * remaining elements (GetElmtsPerBlock() and GetDeviceKernelParameters()).
      * The dynamic shared memory request is CurlCurlSharedMemorySize for
      * the shape and strategy at hand, in bytes: the collapsed-coordinate
      * factor tables for SumFac (nothing for segments, quadrilaterals and
@@ -463,10 +463,12 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Stage intermediates in shared memory if they fit.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nqTot());
         const unsigned int shmemsizeWithSharedWsp =
             sizeof(TData) *
-            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam,
-                                                                 true);
+            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
+                sizeParam, elmtsPerBlock, true);
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
@@ -476,11 +478,9 @@ protected:
                 ? shmemsizeWithSharedWsp
                 : sizeof(TData) *
                       CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
-                          sizeParam, false);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+                          sizeParam, elmtsPerBlock, false);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer. The fused kernel needs storage for
         // the intermediate omega = curl(u), and SumFacTOP for its staged
@@ -489,7 +489,8 @@ protected:
             useSharedMemoryWsp
                 ? 0
                 : CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      WorkSpaceNumElmts<Implementation>(nelmt,
+                                                        kernelParams.gridSize),
                       sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -508,9 +509,10 @@ protected:
         // Curl-curl kernel.
         DEVICE_1DGRID_KERNEL_LAUNCHER(
             (CurlCurlKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam, nelmt,
-            inoffset, useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]..., m_dfptr,
-            inptr, wspptr, outptr);
+            kernelParams.gridSize, kernelParams.blockSize,
+            kernelParams.shmemSize, m_streamID, sizeParam, nelmt, inoffset,
+            useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr,
+            wspptr, outptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
@@ -562,21 +564,21 @@ protected:
 
         // Set Kernel parameters. SumFacTOP stages the element's three
         // components in shared memory if they fit, else reads them in place.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nqTot());
         const bool useSharedMemoryWsp =
             std::is_same_v<Implementation, MultiRegions::SumFacTOP>
                 ? UseSharedWorkSpace<Implementation>(
                       sizeof(TData) *
                       CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
-                          sizeParam, true))
+                          sizeParam, elmtsPerBlock, true))
                 : false;
         const unsigned int shmemsize =
             sizeof(TData) *
             CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam, useSharedMemoryWsp);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+                sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
 
         // Offsets between the components of a block: one component spans all
         // of the planes.
@@ -591,9 +593,10 @@ protected:
         // Plane part of one curl.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (Curl3DH1KernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, nhomo, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            nelmt, inoffset, outoffset, useSharedMemoryWsp, m_D[ind0]...,
-            m_f[ind1]..., m_dfptr, inptr, outptr);
+            kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
+            kernelParams.shmemSize, m_streamID, sizeParam, nelmt, inoffset,
+            outoffset, useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]..., m_dfptr,
+            inptr, outptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

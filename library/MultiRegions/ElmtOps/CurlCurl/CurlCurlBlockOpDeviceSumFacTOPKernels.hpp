@@ -206,6 +206,7 @@ inline constexpr size_t CurlCurlWorkSpaceSize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Element sizes; unused.
+ * @param   elmtsPerBlock  Elements per thread block; unused.
  * @param   useSharedMemoryWsp    Unused: the 1D launcher stages nothing.
  *
  * @return Zero.
@@ -218,6 +219,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
     [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     return 0;
@@ -227,7 +229,8 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
  * in elements of TData, for a two-dimensional shape.
  *
- * With @p useSharedMemoryWsp, three element-sized buffers: the two input
+ * With @p useSharedMemoryWsp, three element-sized buffers for each of the
+ * @p elmtsPerBlock elements: the two input
  * components the launcher stages and the out-of-plane vorticity the first
  * curl kernel writes; Curl3DH1KernelLauncher stages its three input
  * components in the same three buffers. The collapsed-coordinate factor tables
@@ -240,9 +243,12 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
- * @return 3 * nq0 * nq1, or zero without @p useSharedMemoryWsp.
+ * @return 3 * elmtsPerBlock * nq0 * nq1, or zero without
+ *         @p useSharedMemoryWsp.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter2D,
@@ -251,18 +257,20 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
-    const TPhysSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
+    const TPhysSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
 
     // Two input components plus the out-of-plane omega.
-    return useSharedMemoryWsp ? 3u * sizeParam2D.nqTot() : 0u;
+    return useSharedMemoryWsp ? 3u * elmtsPerBlock * sizeParam2D.nqTot() : 0u;
 }
 
 /**
  * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
  * in elements of TData, for a three-dimensional shape.
  *
- * With @p useSharedMemoryWsp, six element-sized buffers: the three input
+ * With @p useSharedMemoryWsp, six element-sized buffers for each of the
+ * @p elmtsPerBlock elements: the three input
  * components the launcher stages and the three vorticity components the
  * first curl kernel writes.
  *
@@ -273,9 +281,12 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
- * @return 6 * nq0 * nq1 * nq2, or zero without @p useSharedMemoryWsp.
+ * @return 6 * elmtsPerBlock * nq0 * nq1 * nq2, or zero without
+ *         @p useSharedMemoryWsp.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter3D,
@@ -284,11 +295,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int CurlCurlSharedMemorySize(
-    const TPhysSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
+    const TPhysSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
 
     // Three input components plus the three components of omega.
-    return useSharedMemoryWsp ? 6u * sizeParam3D.nqTot() : 0u;
+    return useSharedMemoryWsp ? 6u * elmtsPerBlock * sizeParam3D.nqTot() : 0u;
 }
 
 /**

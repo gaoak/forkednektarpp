@@ -92,6 +92,7 @@ namespace Nektar::MultiRegions::detail
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Element sizes; unused.
+ * @param   elmtsPerBlock  Elements per thread block; unused.
  *
  * @return Zero.
  */
@@ -102,7 +103,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
-    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D)
+    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     return 0;
 }
@@ -122,6 +124,7 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block; unused.
  *
  * @return Entry count; the caller multiplies by sizeof(TData).
  */
@@ -132,7 +135,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
-    [[maybe_unused]] const TPhysSizeParameter2D sizeParam2D)
+    [[maybe_unused]] const TPhysSizeParameter2D sizeParam2D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
@@ -163,6 +167,7 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block; unused.
  *
  * @return Entry count; the caller multiplies by sizeof(TData).
  */
@@ -173,7 +178,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
-    const TPhysSizeParameter3D sizeParam3D)
+    const TPhysSizeParameter3D sizeParam3D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();

@@ -485,7 +485,7 @@ protected:
      * quadrature points (Phys output) or modes (Coeff output) rounded up
      * to a warp multiple and capped at the default block size, and an
      * occupancy-based number of thread blocks that stride over the
-     * remaining elements (GetDeviceBlockSize() and GetDeviceGridSize()).
+     * remaining elements (GetElmtsPerBlock() and GetDeviceKernelParameters()).
      * Its y and z extents carry the homogeneous-mode and output-component
      * counts, so that one launch covers every component and mode and each
      * kernel recovers its (mode, component) pair from its block index. The
@@ -561,10 +561,22 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Stage intermediates in shared memory if they fit.
+        unsigned int dofsPerElmt;
+        if constexpr (TFieldOut == FieldState::Phys)
+        {
+            dofsPerElmt = sizeParam.nqTot();
+        }
+        else
+        {
+            dofsPerElmt = sizeParam.nmTot();
+        }
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
         const unsigned int shmemsizeWithSharedWsp =
             sizeof(TData) *
             IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
-                                                 TData>(sizeParam, true);
+                                                 TData>(sizeParam,
+                                                        elmtsPerBlock, true);
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
@@ -572,20 +584,11 @@ protected:
         const unsigned int shmemsize =
             useSharedMemoryWsp
                 ? shmemsizeWithSharedWsp
-                : sizeof(TData) *
-                      IProductWRTDerivBaseSharedMemorySize<
-                          SHAPE_TYPE, Implementation, TData>(sizeParam, false);
-        unsigned int blocksize;
-        if constexpr (TFieldOut == FieldState::Phys)
-        {
-            blocksize = GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
-        }
-        else
-        {
-            blocksize = GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
-        }
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+                : sizeof(TData) * IProductWRTDerivBaseSharedMemorySize<
+                                      SHAPE_TYPE, Implementation, TData>(
+                                      sizeParam, elmtsPerBlock, false);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            dofsPerElmt, nelmt, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
@@ -594,7 +597,8 @@ protected:
             useSharedMemoryWsp
                 ? 0
                 : IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
+                      WorkSpaceNumElmts<Implementation>(nelmt,
+                                                        kernelParams.gridSize),
                       sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -628,22 +632,24 @@ protected:
                 DEVICE_3DGRID_KERNEL_LAUNCHER(
                     (IProductWRTDerivBasePhysKernelLauncher<
                         SHAPE_TYPE, Implementation, true, DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam, nelmt, inoffset, useSharedMemoryWsp,
-                    m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_dfptr, m_jacptr,
-                    inptr, outptr, wspptr, this->m_scale);
+                    kernelParams.gridSize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                    inoffset, useSharedMemoryWsp, m_D[ind0]..., m_W[ind0]...,
+                    m_f[ind2]..., m_dfptr, m_jacptr, inptr, outptr, wspptr,
+                    this->m_scale);
             }
             else
             {
                 DEVICE_3DGRID_KERNEL_LAUNCHER(
                     (IProductWRTDerivBasePhysKernelLauncher<
                         SHAPE_TYPE, Implementation, false, DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam, nelmt, inoffset, useSharedMemoryWsp,
-                    m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_dfptr, m_jacptr,
-                    inptr, outptr, wspptr, this->m_scale);
+                    kernelParams.gridSize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                    inoffset, useSharedMemoryWsp, m_D[ind0]..., m_W[ind0]...,
+                    m_f[ind2]..., m_dfptr, m_jacptr, inptr, outptr, wspptr,
+                    this->m_scale);
             }
         }
         else // coeff version
@@ -658,26 +664,26 @@ protected:
                 DEVICE_3DGRID_KERNEL_LAUNCHER(
                     (IProductWRTDerivBaseKernelLauncher<
                         SHAPE_TYPE, Implementation, true, DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam, m_coordDim, nelmt, inoffset,
-                    m_isModified, useSharedMemoryWsp, m_index[ind1]...,
-                    m_B[ind0]..., m_D[ind0]..., m_W[ind0]..., m_f[ind2]...,
-                    m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr,
-                    this->m_scale);
+                    kernelParams.gridSize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, m_coordDim,
+                    nelmt, inoffset, m_isModified, useSharedMemoryWsp,
+                    m_index[ind1]..., m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
+                    m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
+                    wspptr, this->m_scale);
             }
             else
             {
                 DEVICE_3DGRID_KERNEL_LAUNCHER(
                     (IProductWRTDerivBaseKernelLauncher<
                         SHAPE_TYPE, Implementation, false, DEFORMED>),
-                    gridsize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), blocksize, 1, 1, shmemsize,
-                    m_streamID, sizeParam, m_coordDim, nelmt, inoffset,
-                    m_isModified, useSharedMemoryWsp, m_index[ind1]...,
-                    m_B[ind0]..., m_D[ind0]..., m_W[ind0]..., m_f[ind2]...,
-                    m_nodToMod, m_dfptr, m_jacptr, inptr, outptr, wspptr,
-                    this->m_scale);
+                    kernelParams.gridSize, outblock.GetNumHomoModes(),
+                    outblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, m_coordDim,
+                    nelmt, inoffset, m_isModified, useSharedMemoryWsp,
+                    m_index[ind1]..., m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
+                    m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
+                    wspptr, this->m_scale);
             }
         }
 

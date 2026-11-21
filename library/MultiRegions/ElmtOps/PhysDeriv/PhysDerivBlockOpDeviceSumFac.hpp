@@ -337,10 +337,10 @@ protected:
      * collapsed-coordinate tables of the simplex-type shapes and
      * nothing for quadrilaterals and hexahedra; for SumFacTOP one
      * element's nqTot input values), threads per block from
-     * GetDeviceBlockSize (a warp for SumFac; for SumFacTOP the
+     * GetDeviceKernelParameters (a warp for SumFac; for SumFacTOP the
      * element's point count rounded up to whole warps and capped at
      * the device default block size) and the grid's X extent from
-     * GetDeviceGridSize (for SumFac enough thread blocks to cover the
+     * GetDeviceKernelParameters (for SumFac enough thread blocks to cover the
      * block's elements, padding included; for SumFacTOP an
      * occupancy-based number of persistent thread blocks that stride
      * over the elements). The whole input storage --
@@ -402,13 +402,14 @@ protected:
         // Set Kernel parameters.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nqTot());
         const unsigned int shmemsize =
             sizeof(TData) *
-            PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+            PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(
+                sizeParam, elmtsPerBlock);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
 
         const auto outDim = (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
@@ -421,8 +422,9 @@ protected:
         // Calculate derivative.
         DEVICE_3DGRID_KERNEL_LAUNCHER(
             (PhysDerivKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, inblock.GetNumHomoModes(), inblock.GetNumComponents(),
-            blocksize, 1, 1, shmemsize, m_streamID, sizeParam, nelmt, outoffset,
+            kernelParams.gridSize, inblock.GetNumHomoModes(),
+            inblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
+            kernelParams.shmemSize, m_streamID, sizeParam, nelmt, outoffset,
             m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr, outptr);
 
         // Reshape back, if necessary.

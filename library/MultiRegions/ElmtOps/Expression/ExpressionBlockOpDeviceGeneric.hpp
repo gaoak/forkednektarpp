@@ -294,8 +294,7 @@ protected:
         // Set Kernel parameters.
         const size_t nsize           = compSize * nhomo;
         const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-        const unsigned int gridSize =
-            static_cast<unsigned int>((nsize + blockSize - 1u) / blockSize);
+        const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
         // Select the kernel matching the interleave format that is read and
         // whether the operator appends to its output.

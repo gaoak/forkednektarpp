@@ -406,7 +406,7 @@ protected:
      * a time, its thread count the element's mode count rounded up to a
      * warp multiple and capped at the default block size, and an
      * occupancy-based number of thread blocks that stride over the
-     * remaining elements (GetDeviceBlockSize() and GetDeviceGridSize()).
+     * remaining elements (GetElmtsPerBlock() and GetDeviceKernelParameters()).
      * Its y extent is ncomp, the component count times the homogeneous mode
      * count, so that one launch covers every component and mode and each
      * kernel recovers its component from its block index. The dynamic
@@ -473,10 +473,12 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Stage intermediates in shared memory if they fit.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
         const unsigned int shmemsizeWithSharedWsp =
             sizeof(TData) *
-            MassSharedMemorySize<SHAPE_TYPE, Implementation, TData>(sizeParam,
-                                                                    true);
+            MassSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
+                sizeParam, elmtsPerBlock, true);
         const bool useSharedMemoryWsp =
             UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
 
@@ -486,21 +488,19 @@ protected:
                 ? shmemsizeWithSharedWsp
                 : sizeof(TData) *
                       MassSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
-                          sizeParam, false);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+                          sizeParam, elmtsPerBlock, false);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            useSharedMemoryWsp
-                ? 0
-                : MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      WorkSpaceNumElmts<Implementation>(nelmt, gridsize),
-                      sizeParam);
+            useSharedMemoryWsp ? 0
+                               : MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                                     WorkSpaceNumElmts<Implementation>(
+                                         nelmt, kernelParams.gridSize),
+                                     sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -526,8 +526,9 @@ protected:
             DEVICE_2DGRID_KERNEL_LAUNCHER(
                 (MassKernelLauncher<SHAPE_TYPE, Implementation, false, APPEND,
                                     DEFORMED>),
-                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                nelmt, m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                m_isModified, useSharedMemoryWsp, m_index[ind1]...,
                 m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr, outptr,
                 wspptr, (TData)1.0);
         }
@@ -536,8 +537,9 @@ protected:
             DEVICE_2DGRID_KERNEL_LAUNCHER(
                 (MassKernelLauncher<SHAPE_TYPE, Implementation, true, APPEND,
                                     DEFORMED>),
-                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                nelmt, m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                m_isModified, useSharedMemoryWsp, m_index[ind1]...,
                 m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr, outptr,
                 wspptr, this->m_scale);
         }

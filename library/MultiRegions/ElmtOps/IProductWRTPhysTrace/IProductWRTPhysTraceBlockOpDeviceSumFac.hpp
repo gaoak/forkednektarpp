@@ -68,7 +68,7 @@
  * MultiRegions::SumFac, one element per warp lane at the warp-size
  * interleave, and MultiRegions::SumFacTOP, one element per thread block
  * at width one. Implementation selects the kernel family, the launch
- * geometry GetDeviceBlockSize() and GetDeviceGridSize() compute and
+ * geometry GetDeviceKernelParameters() computes and
  * IProductWRTPhysTraceBlockOpImpl::m_implInterleaveWidth. A StdMat
  * request reaches the SumFac class through
  * IProductWRTPhysTraceBlockOp::Create(), which maps it.
@@ -764,23 +764,23 @@ protected:
         // Set Kernel parameters. This path covers a single trace, hence
         // the ntrace of one in two dimensions; in three the regions are
         // sized per face already.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
         unsigned int shmemsize = 0;
         if constexpr (IsTraceSizeParameter2D_v<TTraceSizeParameter>)
         {
             shmemsize = sizeof(TData) *
                         IProductWRTPhysTraceSharedMemorySize<Implementation>(
-                            sizeParam, 1u);
+                            sizeParam, elmtsPerBlock, 1u);
         }
         else
         {
-            shmemsize =
-                sizeof(TData) *
-                IProductWRTPhysTraceSharedMemorySize<Implementation>(sizeParam);
+            shmemsize = sizeof(TData) *
+                        IProductWRTPhysTraceSharedMemorySize<Implementation>(
+                            sizeParam, elmtsPerBlock);
         }
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nmTot(), nelmtPad, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer, sized for a single trace as above.
         size_t wspSize = 0;
@@ -808,10 +808,11 @@ protected:
         // IProductWRTPhysTrace kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (IProductWRTPhysTraceTraceKernelLauncher<Implementation, DEFORMED>),
-            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, traceid,
-            SHAPE_TYPE, sizeParam, m_B[ind0]..., nelmtPad, numDataIn,
-            numDataOut, numDataJac, m_B[sizeof...(ind0) + ind1]...,
-            m_W[ind1]..., m_jacptr + jacOffset * m_implInterleaveWidth, wspptr,
+            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+            kernelParams.shmemSize, m_streamID, traceid, SHAPE_TYPE, sizeParam,
+            m_B[ind0]..., nelmtPad, numDataIn, numDataOut, numDataJac,
+            m_B[sizeof...(ind0) + ind1]..., m_W[ind1]...,
+            m_jacptr + jacOffset * m_implInterleaveWidth, wspptr,
             inptr + inOffset * m_implInterleaveWidth, outptr,
             (bool)this->m_isCollocated[ind1]...,
             (bool)m_endPtsCollocated[ind0]..., this->m_append);
@@ -971,13 +972,14 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Set Kernel parameters.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
         const unsigned int shmemsize =
             sizeof(TData) *
-            IProductWRTPhysTraceSharedMemorySize<Implementation>(sizeParam);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
+            IProductWRTPhysTraceSharedMemorySize<Implementation>(sizeParam,
+                                                                 elmtsPerBlock);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nmTot(), nelmtPad, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
@@ -1017,8 +1019,9 @@ protected:
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (IProductWRTPhysTraceKernelLauncher<SHAPE_TYPE, Implementation,
                                                 DEFORMED>),
-            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            m_B[ind0]..., nelmtPad, numDataIn, numDataOut, numDataJac,
+            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+            kernelParams.shmemSize, m_streamID, sizeParam, m_B[ind0]...,
+            nelmtPad, numDataIn, numDataOut, numDataJac,
             m_B[sizeof...(ind0) + ind1]..., m_W[ind1]..., m_jacptr, wspptr,
             inptr, outptr, (bool)this->m_isCollocated[ind1]...,
             (bool)m_endPtsCollocated[ind0]..., this->m_append);

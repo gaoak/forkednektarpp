@@ -351,7 +351,7 @@ protected:
      * the element's number of quadrature points rounded up to a warp
      * multiple and capped at the default block size, and an
      * occupancy-based number of thread blocks that stride over the
-     * remaining elements (GetDeviceBlockSize() and GetDeviceGridSize()).
+     * remaining elements (GetElmtsPerBlock() and GetDeviceKernelParameters()).
      * The second dimension is ncomp = GetNumComponents() *
      * GetNumHomoModes(), one row per component or homogeneous mode. The
      * dynamic shared memory request is sizeof(TData) times
@@ -449,13 +449,14 @@ protected:
         // Set Kernel parameters.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nqTot());
         const unsigned int shmemsize =
             sizeof(TData) *
-            AdvectionSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+            AdvectionSharedMemorySize<SHAPE_TYPE, Implementation>(
+                sizeParam, elmtsPerBlock);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
@@ -473,18 +474,20 @@ protected:
             DEVICE_2DGRID_KERNEL_LAUNCHER(
                 (AdvectionKernelLauncher<SHAPE_TYPE, Implementation, true,
                                          DEFORMED>),
-                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                nelmt, m_D[ind0]..., m_f[ind1]..., m_dfptr, advVelPtr,
-                advVelOffset, nhomo, inptr, outptr, this->m_scale);
+                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                m_D[ind0]..., m_f[ind1]..., m_dfptr, advVelPtr, advVelOffset,
+                nhomo, inptr, outptr, this->m_scale);
         }
         else
         {
             DEVICE_2DGRID_KERNEL_LAUNCHER(
                 (AdvectionKernelLauncher<SHAPE_TYPE, Implementation, false,
                                          DEFORMED>),
-                gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                nelmt, m_D[ind0]..., m_f[ind1]..., m_dfptr, advVelPtr,
-                advVelOffset, nhomo, inptr, outptr, this->m_scale);
+                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                m_D[ind0]..., m_f[ind1]..., m_dfptr, advVelPtr, advVelOffset,
+                nhomo, inptr, outptr, this->m_scale);
         }
 
         // Reshape back, if necessary.

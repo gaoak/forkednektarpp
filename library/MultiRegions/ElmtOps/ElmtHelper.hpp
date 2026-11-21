@@ -1417,13 +1417,14 @@ protected:
  * the given implementation is launched with; used in the
  * `__LAUNCH_BOUNDS__` annotation of the device kernel launchers.
  *
- * For SumFac the bound is the warp size, matching GetDeviceBlockSize().
+ * For SumFac the bound is the warp size, matching GetElmtsPerBlock().
  * For SumFacTOP with a templated (compile-time) plain or physical-space
- * size parameter the bound is GetDeviceBlockSize() evaluated at the
- * parameter's total mode count (plain forms) or total point count
- * (physical-space forms); with any other size parameter -- the runtime
+ * size parameter the bound is the parameter's total mode count (plain
+ * forms) or total point count (physical-space forms) rounded up to whole
+ * warps, at most the device's default block size; with any other size
+ * parameter -- the runtime
  * forms and the trace forms -- the device's default block size is
- * used, which is the cap GetDeviceBlockSize() applies at run time.
+ * used, which is the cap GetDeviceKernelParameters() applies at run time.
  * Other implementations return 0.
  *
  * @tparam Implementation   Implementation tag.
@@ -1435,9 +1436,10 @@ protected:
 template <typename Implementation, typename TSizeParameter>
 static constexpr unsigned int GetMaxThreadPerBlock(void)
 {
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
     if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
     {
-        constexpr auto warpsize = NektarSpaces::Device::warpSize;
         return warpsize;
     }
     else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
@@ -1446,14 +1448,18 @@ static constexpr unsigned int GetMaxThreadPerBlock(void)
                       IsTemplatedSizeParameter2D<TSizeParameter>::value ||
                       IsTemplatedSizeParameter3D<TSizeParameter>::value)
         {
-            return GetDeviceBlockSize<Implementation>(TSizeParameter::nmTot());
+            return std::min((TSizeParameter::nmTot() + warpsize - 1u) /
+                                warpsize * warpsize,
+                            NektarSpaces::Device::defaultBlockSize);
         }
         else if constexpr (
             IsTemplatedPhysSizeParameter1D<TSizeParameter>::value ||
             IsTemplatedPhysSizeParameter2D<TSizeParameter>::value ||
             IsTemplatedPhysSizeParameter3D<TSizeParameter>::value)
         {
-            return GetDeviceBlockSize<Implementation>(TSizeParameter::nqTot());
+            return std::min((TSizeParameter::nqTot() + warpsize - 1u) /
+                                warpsize * warpsize,
+                            NektarSpaces::Device::defaultBlockSize);
         }
         else
         {
@@ -1468,7 +1474,7 @@ static constexpr unsigned int GetMaxThreadPerBlock(void)
 
 /**
  * @brief The calling thread's place in a thread block that takes several
- * whole elements (GetDevicePackedKernelParameters()): its element of the block,
+ * whole elements (GetDeviceKernelParameters()): its element of the block,
  * and the points it takes, `pt = firstPoint; pt < npts; pt += pointStride`.
  */
 struct DevicePackedThread
@@ -1494,7 +1500,7 @@ struct DevicePackedThread
  *
  * @param   npts           Points (threads) per element.
  * @param   elmtsPerBlock  Elements per block, from
- *                         GetDevicePackedKernelParameters().
+ *                         GetDeviceKernelParameters().
  */
 template <typename TthreadBlock>
 NEK_DEVICE_INLINE static DevicePackedThread GetDevicePackedThread(

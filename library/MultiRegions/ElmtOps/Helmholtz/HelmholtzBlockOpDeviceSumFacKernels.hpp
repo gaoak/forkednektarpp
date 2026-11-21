@@ -211,9 +211,9 @@ inline constexpr size_t HelmholtzWorkSpaceSize(
  * @brief Dynamic shared memory a 1D SumFac Helmholtz launch needs, in
  * TData values.
  *
- * With @p useSharedMemoryWsp, the workspace of the thread block's single warp
- * of elements, laid out as HelmholtzWorkSpaceSize gives for warpSize elements;
- * otherwise none.
+ * With @p useSharedMemoryWsp, the workspace of the thread block's
+ * @p elmtsPerBlock elements, laid out as HelmholtzWorkSpaceSize gives for that
+ * many elements; otherwise none.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData, typename TSizeParameter1D,
@@ -223,19 +223,19 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int HelmholtzSharedMemorySize(
     const unsigned int ncoord, const TSizeParameter1D sizeParam1D,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, ncoord, sizeParam1D))
+                         elmtsPerBlock, ncoord, sizeParam1D))
                : 0u;
 }
 
 /**
  * @brief Dynamic shared memory a 2D SumFac Helmholtz launch needs, in
  * TData values: the collapsed-coordinate factors of the triangles, then
- * the warp's workspace as the 1D overload.
+ * the block's workspace as the 1D overload.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData, typename TSizeParameter2D,
@@ -245,13 +245,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int HelmholtzSharedMemorySize(
     const unsigned int ncoord, const TSizeParameter2D sizeParam2D,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     const unsigned int wspSize =
         useSharedMemoryWsp
             ? static_cast<unsigned int>(
                   HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      NektarSpaces::Device::warpSize, ncoord, sizeParam2D))
+                      elmtsPerBlock, ncoord, sizeParam2D))
             : 0u;
 
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
@@ -271,7 +271,7 @@ inline constexpr unsigned int HelmholtzSharedMemorySize(
 /**
  * @brief Dynamic shared memory a 3D SumFac Helmholtz launch needs, in
  * TData values: the collapsed-coordinate factors of the collapsed
- * shapes, then the warp's workspace as the 1D overload.
+ * shapes, then the block's workspace as the 1D overload.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData, typename TSizeParameter3D,
@@ -281,7 +281,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int HelmholtzSharedMemorySize(
     const unsigned int ncoord, const TSizeParameter3D sizeParam3D,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
@@ -291,7 +291,7 @@ inline constexpr unsigned int HelmholtzSharedMemorySize(
         useSharedMemoryWsp
             ? static_cast<unsigned int>(
                   HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      NektarSpaces::Device::warpSize, ncoord, sizeParam3D))
+                      elmtsPerBlock, ncoord, sizeParam3D))
             : 0u;
 
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)

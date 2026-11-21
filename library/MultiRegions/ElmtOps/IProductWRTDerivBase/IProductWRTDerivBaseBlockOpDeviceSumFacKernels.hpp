@@ -52,9 +52,9 @@
  * warpSize * n + ilane within its warp's group. The per-element kernels
  * stride over the elements of the block by the whole grid, which is a
  * whole number of warps -- the launch uses one warp per thread block, see
- * GetDeviceBlockSize -- so a thread keeps its lane index for every element
- * it visits. The workspace and the geometric factors are interleaved the
- * same way, and the grid's y and z dimensions select the homogeneous mode
+ * GetDeviceKernelParameters -- so a thread keeps its lane index for every
+ * element it visits. The workspace and the geometric factors are interleaved
+ * the same way, and the grid's y and z dimensions select the homogeneous mode
  * and output component a thread block works on. On a multi-plane 3DH1
  * expansion the input holds three directions per output component, of
  * which only the first coordDim are read here, so the launchers step between
@@ -320,8 +320,8 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
  * The SumFac kernels read the tables straight from global memory; only the
  * collapsed-coordinate factor tables of the simplex shapes are staged, and a
  * segment has none. With @p useSharedMemoryWsp the workspace of the thread
- * block's single warp of elements follows, laid out as
- * IProductWRTDerivBaseWorkSpaceSize gives for warpSize elements. The SumFacTOP
+ * block's @p elmtsPerBlock elements follows, laid out as
+ * IProductWRTDerivBaseWorkSpaceSize gives for that many elements. The SumFacTOP
  * overloads of the same name
  * (IProductWRTDerivBaseBlockOpDeviceSumFacTOPKernels.hpp) return the size of
  * the staging area that strategy uses.
@@ -334,6 +334,8 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
  *                           (see ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Sizes of the expansion.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage intermediates in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
@@ -346,13 +348,14 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter1D sizeParam1D, const bool useSharedMemoryWsp)
+    const TSizeParameter1D sizeParam1D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE,
                                                        Implementation>(
-                         NektarSpaces::Device::warpSize, sizeParam1D))
+                         elmtsPerBlock, sizeParam1D))
                : 0u;
 }
 
@@ -363,7 +366,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  * Zero for the quadrilateral; for the triangles the two
  * collapsed-coordinate factor tables, nq0 + nq1 values, which the
  * launchers stage once per thread block because every element reads them.
- * With @p useSharedMemoryWsp the warp's workspace follows, as in the 1D
+ * With @p useSharedMemoryWsp the block's workspace follows, as in the 1D
  * overload.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements.
@@ -374,6 +377,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *                           (see ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Sizes per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage intermediates in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
@@ -386,7 +391,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
+    const TSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     unsigned int shmemsize = 0;
 
@@ -403,7 +409,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     {
         shmemsize += static_cast<unsigned int>(
             IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                NektarSpaces::Device::warpSize, sizeParam2D));
+                elmtsPerBlock, sizeParam2D));
     }
 
     return shmemsize;
@@ -417,7 +423,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  * tables the shape uses, staged once per thread block: nq0 + nq2 for the
  * prisms, nq0 + nq1 + nq2 for the pyramid and nq0 + 2 * nq1 + nq2 for the
  * tetrahedra, which need both direction-1 tables. With @p useSharedMemoryWsp
- * the warp's workspace follows, as in the 1D overload.
+ * the block's workspace follows, as in the 1D overload.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements.
  * @tparam Implementation    Implementation tag; this overload is
@@ -427,6 +433,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *                           (see ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Sizes per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage intermediates in shared memory.
  *
  * @return Shared-memory requirement in elements of TData.
@@ -439,7 +447,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(
-    const TSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
+    const TSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
@@ -467,7 +476,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     {
         shmemsize += static_cast<unsigned int>(
             IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                NektarSpaces::Device::warpSize, sizeParam3D));
+                elmtsPerBlock, sizeParam3D));
     }
 
     return shmemsize;

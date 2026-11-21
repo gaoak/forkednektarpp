@@ -140,25 +140,27 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int AdvectionDealiasSharedWorkSpaceSize
 
 // Shared memory holds the collapsed-coordinate broadcast tables the reused
 // PhysDeriv kernels read, PhysDeriv's own requirement, followed with
-// useSharedMemoryWsp by the workspace of the thread block's single warp group.
+// useSharedMemoryWsp by the workspace of the thread block's elmtsPerBlock
+// elements.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 inline constexpr unsigned int AdvectionDealiasSharedMemorySize(
     const unsigned int ncoord, const unsigned int ncomp,
-    const TPhysSizeParameter sizeParam, const bool localPipeline,
-    [[maybe_unused]] const bool sharedScratch, const bool useSharedMemoryWsp)
+    const TPhysSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+    const bool localPipeline, [[maybe_unused]] const bool sharedScratch,
+    const bool useSharedMemoryWsp)
 {
     const unsigned int wspSize =
         useSharedMemoryWsp
             ? static_cast<unsigned int>(
                   AdvectionDealiasWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      NektarSpaces::Device::warpSize, ncoord, ncomp, sizeParam,
-                      localPipeline))
+                      elmtsPerBlock, ncoord, ncomp, sizeParam, localPipeline))
             : 0u;
 
-    return PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam) +
+    return PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(
+               sizeParam, elmtsPerBlock) +
            wspSize;
 }
 

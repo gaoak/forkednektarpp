@@ -57,8 +57,8 @@
  *
  * That is why the host class pairs them with an implementation
  * interleave width of one (PhysTraceExtractBlockOpDeviceSumFac.hpp) and
- * with the SumFacTOP launch geometry of GetDeviceBlockSize() and
- * GetDeviceGridSize(), and why the intermediate face-shaped blocks live
+ * with the SumFacTOP launch geometry of
+ * GetDeviceKernelParameters(), and why the intermediate face-shaped blocks live
  * in dynamic shared memory rather than in the global workspace the
  * SumFac path partitions per warp.
  *
@@ -147,41 +147,43 @@ template <typename Implementation, typename TTraceSizeParameter1D,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
-    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
+    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     return 0;
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: the edge
 /// block the normal stage writes, one PhysTraceExtractBlockSize(),
-/// followed by a copy of the element's volume field. One element is
-/// resident per block at a time, so the per-element bound of the global
-/// workspace is what a block needs.
+/// followed by a copy of the element's volume field, for each of the
+/// @p elmtsPerBlock elements of the block.
 template <typename Implementation, typename TTraceSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
-    const TTraceSizeParameter2D sizeParam2D)
+    const TTraceSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock)
 {
-    return PhysTraceExtractBlockSize(sizeParam2D) + sizeParam2D.nmTot();
+    return elmtsPerBlock *
+           (PhysTraceExtractBlockSize(sizeParam2D) + sizeParam2D.nmTot());
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: three
 /// PhysTraceExtractBlockSize(), two for the face block the normal stage
 /// writes and one for the tangential scratch, the split the kernels
 /// re-derive from the same helper, followed by a copy of the element's
-/// volume field.
+/// volume field, for each of the @p elmtsPerBlock elements of the block.
 template <typename Implementation, typename TTraceSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
-    const TTraceSizeParameter3D sizeParam3D)
+    const TTraceSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock)
 {
-    return 3u * PhysTraceExtractBlockSize(sizeParam3D) + sizeParam3D.nmTot();
+    return elmtsPerBlock *
+           (3u * PhysTraceExtractBlockSize(sizeParam3D) + sizeParam3D.nmTot());
 }
 
 // --- 2D ---

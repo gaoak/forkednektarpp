@@ -56,8 +56,8 @@
  * in a form with and a form without the quadrature metric -- grid-stride over
  * the elements of the block; the stride, gridDim * blockDim, is a whole
  * number of warps (the launch uses one warp per thread block, see
- * GetDeviceBlockSize), so a thread keeps its lane index for every element
- * it visits. The grid's y dimension selects the component (times
+ * GetDeviceKernelParameters), so a thread keeps its lane index for every
+ * element it visits. The grid's y dimension selects the component (times
  * homogeneous mode) a thread block works on.
  *
  * Each shape kernel contracts the physical values against one direction's
@@ -283,8 +283,8 @@ inline constexpr size_t IProductWRTBaseWorkSpaceSize(
  *
  * The SumFac kernels read the basis tables straight from global memory, so the
  * only thing held per thread block is, with @p useSharedMemoryWsp, the
- * workspace of its single warp of elements, laid out as
- * IProductWRTBaseWorkSpaceSize gives for warpSize elements. The SumFacTOP
+ * workspace of its @p elmtsPerBlock elements, laid out as
+ * IProductWRTBaseWorkSpaceSize gives for that many elements. The SumFacTOP
  * overloads of the same name (IProductWRTBaseBlockOpDeviceSumFacTOPKernels.hpp)
  * return the size of the staging area that strategy uses.
  *
@@ -295,6 +295,8 @@ inline constexpr size_t IProductWRTBaseWorkSpaceSize(
  *
  * @param   sizeParam1D  Sizes of the expansion.
  * @param   padded       Unused.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage intermediates in shared memory.
  *
  * @return Number of TData values of shared memory per thread block.
@@ -307,12 +309,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter1D sizeParam1D, [[maybe_unused]] const bool padded,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, sizeParam1D))
+                         elmtsPerBlock, sizeParam1D))
                : 0u;
 }
 
@@ -326,12 +328,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter2D sizeParam2D, [[maybe_unused]] const bool padded,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, sizeParam2D))
+                         elmtsPerBlock, sizeParam2D))
                : 0u;
 }
 
@@ -345,12 +347,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter3D sizeParam3D, [[maybe_unused]] const bool padded,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, sizeParam3D))
+                         elmtsPerBlock, sizeParam3D))
                : 0u;
 }
 

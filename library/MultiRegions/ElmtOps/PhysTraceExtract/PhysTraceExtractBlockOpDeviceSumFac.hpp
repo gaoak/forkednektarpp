@@ -72,7 +72,7 @@
  * MultiRegions::SumFac, one element per warp lane at the warp-size
  * interleave, and MultiRegions::SumFacTOP, one element per thread block
  * at width one. Implementation selects the kernel family, the launch
- * geometry GetDeviceBlockSize() and GetDeviceGridSize() compute and
+ * geometry GetDeviceKernelParameters() computes and
  * PhysTraceExtractBlockOpImpl::m_implInterleaveWidth. A StdMat request
  * reaches the SumFac class through PhysTraceExtractBlockOp::Create(),
  * which maps it.
@@ -792,13 +792,13 @@ protected:
         std::integer_sequence<unsigned int, ind1...>)
     {
         // Set Kernel parameters.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(nTracePts);
         const unsigned int shmemsize =
-            sizeof(TData) *
-            PhysTraceExtractSharedMemorySize<Implementation>(sizeParam);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(nTracePts);
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
+            sizeof(TData) * PhysTraceExtractSharedMemorySize<Implementation>(
+                                sizeParam, elmtsPerBlock);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            nTracePts, nelmtPad, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const size_t wspSize =
@@ -810,8 +810,9 @@ protected:
         // PhysTraceExtract kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (PhysTraceExtractTraceKernelLauncher<SHAPE_TYPE, Implementation>),
-            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, traceid,
-            sizeParam, nelmtPad, nmTot, numDataOut, outOffset, m_B[ind0]...,
+            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+            kernelParams.shmemSize, m_streamID, traceid, sizeParam, nelmtPad,
+            nmTot, numDataOut, outOffset, m_B[ind0]...,
             m_B[sizeof...(ind0) + ind1]..., inptr, outptr, wspptr,
             (bool)this->m_isCollocated[ind1]...,
             (bool)m_endPtsCollocated[ind0]...);
@@ -1013,13 +1014,13 @@ protected:
         // Set Kernel parameters.
         const unsigned int nqTotOut =
             sizeParam.template nqTotTrace<SHAPE_TYPE>();
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(nqTotOut);
         const unsigned int shmemsize =
-            sizeof(TData) *
-            PhysTraceExtractSharedMemorySize<Implementation>(sizeParam);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<Implementation>(nqTotOut);
-        const unsigned int gridsize =
-            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+            sizeof(TData) * PhysTraceExtractSharedMemorySize<Implementation>(
+                                sizeParam, elmtsPerBlock);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            nqTotOut, nelmt, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
@@ -1041,9 +1042,10 @@ protected:
         // PhysTraceExtract kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (PhysTraceExtractKernelLauncher<SHAPE_TYPE, Implementation>),
-            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            nelmt, nmTot, m_B[ind0]..., m_B[sizeof...(ind0) + ind1]..., inptr,
-            outptr, wspptr, (bool)this->m_isCollocated[ind1]...,
+            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+            kernelParams.shmemSize, m_streamID, sizeParam, nelmt, nmTot,
+            m_B[ind0]..., m_B[sizeof...(ind0) + ind1]..., inptr, outptr, wspptr,
+            (bool)this->m_isCollocated[ind1]...,
             (bool)m_endPtsCollocated[ind0]...);
 
         // Reshape back, if necessary.

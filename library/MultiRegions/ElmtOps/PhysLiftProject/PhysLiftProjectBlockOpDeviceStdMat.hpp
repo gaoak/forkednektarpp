@@ -193,10 +193,11 @@ protected:
     void ApplyPointwise(const size_t nelmt, const unsigned int ncomp,
                         const TData *volPtr, TData *outPtr)
     {
-        const unsigned int blocksize =
-            GetDeviceBlockSize<MultiRegions::SumFacTOP>(m_nqTot);
-        const unsigned int gridsize =
-            GetDeviceGridSize<MultiRegions::SumFacTOP>(nelmt, blocksize, 0);
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+
         if (this->m_append)
         {
             if (m_isDeformed)
@@ -204,7 +205,7 @@ protected:
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (PhysLiftProjectPointwiseKernel<Implementation, true,
                                                     true>),
-                    gridsize, ncomp, blocksize, 1, m_streamID, nelmt, m_nqTot,
+                    gridSize, ncomp, blockSize, 1, m_streamID, nelmt, m_nqTot,
                     this->m_scale, m_weightsptr, m_jacptr, volPtr, outPtr);
             }
             else
@@ -212,7 +213,7 @@ protected:
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (PhysLiftProjectPointwiseKernel<Implementation, true,
                                                     false>),
-                    gridsize, ncomp, blocksize, 1, m_streamID, nelmt, m_nqTot,
+                    gridSize, ncomp, blockSize, 1, m_streamID, nelmt, m_nqTot,
                     this->m_scale, m_weightsptr, m_jacptr, volPtr, outPtr);
             }
         }
@@ -223,7 +224,7 @@ protected:
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (PhysLiftProjectPointwiseKernel<Implementation, false,
                                                     true>),
-                    gridsize, ncomp, blocksize, 1, m_streamID, nelmt, m_nqTot,
+                    gridSize, ncomp, blockSize, 1, m_streamID, nelmt, m_nqTot,
                     this->m_scale, m_weightsptr, m_jacptr, volPtr, outPtr);
             }
             else
@@ -231,7 +232,7 @@ protected:
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (PhysLiftProjectPointwiseKernel<Implementation, false,
                                                     false>),
-                    gridsize, ncomp, blocksize, 1, m_streamID, nelmt, m_nqTot,
+                    gridSize, ncomp, blockSize, 1, m_streamID, nelmt, m_nqTot,
                     this->m_scale, m_weightsptr, m_jacptr, volPtr, outPtr);
             }
         }

@@ -99,6 +99,7 @@ namespace Nektar::MultiRegions::detail
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Element sizes; unused.
+ * @param   elmtsPerBlock  Elements per thread block; unused.
  *
  * @return Zero.
  */
@@ -109,7 +110,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int AdvectionSharedMemorySize(
-    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D)
+    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     return 0;
 }
@@ -118,8 +120,9 @@ inline constexpr unsigned int AdvectionSharedMemorySize(
  * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
  * in elements of TData, for a two-dimensional shape.
  *
- * One thread block holds one element's input values, so the requirement
- * is the element's total number of quadrature points, whatever the shape.
+ * One thread block holds the input values of its @p elmtsPerBlock
+ * elements, so the requirement is their total number of quadrature points,
+ * whatever the shape.
  * The collapsed-coordinate factor tables are not staged.
  *
  * @tparam SHAPE_TYPE            Element shape; unused.
@@ -129,6 +132,8 @@ inline constexpr unsigned int AdvectionSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  *
  * @return Shared-memory requirement in elements of TData.
  */
@@ -139,18 +144,18 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int AdvectionSharedMemorySize(
-    const TPhysSizeParameter2D sizeParam2D)
+    const TPhysSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock)
 {
 
-    return sizeParam2D.nqTot();
+    return elmtsPerBlock * sizeParam2D.nqTot();
 }
 
 /**
  * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
  * in elements of TData, for a three-dimensional shape.
  *
- * As in two dimensions: one element's input values, i.e. the element's
- * total number of quadrature points.
+ * As in two dimensions: the input values of @p elmtsPerBlock elements,
+ * i.e. their total number of quadrature points.
  *
  * @tparam SHAPE_TYPE            Element shape; unused.
  * @tparam Implementation        Implementation tag; this overload is
@@ -159,6 +164,8 @@ inline constexpr unsigned int AdvectionSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  *
  * @return Shared-memory requirement in elements of TData.
  */
@@ -169,10 +176,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int AdvectionSharedMemorySize(
-    const TPhysSizeParameter3D sizeParam3D)
+    const TPhysSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock)
 {
 
-    return sizeParam3D.nqTot();
+    return elmtsPerBlock * sizeParam3D.nqTot();
 }
 
 /**
@@ -540,7 +547,7 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
  * block index in the grid's first dimension and strides by that
  * dimension's range, so the block's @p nelmt elements (padding included)
  * are covered whatever grid size was launched -- the grid may hold fewer
- * thread blocks than there are elements (see GetDeviceGridSize in
+ * thread blocks than there are elements (see GetDeviceKernelParameters in
  * ElmtBlockOp.hpp). The grid's second dimension gives the index c of the
  * component -- or homogeneous mode -- being advected, read once and fixed
  * for every element this thread block takes, since that dimension holds

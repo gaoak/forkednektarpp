@@ -424,8 +424,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTBaseFusedWorkSpaceOffset
 
 /**
  * @brief Shared memory a 1D SumFacTOP inner product needs, in TData
- * values: with @p useSharedMemoryWsp nq0, the element's physical values,
- * else none.
+ * values: with @p useSharedMemoryWsp nq0 per element, the element's physical
+ * values, for @p elmtsPerBlock elements, else none.
  *
  * The segment kernel reads its basis table straight from global memory and
  * contracts into the output, so nothing else is staged.
@@ -437,6 +437,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTBaseFusedWorkSpaceOffset
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
  * @param   padded       Unused.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared-memory size in TData values.
@@ -449,11 +451,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter1D sizeParam1D, [[maybe_unused]] const bool padded,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam1D.nq0();
 
-    return useSharedMemoryWsp ? nq0 : 0u;
+    return useSharedMemoryWsp ? elmtsPerBlock * nq0 : 0u;
 }
 
 /**
@@ -465,8 +467,8 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
  * direction 1, one row per mode of the shape's ordering, so nm1 * nq1 for
  * a quadrilateral but nmTot * nq1 for a triangle -- and, with
  * @p useSharedMemoryWsp, the workspace IProductWRTBaseWorkSpaceSize gives
- * for one element, 16-byte aligned and with its rows padded if
- * @p padded.
+ * for one element, with its rows padded if @p padded, for each of the
+ * @p elmtsPerBlock elements after the 16-byte aligned tables.
  *
  * @tparam SHAPE_TYPE        Quad, Tri or NodalTri.
  * @tparam Implementation    MultiRegions::SumFacTOP.
@@ -477,6 +479,8 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
  * @param   sizeParam2D  Modal and quadrature sizes per direction.
  * @param   padded       Add IProductWRTBaseSharedMemoryPadding, for the
  *                       launcher with the quadrature metric.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared-memory size in TData values.
@@ -489,7 +493,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter2D sizeParam2D, const bool padded,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     const BasisDataSize2D<SHAPE_TYPE> basisDataSize(sizeParam2D);
     const unsigned int basisSize = basisDataSize.total();
@@ -504,10 +508,12 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
                                                     TData>(sizeParam2D)
                : 0u;
 
-    return SharedMemoryAlignedSize<TData>(basisSize) + pad +
-           static_cast<unsigned int>(
-               IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                   1u, sizeParam2D));
+    return SharedMemoryAlignedSize<TData>(basisSize) +
+           elmtsPerBlock *
+               (pad +
+                static_cast<unsigned int>(
+                    IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                        1u, sizeParam2D)));
 }
 
 /**
@@ -517,8 +523,9 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
  * As in 2D: copies of the three basis tables, each sized by the number of
  * rows the shape's mode ordering gives that direction (BasisDataSize3D),
  * and, with @p useSharedMemoryWsp, the workspace
- * IProductWRTBaseWorkSpaceSize gives for one element, 16-byte aligned and
- * with its rows padded if @p padded.
+ * IProductWRTBaseWorkSpaceSize gives for one element, with its rows padded
+ * if @p padded, for each of the @p elmtsPerBlock elements after the
+ * 16-byte aligned tables.
  *
  * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
  * NodalPyr.
@@ -530,6 +537,8 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
  * @param   sizeParam3D  Modal and quadrature sizes per direction.
  * @param   padded       Add IProductWRTBaseSharedMemoryPadding, for the
  *                       launcher with the quadrature metric.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage the workspace in shared memory.
  *
  * @return Shared-memory size in TData values.
@@ -542,7 +551,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
     const TSizeParameter3D sizeParam3D, const bool padded,
-    const bool useSharedMemoryWsp)
+    const unsigned int elmtsPerBlock, const bool useSharedMemoryWsp)
 {
     const BasisDataSize3D<SHAPE_TYPE> basisDataSize(sizeParam3D);
     const unsigned int basisSize = basisDataSize.total();
@@ -558,10 +567,12 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
                                                     TData>(sizeParam3D)
                : 0u;
 
-    return SharedMemoryAlignedSize<TData>(basisSize) + pad +
-           static_cast<unsigned int>(
-               IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                   1u, sizeParam3D));
+    return SharedMemoryAlignedSize<TData>(basisSize) +
+           elmtsPerBlock *
+               (pad +
+                static_cast<unsigned int>(
+                    IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                        1u, sizeParam3D)));
 }
 
 /**

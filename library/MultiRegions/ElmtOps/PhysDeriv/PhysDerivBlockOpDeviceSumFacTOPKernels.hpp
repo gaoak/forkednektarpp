@@ -116,6 +116,7 @@ namespace Nektar::MultiRegions::detail
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Element sizes; unused.
+ * @param   elmtsPerBlock  Elements per thread block; unused.
  *
  * @return Zero.
  */
@@ -126,14 +127,16 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysDerivSharedMemorySize(
-    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D)
+    [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     return 0;
 }
 
 /**
  * @brief Dynamic shared memory, in elements of the data type, a 2D
- * SumFacTOP launch needs: one element's quadrature-point values.
+ * SumFacTOP launch needs: the quadrature-point values of each of its
+ * @p elmtsPerBlock elements.
  *
  * Unlike the SumFac form this does not depend on the shape: the
  * collapsed-coordinate tables are read straight from global memory and
@@ -145,6 +148,8 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  *
  * @return Values to allocate per thread block.
  */
@@ -155,15 +160,16 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysDerivSharedMemorySize(
-    const TPhysSizeParameter2D sizeParam2D)
+    const TPhysSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock)
 {
 
-    return sizeParam2D.nqTot();
+    return elmtsPerBlock * sizeParam2D.nqTot();
 }
 
 /**
  * @brief Dynamic shared memory, in elements of the data type, a 3D
- * SumFacTOP launch needs: one element's quadrature-point values.
+ * SumFacTOP launch needs: the quadrature-point values of each of its
+ * @p elmtsPerBlock elements.
  *
  * @tparam SHAPE_TYPE            Shape of the block's elements; unused.
  * @tparam Implementation        Constrained to MultiRegions::SumFacTOP.
@@ -171,6 +177,8 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(
  *                               ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  *
  * @return Values to allocate per thread block.
  */
@@ -181,10 +189,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysDerivSharedMemorySize(
-    const TPhysSizeParameter3D sizeParam3D)
+    const TPhysSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock)
 {
 
-    return sizeParam3D.nqTot();
+    return elmtsPerBlock * sizeParam3D.nqTot();
 }
 
 /**

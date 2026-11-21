@@ -287,10 +287,10 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
  *
  * The SumFac kernels read the basis and weight tables straight from global
  * memory, so the only thing held per thread block is, with
- * @p useSharedMemoryWsp, the workspace of its single warp of elements, laid out
- * as MassWorkSpaceSize gives for warpSize elements. The SumFacTOP overloads of
- * the same name (MassBlockOpDeviceSumFacTOPKernels.hpp) return the size of the
- * staging area that strategy uses.
+ * @p useSharedMemoryWsp, the workspace of its @p elmtsPerBlock elements, laid
+ * out as MassWorkSpaceSize gives for that many elements. The SumFacTOP
+ * overloads of the same name (MassBlockOpDeviceSumFacTOPKernels.hpp) return the
+ * size of the staging area that strategy uses.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
  * @tparam Implementation    MultiRegions::SumFac.
@@ -298,6 +298,8 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
  * @tparam TSizeParameter1D  1D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetElmtsPerBlock().
  * @param   useSharedMemoryWsp    Stage intermediates in shared memory.
  *
  * @return Number of TData values of shared memory per thread block.
@@ -309,12 +311,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter1D sizeParam1D, const bool useSharedMemoryWsp)
+    const TSizeParameter1D sizeParam1D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, sizeParam1D))
+                         elmtsPerBlock, sizeParam1D))
                : 0u;
 }
 
@@ -327,12 +330,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter2D sizeParam2D, const bool useSharedMemoryWsp)
+    const TSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, sizeParam2D))
+                         elmtsPerBlock, sizeParam2D))
                : 0u;
 }
 
@@ -345,12 +349,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int MassSharedMemorySize(
-    const TSizeParameter3D sizeParam3D, const bool useSharedMemoryWsp)
+    const TSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
     return useSharedMemoryWsp
                ? static_cast<unsigned int>(
                      MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                         NektarSpaces::Device::warpSize, sizeParam3D))
+                         elmtsPerBlock, sizeParam3D))
                : 0u;
 }
 

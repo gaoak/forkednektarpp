@@ -64,9 +64,8 @@
  * IProductWRTPhysNormalDerivTraceBlockOpImpl::m_implInterleaveWidth is
  * unconditionally NektarSpaces::Device::warpSize, the interleave the
  * kernels index with, and the launch geometry is one element per warp,
- * which is the shape GetDeviceBlockSize() and GetDeviceGridSize()
- * compute for MultiRegions::SumFac, so that is what those helpers are
- * queried with.
+ * which is the shape GetDeviceKernelParameters() computes for
+ * MultiRegions::SumFac, so that is what it is queried with.
  *
  * @see IProductWRTPhysNormalDerivTraceOp.hpp for what the operator
  * computes and how the family is laid out.
@@ -502,10 +501,9 @@ protected:
             sizeof(TData) *
             IProductWRTPhysNormalDerivTraceSharedMemorySize<SHAPE_TYPE>(
                 sizeParam);
-        const unsigned int blocksize =
-            GetDeviceBlockSize<MultiRegions::SumFac>(sizeParam.nmMax());
-        const unsigned int gridsize = GetDeviceGridSize<MultiRegions::SumFac>(
-            nelmtPad, blocksize, shmemsize);
+        const auto kernelParams =
+            GetDeviceKernelParameters<MultiRegions::SumFac>(
+                sizeParam.nmMax(), nelmtPad, shmemsize);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
@@ -545,9 +543,10 @@ protected:
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (IProductWRTPhysNormalDerivTraceKernelLauncher<SHAPE_TYPE,
                                                            DEFORMED>),
-            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            m_B[ind0]..., m_DB[ind0]..., nelmtPad, numDataIn, numDataOut,
-            numDataJac, jacCompStride, m_B[sizeof...(ind0) + ind1]...,
+            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+            kernelParams.shmemSize, m_streamID, sizeParam, m_B[ind0]...,
+            m_DB[ind0]..., nelmtPad, numDataIn, numDataOut, numDataJac,
+            jacCompStride, m_B[sizeof...(ind0) + ind1]...,
             m_DB[sizeof...(ind0) + ind1]..., m_W[ind1]...,
             m_twoOverOneMinusZ[ind0]..., m_jacptr, wspptr, inptr, outptr,
             m_traceDir[ind1]..., this->m_append,
