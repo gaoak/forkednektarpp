@@ -289,20 +289,16 @@ protected:
                     }
 
                     // Apply derivative factors to get the physical gradient.
-                    if (m_isDeformed)
-                    {
-                        MultiplyByDerivFactorKernel<ExecSpace, true>(
-                            m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
-                            m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
-                            derivNative, derivNative);
-                    }
-                    else
-                    {
-                        MultiplyByDerivFactorKernel<ExecSpace, false>(
-                            m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
-                            m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
-                            derivNative, derivNative);
-                    }
+                    this->DispatchDeformedFlag(
+                        m_isDeformed, [&](auto deformed) {
+                            constexpr bool DEFORMED = decltype(deformed)::value;
+
+                            MultiplyByDerivFactorKernel<ExecSpace, DEFORMED>(
+                                m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
+                                m_nqTot,
+                                reinterpret_cast<const simd_t *>(dfptr),
+                                derivNative, derivNative);
+                        });
 
                     // Interpolate the physical gradient to the fine grid.
                     for (unsigned int d = 0; d < m_coordDim; ++d)

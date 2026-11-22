@@ -322,41 +322,27 @@ protected:
             if (m_dimension == 2u)
             {
                 // omega_z = dv/dx - du/dy
-                if (m_isDeformed)
-                {
-                    Curl2DScalarStdMatKernel<ExecSpace, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    Curl2DScalarStdMatKernel<ExecSpace, DEFORMED>(
                         m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(omegaptr));
-                }
-                else
-                {
-                    Curl2DScalarStdMatKernel<ExecSpace, false>(
-                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(omegaptr));
-                }
+                });
             }
             else
             {
-                if (m_isDeformed)
-                {
-                    Curl3DStdMatKernel<ExecSpace, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    Curl3DStdMatKernel<ExecSpace, DEFORMED>(
                         m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(omegaptr),
                         reinterpret_cast<simd_t *>(omegaptr + derivoffset),
                         reinterpret_cast<simd_t *>(omegaptr + 2 * derivoffset));
-                }
-                else
-                {
-                    Curl3DStdMatKernel<ExecSpace, false>(
-                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(omegaptr),
-                        reinterpret_cast<simd_t *>(omegaptr + derivoffset),
-                        reinterpret_cast<simd_t *>(omegaptr + 2 * derivoffset));
-                }
+                });
             }
 
             // Step 3: Deriv of omega
@@ -371,43 +357,28 @@ protected:
             if (m_dimension == 2u)
             {
                 // q = {d(omega_z)/dy, -d(omega_z)/dx}
-                if (m_isDeformed)
-                {
-                    Curl2DVectorStdMatKernel<ExecSpace, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    Curl2DVectorStdMatKernel<ExecSpace, DEFORMED>(
                         m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr + outoffset));
-                }
-                else
-                {
-                    Curl2DVectorStdMatKernel<ExecSpace, false>(
-                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(outptr),
-                        reinterpret_cast<simd_t *>(outptr + outoffset));
-                }
+                });
             }
             else
             {
-                if (m_isDeformed)
-                {
-                    Curl3DStdMatKernel<ExecSpace, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    Curl3DStdMatKernel<ExecSpace, DEFORMED>(
                         m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr + outoffset),
                         reinterpret_cast<simd_t *>(outptr + 2 * outoffset));
-                }
-                else
-                {
-                    Curl3DStdMatKernel<ExecSpace, false>(
-                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(outptr),
-                        reinterpret_cast<simd_t *>(outptr + outoffset),
-                        reinterpret_cast<simd_t *>(outptr + 2 * outoffset));
-                }
+                });
             }
 
             // Reshape back, if necessary.
@@ -526,41 +497,27 @@ protected:
 
                 // Step 2: the third component, df_y/dx - df_x/dy, from the
                 // derivatives of the first two.
-                if (m_isDeformed)
-                {
-                    Curl2DScalarStdMatKernel<ExecSpace, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    Curl2DScalarStdMatKernel<ExecSpace, DEFORMED>(
                         m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(outptr + 2 * outoffset));
-                }
-                else
-                {
-                    Curl2DScalarStdMatKernel<ExecSpace, false>(
-                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(outptr + 2 * outoffset));
-                }
+                });
 
                 // Step 3: the first two components, {df_z/dy, -df_z/dx}, from
                 // the derivatives of the third.
-                if (m_isDeformed)
-                {
-                    Curl2DVectorStdMatKernel<ExecSpace, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    Curl2DVectorStdMatKernel<ExecSpace, DEFORMED>(
                         m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(
                             derivptr + 2 * m_dimension * derivoffset),
                         reinterpret_cast<simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr + outoffset));
-                }
-                else
-                {
-                    Curl2DVectorStdMatKernel<ExecSpace, false>(
-                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(
-                            derivptr + 2 * m_dimension * derivoffset),
-                        reinterpret_cast<simd_t *>(outptr),
-                        reinterpret_cast<simd_t *>(outptr + outoffset));
-                }
+                });
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

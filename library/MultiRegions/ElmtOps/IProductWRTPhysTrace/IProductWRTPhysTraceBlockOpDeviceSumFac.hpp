@@ -508,22 +508,15 @@ protected:
                 constexpr auto seq2D =
                     std::make_integer_sequence<unsigned int, 2>();
 
-                if (m_isDeformed)
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Quad, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    LaunchIProductWRTPhysTraceND<LibUtilities::Quad, DEFORMED>(
                         traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
                         NonTemplatedTraceSizeParameter2D(m_nm[0], m_nm[1],
                                                          m_nq[0], m_nq[1]),
                         seq2D, seq2D);
-                }
-                else
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Quad, false>(
-                        traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
-                        NonTemplatedTraceSizeParameter2D(m_nm[0], m_nm[1],
-                                                         m_nq[0], m_nq[1]),
-                        seq2D, seq2D);
-                }
+                });
                 break;
             }
             case LibUtilities::Tri:
@@ -532,22 +525,15 @@ protected:
                 constexpr auto seq2D =
                     std::make_integer_sequence<unsigned int, 2>();
 
-                if (m_isDeformed)
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Tri, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    LaunchIProductWRTPhysTraceND<LibUtilities::Tri, DEFORMED>(
                         traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
                         NonTemplatedTraceSizeParameter2D(m_nm[0], m_nm[1],
                                                          m_nq[0], m_nq[1]),
                         seq2D, seq2D);
-                }
-                else
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Tri, false>(
-                        traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
-                        NonTemplatedTraceSizeParameter2D(m_nm[0], m_nm[1],
-                                                         m_nq[0], m_nq[1]),
-                        seq2D, seq2D);
-                }
+                });
                 break;
             }
             case LibUtilities::Hex:
@@ -557,24 +543,16 @@ protected:
                 constexpr auto seq6D =
                     std::make_integer_sequence<unsigned int, 6>();
 
-                if (m_isDeformed)
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Hex, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    LaunchIProductWRTPhysTraceND<LibUtilities::Hex, DEFORMED>(
                         traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
                         NonTemplatedTraceSizeParameter3D(
                             m_nm[0], m_nm[1], m_nm[2], m_nq[0], m_nq[1],
                             m_nq[2], m_nq[3], m_nq[4], m_nq[5]),
                         seq3D, seq6D);
-                }
-                else
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Hex, false>(
-                        traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
-                        NonTemplatedTraceSizeParameter3D(
-                            m_nm[0], m_nm[1], m_nm[2], m_nq[0], m_nq[1],
-                            m_nq[2], m_nq[3], m_nq[4], m_nq[5]),
-                        seq3D, seq6D);
-                }
+                });
                 break;
             }
             case LibUtilities::Prism:
@@ -585,24 +563,16 @@ protected:
                 constexpr auto seq6D =
                     std::make_integer_sequence<unsigned int, 6>();
 
-                if (m_isDeformed)
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Prism, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    LaunchIProductWRTPhysTraceND<LibUtilities::Prism, DEFORMED>(
                         traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
                         NonTemplatedTraceSizeParameter3D(
                             m_nm[0], m_nm[1], m_nm[2], m_nq[0], m_nq[1],
                             m_nq[2], m_nq[3], m_nq[4], m_nq[5]),
                         seq3D, seq6D);
-                }
-                else
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Prism, false>(
-                        traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
-                        NonTemplatedTraceSizeParameter3D(
-                            m_nm[0], m_nm[1], m_nm[2], m_nq[0], m_nq[1],
-                            m_nq[2], m_nq[3], m_nq[4], m_nq[5]),
-                        seq3D, seq6D);
-                }
+                });
                 break;
             }
             case LibUtilities::Pyr:
@@ -613,24 +583,16 @@ protected:
                 constexpr auto seq6D =
                     std::make_integer_sequence<unsigned int, 6>();
 
-                if (m_isDeformed)
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Pyr, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    LaunchIProductWRTPhysTraceND<LibUtilities::Pyr, DEFORMED>(
                         traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
                         NonTemplatedTraceSizeParameter3D(
                             m_nm[0], m_nm[1], m_nm[2], m_nq[0], m_nq[1],
                             m_nq[2], m_nq[3], m_nq[4], m_nq[5]),
                         seq3D, seq6D);
-                }
-                else
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Pyr, false>(
-                        traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
-                        NonTemplatedTraceSizeParameter3D(
-                            m_nm[0], m_nm[1], m_nm[2], m_nq[0], m_nq[1],
-                            m_nq[2], m_nq[3], m_nq[4], m_nq[5]),
-                        seq3D, seq6D);
-                }
+                });
                 break;
             }
             case LibUtilities::Tet:
@@ -641,24 +603,16 @@ protected:
                 constexpr auto seq6D =
                     std::make_integer_sequence<unsigned int, 6>();
 
-                if (m_isDeformed)
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Tet, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    LaunchIProductWRTPhysTraceND<LibUtilities::Tet, DEFORMED>(
                         traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
                         NonTemplatedTraceSizeParameter3D(
                             m_nm[0], m_nm[1], m_nm[2], m_nq[0], m_nq[1],
                             m_nq[2], m_nq[3], m_nq[4], m_nq[5]),
                         seq3D, seq6D);
-                }
-                else
-                {
-                    LaunchIProductWRTPhysTraceND<LibUtilities::Tet, false>(
-                        traceid, inOffset, nelmtPad, ncomp, inptr, outptr,
-                        NonTemplatedTraceSizeParameter3D(
-                            m_nm[0], m_nm[1], m_nm[2], m_nq[0], m_nq[1],
-                            m_nq[2], m_nq[3], m_nq[4], m_nq[5]),
-                        seq3D, seq6D);
-                }
+                });
                 break;
             }
             default:

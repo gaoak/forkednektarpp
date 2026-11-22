@@ -485,25 +485,19 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
                 outblock.GetNumData(), (TData *)outptr, m_streamID);
+        }
+
+        this->DispatchAppendFlag(this->m_append, [&](auto append) {
+            constexpr bool APPEND = decltype(append)::value;
 
             // BwdTrans kernel.
             DEVICE_2DGRID_KERNEL_LAUNCHER(
-                (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, true>),
+                (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, APPEND>),
                 kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
                 kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
                 m_isModified, useSharedMemoryWsp, m_index[ind1]...,
                 m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr);
-        }
-        else
-        {
-            // BwdTrans kernel.
-            DEVICE_2DGRID_KERNEL_LAUNCHER(
-                (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, false>),
-                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-                kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                m_isModified, useSharedMemoryWsp, m_index[ind1]...,
-                m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr);
-        }
+        });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

@@ -314,48 +314,19 @@ protected:
 
         // Multiply by derivative factor, the variables and planes together on
         // the second grid dimension.
-        if (m_isDeformed)
-        {
-            if (this->m_append)
-            {
+        this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+            this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                constexpr bool APPEND   = decltype(append)::value;
+                constexpr bool DEFORMED = decltype(deformed)::value;
+
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (MultiplyByDerivFactorAndAdvecVelKernel<true, true>),
+                    (MultiplyByDerivFactorAndAdvecVelKernel<APPEND, DEFORMED>),
                     gridSize, ncomp, blockSize, 1, m_streamID, m_nqTot,
                     m_coordDim, m_dimension, nelmt, derivoffset, m_dfptr,
                     advVelPtr, advelsize, nhomo, derivptr, outptr,
                     this->m_scale);
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (MultiplyByDerivFactorAndAdvecVelKernel<false, true>),
-                    gridSize, ncomp, blockSize, 1, m_streamID, m_nqTot,
-                    m_coordDim, m_dimension, nelmt, derivoffset, m_dfptr,
-                    advVelPtr, advelsize, nhomo, derivptr, outptr,
-                    this->m_scale);
-            }
-        }
-        else
-        {
-            if (this->m_append)
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (MultiplyByDerivFactorAndAdvecVelKernel<true, false>),
-                    gridSize, ncomp, blockSize, 1, m_streamID, m_nqTot,
-                    m_coordDim, m_dimension, nelmt, derivoffset, m_dfptr,
-                    advVelPtr, advelsize, nhomo, derivptr, outptr,
-                    this->m_scale);
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (MultiplyByDerivFactorAndAdvecVelKernel<false, false>),
-                    gridSize, ncomp, blockSize, 1, m_streamID, m_nqTot,
-                    m_coordDim, m_dimension, nelmt, derivoffset, m_dfptr,
-                    advVelPtr, advelsize, nhomo, derivptr, outptr,
-                    this->m_scale);
-            }
-        }
+            });
+        });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

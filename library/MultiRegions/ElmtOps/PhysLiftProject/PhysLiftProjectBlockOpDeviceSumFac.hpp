@@ -561,22 +561,16 @@ protected:
 
         const auto kernelParams =
             GetDeviceKernelParameters<Implementation>(m_nqTot, nelmt);
-        if (m_isDeformed)
-        {
+        this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+            constexpr bool DEFORMED = decltype(deformed)::value;
+
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (PhysLiftProjectPointwiseKernel<Implementation, APPEND, true>),
+                (PhysLiftProjectPointwiseKernel<Implementation, APPEND,
+                                                DEFORMED>),
                 kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
                 m_streamID, nelmt, m_nqTot, this->m_scale, m_weightsptr,
                 m_jacptr, volPtr, outPtr);
-        }
-        else
-        {
-            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (PhysLiftProjectPointwiseKernel<Implementation, APPEND, false>),
-                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-                m_streamID, nelmt, m_nqTot, this->m_scale, m_weightsptr,
-                m_jacptr, volPtr, outPtr);
-        }
+        });
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
@@ -1218,26 +1212,17 @@ protected:
                 const auto kernelParams =
                     GetDeviceKernelParameters<Implementation>(m_nqTot,
                                                               nelmt * m_nqTot);
-                if (this->m_append)
-                {
+                this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                    constexpr bool APPEND = decltype(append)::value;
+
                     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                         (PhysLiftProjectDirectLiftKernelLauncher<
-                            SHAPE_TYPE, Implementation, true, DEFORMED>),
+                            SHAPE_TYPE, Implementation, APPEND, DEFORMED>),
                         kernelParams.gridSize, kernelParams.blockSize,
                         m_streamID, traceSizeParam, nelmt, ncomp, this->m_scale,
                         lift, m_liftB[ind0]..., m_liftW[ind1]..., m_traceJacptr,
                         m_weightsptr, m_jacptr, inptr, traceptr, kernelOut);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (PhysLiftProjectDirectLiftKernelLauncher<
-                            SHAPE_TYPE, Implementation, false, DEFORMED>),
-                        kernelParams.gridSize, kernelParams.blockSize,
-                        m_streamID, traceSizeParam, nelmt, ncomp, this->m_scale,
-                        lift, m_liftB[ind0]..., m_liftW[ind1]..., m_traceJacptr,
-                        m_weightsptr, m_jacptr, inptr, traceptr, kernelOut);
-                }
+                });
             }
             else
             {
@@ -1252,28 +1237,18 @@ protected:
                     GetDeviceKernelParameters<Implementation>(
                         m_nqTot, nelmt, shmemsize, elmtsPerBlock,
                         passesPerBlock);
-                if (this->m_append)
-                {
+                this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                    constexpr bool APPEND = decltype(append)::value;
+
                     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                         (PhysLiftProjectDirectLiftKernelLauncher<
-                            SHAPE_TYPE, Implementation, true, DEFORMED>),
+                            SHAPE_TYPE, Implementation, APPEND, DEFORMED>),
                         kernelParams.gridSize, kernelParams.blockSize,
                         m_streamID, traceSizeParam, nelmt, ncomp,
                         kernelParams.elmtsPerBlock, this->m_scale, lift,
                         m_liftB[ind0]..., m_liftW[ind1]..., m_traceJacptr,
                         m_weightsptr, m_jacptr, inptr, traceptr, kernelOut);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (PhysLiftProjectDirectLiftKernelLauncher<
-                            SHAPE_TYPE, Implementation, false, DEFORMED>),
-                        kernelParams.gridSize, kernelParams.blockSize,
-                        m_streamID, traceSizeParam, nelmt, ncomp,
-                        kernelParams.elmtsPerBlock, this->m_scale, lift,
-                        m_liftB[ind0]..., m_liftW[ind1]..., m_traceJacptr,
-                        m_weightsptr, m_jacptr, inptr, traceptr, kernelOut);
-                }
+                });
             }
         }
         else if (m_denseTail)
@@ -1336,11 +1311,12 @@ protected:
                     sizeParam, traceSizeParam, elmtsPerBlock);
             const auto kernelParams = GetDeviceKernelParameters<Implementation>(
                 sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
-            if (this->m_append)
-            {
+            this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                constexpr bool APPEND = decltype(append)::value;
+
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (PhysLiftProjectKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   true>),
+                                                   APPEND>),
                     kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
                     kernelParams.shmemSize, m_streamID, sizeParam,
                     traceSizeParam, nelmt, this->m_scale, lift, m_isModified,
@@ -1350,22 +1326,7 @@ protected:
                     (bool)m_endPtsCollocated[ind0]..., m_jacptr, m_invMassptr,
                     inptr, traceptr, kernelOut, inWsp, coefWsp, stage[ind2]...,
                     liftWsp[ind2]...);
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (PhysLiftProjectKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   false>),
-                    kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-                    kernelParams.shmemSize, m_streamID, sizeParam,
-                    traceSizeParam, nelmt, this->m_scale, lift, m_isModified,
-                    m_index[ind3]..., m_basis[ind0]..., m_liftB[ind0]...,
-                    m_liftB[DIM + ind1]..., m_liftW[ind1]..., m_traceJacptr,
-                    (bool)m_isCollocated[ind1]...,
-                    (bool)m_endPtsCollocated[ind0]..., m_jacptr, m_invMassptr,
-                    inptr, traceptr, kernelOut, inWsp, coefWsp, stage[ind2]...,
-                    liftWsp[ind2]...);
-            }
+            });
         }
         else
         {
@@ -1404,28 +1365,18 @@ protected:
             const auto kernelParamsB =
                 GetDeviceKernelParameters<Implementation>(
                     sizeParam.nmTot(), nelmt, shmemsizeB, elmtsPerBlock);
-            if (this->m_append)
-            {
+            this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                constexpr bool APPEND = decltype(append)::value;
+
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (PhysLiftProjectScaleBwdTransKernelLauncher<
-                        SHAPE_TYPE, Implementation, true>),
+                        SHAPE_TYPE, Implementation, APPEND>),
                     kernelParamsB.gridSize, ncomp, kernelParamsB.blockSize, 1,
                     kernelParamsB.shmemSize, m_streamID, sizeParam,
                     traceSizeParam, nelmt, this->m_scale, m_isModified,
                     m_index[ind3]..., m_basis[ind0]..., m_jacptr, coef2Ptr,
                     kernelOut, stage[ind2]...);
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (PhysLiftProjectScaleBwdTransKernelLauncher<
-                        SHAPE_TYPE, Implementation, false>),
-                    kernelParamsB.gridSize, ncomp, kernelParamsB.blockSize, 1,
-                    kernelParamsB.shmemSize, m_streamID, sizeParam,
-                    traceSizeParam, nelmt, this->m_scale, m_isModified,
-                    m_index[ind3]..., m_basis[ind0]..., m_jacptr, coef2Ptr,
-                    kernelOut, stage[ind2]...);
-            }
+            });
         }
 
         if (!outDirect)
@@ -1512,14 +1463,11 @@ protected:
 
         if (m_form == PhysLiftProjectForm::Pointwise)
         {
-            if (this->m_append)
-            {
-                ApplyPointwise<true>(outblock, ncomp);
-            }
-            else
-            {
-                ApplyPointwise<false>(outblock, ncomp);
-            }
+            this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                constexpr bool APPEND = decltype(append)::value;
+
+                this->template ApplyPointwise<APPEND>(outblock, ncomp);
+            });
         }
         else
         {

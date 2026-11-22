@@ -455,7 +455,7 @@ protected:
                 "OperatorND expects a size parameter matching the dimension "
                 "of the shape.");
         }
-        else
+        else if constexpr (TFieldOut == FieldState::Phys)
         {
             static_assert(
                 (DIM == 1 && IsPhysSizeParameter1D_v<TSizeParameter>) ||
@@ -619,51 +619,39 @@ protected:
         LibUtilities::ReshapeStorage<ExecSpace>(
             m_implInterleaveWidth, inInterleaveWidth, nelmt * ncomp * inDim,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
+        if (this->m_append)
+        {
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                outblock.GetNumData(), (TData *)outptr, m_streamID);
+        }
 
         if constexpr (TFieldOut == FieldState::Phys)
         {
             // IProduct kernel.
-            if (this->m_append)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
-                    outblock.GetNumData(), (TData *)outptr, m_streamID);
+            this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                constexpr bool APPEND = decltype(append)::value;
 
                 DEVICE_3DGRID_KERNEL_LAUNCHER(
                     (IProductWRTDerivBasePhysKernelLauncher<
-                        SHAPE_TYPE, Implementation, true, DEFORMED>),
+                        SHAPE_TYPE, Implementation, APPEND, DEFORMED>),
                     kernelParams.gridSize, outblock.GetNumHomoModes(),
                     outblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
                     kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
                     inoffset, useSharedMemoryWsp, m_D[ind0]..., m_W[ind0]...,
                     m_f[ind2]..., m_dfptr, m_jacptr, inptr, outptr, wspptr,
                     this->m_scale);
-            }
-            else
-            {
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBasePhysKernelLauncher<
-                        SHAPE_TYPE, Implementation, false, DEFORMED>),
-                    kernelParams.gridSize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
-                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                    inoffset, useSharedMemoryWsp, m_D[ind0]..., m_W[ind0]...,
-                    m_f[ind2]..., m_dfptr, m_jacptr, inptr, outptr, wspptr,
-                    this->m_scale);
-            }
+            });
         }
-        else // coeff version
+        else if constexpr (TFieldOut == FieldState::Coeff)
         {
             // IProduct kernel.
-            if (this->m_append)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
-                    outblock.GetNumData(), (TData *)outptr, m_streamID);
+            this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                constexpr bool APPEND = decltype(append)::value;
 
                 DEVICE_3DGRID_KERNEL_LAUNCHER(
                     (IProductWRTDerivBaseKernelLauncher<
-                        SHAPE_TYPE, Implementation, true, DEFORMED>),
+                        SHAPE_TYPE, Implementation, APPEND, DEFORMED>),
                     kernelParams.gridSize, outblock.GetNumHomoModes(),
                     outblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
                     kernelParams.shmemSize, m_streamID, sizeParam, m_coordDim,
@@ -671,20 +659,7 @@ protected:
                     m_index[ind1]..., m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
                     m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
                     wspptr, this->m_scale);
-            }
-            else
-            {
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBaseKernelLauncher<
-                        SHAPE_TYPE, Implementation, false, DEFORMED>),
-                    kernelParams.gridSize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
-                    kernelParams.shmemSize, m_streamID, sizeParam, m_coordDim,
-                    nelmt, inoffset, m_isModified, useSharedMemoryWsp,
-                    m_index[ind1]..., m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
-                    m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
-                    wspptr, this->m_scale);
-            }
+            });
         }
 
         // Reshape back, if necessary.

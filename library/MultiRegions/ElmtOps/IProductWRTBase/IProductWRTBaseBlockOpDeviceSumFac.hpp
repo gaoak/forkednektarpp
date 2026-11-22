@@ -367,7 +367,8 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
         TSizeParameter sizeParam)
     {
-        constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
+        static constexpr unsigned int DIM =
+            LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 
         // sizeParam is built by the switch in
         // LibUtilities/BasicUtils/Switch/BlockOpSwitchCode.h.in.
@@ -377,20 +378,14 @@ protected:
                       "OperatorND expects a size parameter matching the "
                       "dimension of the shape.");
 
-        if (this->m_append)
-        {
-            OperatorNDImpl<SHAPE_TYPE, DEFORMED, true>(
+        this->DispatchAppendFlag(this->m_append, [&](auto append) {
+            constexpr bool APPEND = decltype(append)::value;
+
+            this->template OperatorNDImpl<SHAPE_TYPE, DEFORMED, APPEND>(
                 inblock, outblock, sizeParam,
                 std::make_integer_sequence<unsigned int, DIM>(),
                 std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
-        }
-        else
-        {
-            OperatorNDImpl<SHAPE_TYPE, DEFORMED, false>(
-                inblock, outblock, sizeParam,
-                std::make_integer_sequence<unsigned int, DIM>(),
-                std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
-        }
+        });
     }
 
     /**
@@ -527,62 +522,34 @@ protected:
         if (this->m_integration)
         {
             // IProduct kernel.
-            if (this->m_scale == 1.0)
-            {
-                constexpr bool Scale = false;
+            this->DispatchScaleFlag(this->m_scale, [&](auto scale) {
+                constexpr bool SCALE = decltype(scale)::value;
 
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   Scale, APPEND, DEFORMED>),
-                    kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                    m_isModified, useSharedMemoryWsp, m_index[ind1]...,
-                    m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr,
-                    outptr, wspptr, (TData)1.0);
-            }
-            else
-            {
-                constexpr bool Scale = true;
-
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   Scale, APPEND, DEFORMED>),
+                                                   SCALE, APPEND, DEFORMED>),
                     kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
                     kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
                     m_isModified, useSharedMemoryWsp, m_index[ind1]...,
                     m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr,
                     outptr, wspptr, this->m_scale);
-            }
+            });
         }
         else
         {
             // IProduct kernel - no quadrature
-            if (this->m_scale == 1.0)
-            {
-                constexpr bool Scale = false;
+            this->DispatchScaleFlag(this->m_scale, [&](auto scale) {
+                constexpr bool SCALE = decltype(scale)::value;
 
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   Scale, APPEND>),
-                    kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                    m_isModified, useSharedMemoryWsp, m_index[ind1]...,
-                    m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr,
-                    (TData)1.0);
-            }
-            else
-            {
-                constexpr bool Scale = true;
-
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   Scale, APPEND>),
+                                                   SCALE, APPEND>),
                     kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
                     kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
                     m_isModified, useSharedMemoryWsp, m_index[ind1]...,
                     m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr,
                     this->m_scale);
-            }
+            });
         }
 
         // Reshape back, if necessary.

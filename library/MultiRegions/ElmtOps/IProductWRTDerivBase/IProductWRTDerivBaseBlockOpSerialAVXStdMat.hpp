@@ -374,37 +374,30 @@ protected:
                 if constexpr (TFieldOut == FieldState::Coeff)
                 {
                     // Multiply by derivative factor and Jacobian.
-                    if (m_isDeformed)
-                    {
-                        JacobianDerivFactorKernel<ExecSpace, true>(
-                            m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
-                            m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
-                            reinterpret_cast<const simd_t *>(dfptr),
-                            reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr),
-                            (const simd_t)this->m_scale);
-                        jacptr += m_nqTot * simd_t::width;
-                        dfptr +=
-                            m_coordDim * m_dimension * m_nqTot * simd_t::width;
-                    }
-                    else
-                    {
-                        JacobianDerivFactorKernel<ExecSpace, false>(
-                            m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
-                            m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
-                            reinterpret_cast<const simd_t *>(dfptr),
-                            reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr),
-                            (const simd_t)this->m_scale);
-                        jacptr += simd_t::width;
-                        dfptr += m_coordDim * m_dimension * simd_t::width;
-                    }
+                    this->DispatchDeformedFlag(
+                        m_isDeformed, [&](auto deformed) {
+                            constexpr bool DEFORMED = decltype(deformed)::value;
+
+                            JacobianDerivFactorKernel<ExecSpace, DEFORMED>(
+                                m_nqTot, m_coordDim, m_dimension, 1,
+                                inoffset_vec, m_nqTot,
+                                reinterpret_cast<const simd_t *>(jacptr),
+                                reinterpret_cast<const simd_t *>(dfptr),
+                                reinterpret_cast<const simd_t *>(inptr),
+                                reinterpret_cast<simd_t *>(wspptr),
+                                (const simd_t)this->m_scale);
+                            jacptr += (DEFORMED ? m_nqTot : 1u) * simd_t::width;
+                            dfptr += m_coordDim * m_dimension *
+                                     (DEFORMED ? m_nqTot : 1u) * simd_t::width;
+                        });
                 }
                 else
                 {
-                    if (m_isDeformed)
-                    {
-                        JacobianDerivFactorWeightsKernel<ExecSpace, true>(
+                    this->DispatchDeformedFlag(m_isDeformed, [&](auto
+                                                                     deformed) {
+                        constexpr bool DEFORMED = decltype(deformed)::value;
+
+                        JacobianDerivFactorWeightsKernel<ExecSpace, DEFORMED>(
                             m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
                             m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
@@ -412,23 +405,10 @@ protected:
                             reinterpret_cast<const simd_t *>(inptr),
                             reinterpret_cast<simd_t *>(wspptr),
                             (const simd_t)this->m_scale);
-                        jacptr += m_nqTot * simd_t::width;
-                        dfptr +=
-                            m_coordDim * m_dimension * m_nqTot * simd_t::width;
-                    }
-                    else
-                    {
-                        JacobianDerivFactorWeightsKernel<ExecSpace, false>(
-                            m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
-                            m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
-                            reinterpret_cast<const simd_t *>(dfptr),
-                            reinterpret_cast<const simd_t *>(m_weights),
-                            reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr),
-                            (const simd_t)this->m_scale);
-                        jacptr += simd_t::width;
-                        dfptr += m_coordDim * m_dimension * simd_t::width;
-                    }
+                        jacptr += (DEFORMED ? m_nqTot : 1u) * simd_t::width;
+                        dfptr += m_coordDim * m_dimension *
+                                 (DEFORMED ? m_nqTot : 1u) * simd_t::width;
+                    });
                 }
 
                 // Perform matrix-matrix multiply.

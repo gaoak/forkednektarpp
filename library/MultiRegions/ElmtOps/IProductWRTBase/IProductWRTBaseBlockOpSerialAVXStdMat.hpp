@@ -324,24 +324,18 @@ protected:
                 if (this->m_integration) // integration with weights
                 {
                     // Multiply by jacobian.
-                    if (m_isDeformed)
-                    {
-                        MultiplyByJacobian<ExecSpace, true>(
-                            1, m_nqTot,
-                            reinterpret_cast<const simd_t *>(jacptr),
-                            reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr), this->m_scale);
-                        jacptr += m_nqTot * simd_t::width;
-                    }
-                    else
-                    {
-                        MultiplyByJacobian<ExecSpace, false>(
-                            1, m_nqTot,
-                            reinterpret_cast<const simd_t *>(jacptr),
-                            reinterpret_cast<const simd_t *>(inptr),
-                            reinterpret_cast<simd_t *>(wspptr), this->m_scale);
-                        jacptr += simd_t::width;
-                    }
+                    this->DispatchDeformedFlag(
+                        m_isDeformed, [&](auto deformed) {
+                            constexpr bool DEFORMED = decltype(deformed)::value;
+
+                            MultiplyByJacobian<ExecSpace, DEFORMED>(
+                                1, m_nqTot,
+                                reinterpret_cast<const simd_t *>(jacptr),
+                                reinterpret_cast<const simd_t *>(inptr),
+                                reinterpret_cast<simd_t *>(wspptr),
+                                this->m_scale);
+                            jacptr += (DEFORMED ? m_nqTot : 1u) * simd_t::width;
+                        });
 
                     // Perform matrix-matrix multiply.
                     gemm_kernel(wspptr, m_matptr, outptr);

@@ -316,37 +316,25 @@ protected:
         // omega = curl(u)
         if (m_dimension == 2u)
         {
-            if (m_isDeformed)
-            {
+            this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                constexpr bool DEFORMED = decltype(deformed)::value;
+
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Curl2DScalarStdMatKernel<true>), gridSize, 1u, blockSize,
-                    1, m_streamID, m_nqTot, nelmt, derivoffset, m_dfptr,
-                    derivptr, omegaptr);
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Curl2DScalarStdMatKernel<false>), gridSize, 1u, blockSize,
-                    1, m_streamID, m_nqTot, nelmt, derivoffset, m_dfptr,
-                    derivptr, omegaptr);
-            }
+                    (Curl2DScalarStdMatKernel<DEFORMED>), gridSize, 1u,
+                    blockSize, 1, m_streamID, m_nqTot, nelmt, derivoffset,
+                    m_dfptr, derivptr, omegaptr);
+            });
         }
         else
         {
-            if (m_isDeformed)
-            {
+            this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                constexpr bool DEFORMED = decltype(deformed)::value;
+
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Curl3DStdMatKernel<true>), gridSize, blockSize, m_streamID,
-                    m_nqTot, nelmt, derivoffset, derivoffset, m_dfptr, derivptr,
-                    omegaptr);
-            }
-            else
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Curl3DStdMatKernel<false>), gridSize, blockSize,
+                    (Curl3DStdMatKernel<DEFORMED>), gridSize, blockSize,
                     m_streamID, m_nqTot, nelmt, derivoffset, derivoffset,
                     m_dfptr, derivptr, omegaptr);
-            }
+            });
         }
 
         // Standard derivatives of omega.
@@ -360,37 +348,25 @@ protected:
         // out = curl(omega)
         if (m_dimension == 2u)
         {
-            if (m_isDeformed)
-            {
+            this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                constexpr bool DEFORMED = decltype(deformed)::value;
+
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Curl2DVectorStdMatKernel<true>), gridSize, 1u, blockSize,
-                    1, m_streamID, m_nqTot, nelmt, derivoffset, outoffset,
-                    m_dfptr, derivptr, outptr);
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Curl2DVectorStdMatKernel<false>), gridSize, 1u, blockSize,
-                    1, m_streamID, m_nqTot, nelmt, derivoffset, outoffset,
-                    m_dfptr, derivptr, outptr);
-            }
+                    (Curl2DVectorStdMatKernel<DEFORMED>), gridSize, 1u,
+                    blockSize, 1, m_streamID, m_nqTot, nelmt, derivoffset,
+                    outoffset, m_dfptr, derivptr, outptr);
+            });
         }
         else
         {
-            if (m_isDeformed)
-            {
+            this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                constexpr bool DEFORMED = decltype(deformed)::value;
+
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Curl3DStdMatKernel<true>), gridSize, blockSize, m_streamID,
-                    m_nqTot, nelmt, derivoffset, outoffset, m_dfptr, derivptr,
-                    outptr);
-            }
-            else
-            {
-                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (Curl3DStdMatKernel<false>), gridSize, blockSize,
+                    (Curl3DStdMatKernel<DEFORMED>), gridSize, blockSize,
                     m_streamID, m_nqTot, nelmt, derivoffset, outoffset, m_dfptr,
                     derivptr, outptr);
-            }
+            });
         }
 
         // Reshape back, if necessary.
@@ -489,36 +465,24 @@ protected:
             (TData)0.0, derivzptr, m_nqTot, derivoffset, m_dimension);
 
         // The third component, df_y/dx - df_x/dy.
-        if (m_isDeformed)
-        {
+        this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+            constexpr bool DEFORMED = decltype(deformed)::value;
+
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (Curl2DScalarStdMatKernel<true>), gridSize, nhomo, blockSize, 1,
-                m_streamID, m_nqTot, nelmt, derivoffset, m_dfptr, derivptr,
-                outptr + 2u * outoffset);
-        }
-        else
-        {
-            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (Curl2DScalarStdMatKernel<false>), gridSize, nhomo, blockSize,
-                1, m_streamID, m_nqTot, nelmt, derivoffset, m_dfptr, derivptr,
-                outptr + 2u * outoffset);
-        }
+                (Curl2DScalarStdMatKernel<DEFORMED>), gridSize, nhomo,
+                blockSize, 1, m_streamID, m_nqTot, nelmt, derivoffset, m_dfptr,
+                derivptr, outptr + 2u * outoffset);
+        });
 
         // The first two components, {df_z/dy, -df_z/dx}.
-        if (m_isDeformed)
-        {
+        this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+            constexpr bool DEFORMED = decltype(deformed)::value;
+
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (Curl2DVectorStdMatKernel<true>), gridSize, nhomo, blockSize, 1,
-                m_streamID, m_nqTot, nelmt, derivoffset, outoffset, m_dfptr,
-                derivzptr, outptr);
-        }
-        else
-        {
-            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (Curl2DVectorStdMatKernel<false>), gridSize, nhomo, blockSize,
-                1, m_streamID, m_nqTot, nelmt, derivoffset, outoffset, m_dfptr,
-                derivzptr, outptr);
-        }
+                (Curl2DVectorStdMatKernel<DEFORMED>), gridSize, nhomo,
+                blockSize, 1, m_streamID, m_nqTot, nelmt, derivoffset,
+                outoffset, m_dfptr, derivzptr, outptr);
+        });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

@@ -296,28 +296,23 @@ protected:
                     if (m_form == PhysLiftProjectForm::Pointwise)
                     {
                         // out (+)= scale / (w J) * vol.
-                        if (m_isDeformed)
-                        {
-                            PhysLiftProjectPointScaleKernel<true>(
-                                m_nqTot, this->m_scale, weights,
-                                jac + e * m_nqTot, m_scaled.data());
-                        }
-                        else
-                        {
-                            PhysLiftProjectPointScaleKernel<false>(
-                                m_nqTot, this->m_scale, weights, jac + e,
-                                m_scaled.data());
-                        }
-                        if (this->m_append)
-                        {
-                            PhysLiftProjectPointwiseKernel<true>(
-                                m_nqTot, m_scaled.data(), vol, out);
-                        }
-                        else
-                        {
-                            PhysLiftProjectPointwiseKernel<false>(
-                                m_nqTot, m_scaled.data(), vol, out);
-                        }
+                        this->DispatchDeformedFlag(
+                            m_isDeformed, [&](auto deformed) {
+                                constexpr bool DEFORMED =
+                                    decltype(deformed)::value;
+
+                                PhysLiftProjectPointScaleKernel<DEFORMED>(
+                                    m_nqTot, this->m_scale, weights,
+                                    jac + e * (DEFORMED ? m_nqTot : 1u),
+                                    m_scaled.data());
+                            });
+                        this->DispatchAppendFlag(
+                            this->m_append, [&](auto append) {
+                                constexpr bool APPEND = decltype(append)::value;
+
+                                PhysLiftProjectPointwiseKernel<APPEND>(
+                                    m_nqTot, m_scaled.data(), vol, out);
+                            });
                     }
                     else
                     {

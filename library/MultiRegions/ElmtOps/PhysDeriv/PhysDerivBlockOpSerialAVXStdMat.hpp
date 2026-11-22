@@ -299,24 +299,17 @@ protected:
                 }
 
                 // Multiply by derivative factor.
-                if (m_isDeformed)
-                {
-                    MultiplyByDerivFactorKernel<ExecSpace, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    MultiplyByDerivFactorKernel<ExecSpace, DEFORMED>(
                         m_nqTot, m_coordDim, m_dimension, 1, outoffset_vec,
                         outoffset_vec, reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(outptr),
                         reinterpret_cast<simd_t *>(outptr));
-                    dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
-                }
-                else
-                {
-                    MultiplyByDerivFactorKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, 1, outoffset_vec,
-                        outoffset_vec, reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(outptr),
-                        reinterpret_cast<simd_t *>(outptr));
-                    dfptr += m_coordDim * m_dimension * simd_t::width;
-                }
+                    dfptr += m_coordDim * m_dimension *
+                             (DEFORMED ? m_nqTot : 1u) * simd_t::width;
+                });
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

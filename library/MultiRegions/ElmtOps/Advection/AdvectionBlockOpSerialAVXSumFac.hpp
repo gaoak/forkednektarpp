@@ -490,9 +490,13 @@ protected:
                             m_implInterleaveWidth, outInterleaveWidth,
                             chunkSize, nqTot, (TData *)outptr);
                     }
+                }
+
+                this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                    constexpr bool APPEND = decltype(append)::value;
 
                     // Advection kernel.
-                    AdvectionKernelLauncher<SHAPE_TYPE, true, DEFORMED>(
+                    AdvectionKernelLauncher<SHAPE_TYPE, APPEND, DEFORMED>(
                         sizeParam, m_D[ind0]..., m_f[ind1]...,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(advVelPtr),
@@ -503,22 +507,7 @@ protected:
                         m_deriv[ind0].data()...,
                         reinterpret_cast<const simd_t *>(inptr),
                         reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                }
-                else
-                {
-                    // Advection kernel.
-                    AdvectionKernelLauncher<SHAPE_TYPE, false, DEFORMED>(
-                        sizeParam, m_D[ind0]..., m_f[ind1]...,
-                        reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(advVelPtr),
-                        reinterpret_cast<const simd_t *>(advVelPtr +
-                                                         advVelOffset),
-                        reinterpret_cast<const simd_t *>(advVelPtr +
-                                                         2 * advVelOffset),
-                        m_deriv[ind0].data()...,
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                }
+                });
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

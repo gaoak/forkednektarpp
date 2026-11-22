@@ -352,41 +352,28 @@ protected:
         // block.
         if constexpr (TFieldOut == FieldState::Coeff)
         {
-            if (m_isDeformed)
-            {
+            this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                constexpr bool DEFORMED = decltype(deformed)::value;
+
                 DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (JacobianDerivFactorKernel<true>), gridSize, nhomo,
+                    (JacobianDerivFactorKernel<DEFORMED>), gridSize, nhomo,
                     outblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
                     m_nqTot, m_coordDim, m_dimension, nelmt, inoffset,
                     wspoffset, m_jacptr, m_dfptr, inptr, wspptr);
-            }
-            else
-            {
-                DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (JacobianDerivFactorKernel<false>), gridSize, nhomo,
-                    outblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
-                    m_nqTot, m_coordDim, m_dimension, nelmt, inoffset,
-                    wspoffset, m_jacptr, m_dfptr, inptr, wspptr);
-            }
+            });
         }
         else
         {
-            if (m_isDeformed)
-            {
+            this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                constexpr bool DEFORMED = decltype(deformed)::value;
+
                 DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (JacobianDerivFactorWeightsKernel<true>), gridSize, nhomo,
-                    outblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
-                    m_nqTot, m_coordDim, m_dimension, nelmt, inoffset,
-                    wspoffset, m_jacptr, m_dfptr, m_weights, inptr, wspptr);
-            }
-            else
-            {
-                DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (JacobianDerivFactorWeightsKernel<false>), gridSize, nhomo,
-                    outblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
-                    m_nqTot, m_coordDim, m_dimension, nelmt, inoffset,
-                    wspoffset, m_jacptr, m_dfptr, m_weights, inptr, wspptr);
-            }
+                    (JacobianDerivFactorWeightsKernel<DEFORMED>), gridSize,
+                    nhomo, outblock.GetNumComponents(), blockSize, 1, 1,
+                    m_streamID, m_nqTot, m_coordDim, m_dimension, nelmt,
+                    inoffset, wspoffset, m_jacptr, m_dfptr, m_weights, inptr,
+                    wspptr);
+            });
         }
 
         // Perform batched matrix-matrix multiply, one multiply per component,

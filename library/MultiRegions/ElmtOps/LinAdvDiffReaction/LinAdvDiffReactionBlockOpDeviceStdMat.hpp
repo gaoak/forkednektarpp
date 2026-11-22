@@ -429,24 +429,16 @@ protected:
 
         // Step 3: Multiply by diffusion coefficient, derivative
         // factor and Jacobian and add advection.
-        if (m_isDeformed)
-        {
+        this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+            constexpr bool DEFORMED = decltype(deformed)::value;
+
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (ApplyMetricKernel<true, VARCOEFF>), gridSize, ncomp, blockSize,
-                1, m_streamID, m_nqTot, m_coordDim, m_dimension, nelmt,
-                inblock.GetNumHomoModes(), derivoffset, derivoffset,
-                adveloffset, diffCoeffPtr, m_jacptr, m_dfptr, advVelPtr,
-                derivptr, derivptr, bwdptr, this->m_lambda);
-        }
-        else
-        {
-            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (ApplyMetricKernel<false, VARCOEFF>), gridSize, ncomp,
+                (ApplyMetricKernel<DEFORMED, VARCOEFF>), gridSize, ncomp,
                 blockSize, 1, m_streamID, m_nqTot, m_coordDim, m_dimension,
                 nelmt, inblock.GetNumHomoModes(), derivoffset, derivoffset,
                 adveloffset, diffCoeffPtr, m_jacptr, m_dfptr, advVelPtr,
                 derivptr, derivptr, bwdptr, this->m_lambda);
-        }
+        });
 
         // Step 4: IProduct
         // Perform batched matrix-matrix multiply, one multiply per component,

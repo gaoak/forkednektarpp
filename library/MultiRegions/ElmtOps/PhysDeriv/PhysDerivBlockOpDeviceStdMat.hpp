@@ -291,22 +291,15 @@ protected:
         // Multiply by derivative factor, the planes and components on the
         // second and third grid dimensions. The directions of a component are
         // held in outDim slots of the output block.
-        if (m_isDeformed)
-        {
+        this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+            constexpr bool DEFORMED = decltype(deformed)::value;
+
             DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (MultiplyByDerivFactorKernel<true>), gridSize, nhomo,
+                (MultiplyByDerivFactorKernel<DEFORMED>), gridSize, nhomo,
                 inblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
                 m_nqTot, m_coordDim, m_dimension, outDim, nelmt, outoffset,
                 outoffset, m_dfptr, outptr, outptr);
-        }
-        else
-        {
-            DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (MultiplyByDerivFactorKernel<false>), gridSize, nhomo,
-                inblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
-                m_nqTot, m_coordDim, m_dimension, outDim, nelmt, outoffset,
-                outoffset, m_dfptr, outptr, outptr);
-        }
+        });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
