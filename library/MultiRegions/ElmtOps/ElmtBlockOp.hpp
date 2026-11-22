@@ -383,6 +383,75 @@ protected:
         }
     }
 
+    /**
+     * @brief Call @p func with `std::true_type` if @p append and
+     * `std::false_type` otherwise.
+     *
+     * Used by the v_Apply() overrides to select a kernel's `APPEND`
+     * template parameter.
+     *
+     * @param   append  Add to the output rather than overwrite it.
+     * @param   func    Callable taking the append constant.
+     */
+    template <typename TFunc>
+    static void DispatchAppendFlag(const bool append, TFunc &&func)
+    {
+        if (append)
+        {
+            func(std::true_type{});
+        }
+        else
+        {
+            func(std::false_type{});
+        }
+    }
+
+    /**
+     * @brief Call @p func with `std::false_type` if @p scale is one and
+     * `std::true_type` otherwise.
+     *
+     * Used by the v_Apply() overrides to select a kernel's `SCALE`
+     * template parameter.
+     *
+     * @param   scale   Factor the output is multiplied by.
+     * @param   func    Callable taking the scaling constant.
+     */
+    template <typename TFunc>
+    static void DispatchScaleFlag(const TData scale, TFunc &&func)
+    {
+        if (scale == 1.0)
+        {
+            func(std::false_type{});
+        }
+        else
+        {
+            func(std::true_type{});
+        }
+    }
+
+    /**
+     * @brief Call @p func with `std::true_type` if @p deformed and
+     * `std::false_type` otherwise.
+     *
+     * Used by the v_Apply() overrides to select a kernel's `DEFORMED`
+     * template parameter.
+     *
+     * @param   deformed    The block's elements have deformed geometry.
+     * @param   func        Callable taking the deformed constant.
+     */
+    template <typename TFunc>
+    static void DispatchDeformedFlag(const bool deformed, TFunc &&func)
+    {
+        if (deformed)
+        {
+            func(std::true_type{});
+        }
+        else
+        {
+            func(std::false_type{});
+        }
+    }
+
     /// The creators return a std::unique_ptr to this class, which the
     /// factory converts to the shared_ptr it hands out; their deleter
     /// destroys the operator through this destructor.

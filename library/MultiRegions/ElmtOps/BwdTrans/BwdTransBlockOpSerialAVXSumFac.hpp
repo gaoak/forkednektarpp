@@ -459,23 +459,18 @@ protected:
                             m_implInterleaveWidth, outInterleaveWidth,
                             chunkSize, nqTot, (TData *)outptr);
                     }
+                }
+
+                this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                    constexpr bool APPEND = decltype(append)::value;
 
                     // BwdTrans kernel.
-                    BwdTransKernelLauncher<SHAPE_TYPE, true>(
+                    BwdTransKernelLauncher<SHAPE_TYPE, APPEND>(
                         sizeParam, m_isModified, m_B[ind0]..., m_nodToMod,
                         m_wsp[ind1].data()...,
                         reinterpret_cast<const simd_t *>(inptr),
                         reinterpret_cast<simd_t *>(outptr));
-                }
-                else
-                {
-                    // BwdTrans kernel.
-                    BwdTransKernelLauncher<SHAPE_TYPE, false>(
-                        sizeParam, m_isModified, m_B[ind0]..., m_nodToMod,
-                        m_wsp[ind1].data()...,
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(outptr));
-                }
+                });
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

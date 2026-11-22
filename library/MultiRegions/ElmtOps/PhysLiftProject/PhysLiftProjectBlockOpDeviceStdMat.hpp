@@ -198,44 +198,18 @@ protected:
         const unsigned int gridSize =
             (nelmt * m_nqTot + blockSize - 1u) / blockSize;
 
-        if (this->m_append)
-        {
-            if (m_isDeformed)
-            {
+        this->DispatchAppendFlag(this->m_append, [&](auto append) {
+            this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                constexpr bool APPEND   = decltype(append)::value;
+                constexpr bool DEFORMED = decltype(deformed)::value;
+
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (PhysLiftProjectPointwiseKernel<Implementation, true,
-                                                    true>),
+                    (PhysLiftProjectPointwiseKernel<Implementation, APPEND,
+                                                    DEFORMED>),
                     gridSize, ncomp, blockSize, 1, m_streamID, nelmt, m_nqTot,
                     this->m_scale, m_weightsptr, m_jacptr, volPtr, outPtr);
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (PhysLiftProjectPointwiseKernel<Implementation, true,
-                                                    false>),
-                    gridSize, ncomp, blockSize, 1, m_streamID, nelmt, m_nqTot,
-                    this->m_scale, m_weightsptr, m_jacptr, volPtr, outPtr);
-            }
-        }
-        else
-        {
-            if (m_isDeformed)
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (PhysLiftProjectPointwiseKernel<Implementation, false,
-                                                    true>),
-                    gridSize, ncomp, blockSize, 1, m_streamID, nelmt, m_nqTot,
-                    this->m_scale, m_weightsptr, m_jacptr, volPtr, outPtr);
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (PhysLiftProjectPointwiseKernel<Implementation, false,
-                                                    false>),
-                    gridSize, ncomp, blockSize, 1, m_streamID, nelmt, m_nqTot,
-                    this->m_scale, m_weightsptr, m_jacptr, volPtr, outPtr);
-            }
-        }
+            });
+        });
     }
 
     /// The StdInvMass form at width one: the scratch divided by the Jacobian

@@ -305,75 +305,32 @@ protected:
                                 derivptr + d * m_nqTot * simd_t::width);
                 }
 
+                // Reshape, if necessary.
+                if (this->m_append && e % width_ratio == 0)
+                {
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, outInterleaveWidth, chunkSize,
+                        m_nqTot, (TData *)outptr);
+                }
+
                 // Multiply by derivative factor and Advection Velocity.
-                if (m_isDeformed)
-                {
-                    if (this->m_append)
-                    {
-                        // Reshape, if necessary.
-                        if (e % width_ratio == 0)
-                        {
-                            LibUtilities::ReshapeStorage<ExecSpace>(
-                                m_implInterleaveWidth, outInterleaveWidth,
-                                chunkSize, m_nqTot, (TData *)outptr);
-                        }
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                        constexpr bool APPEND   = decltype(append)::value;
+                        constexpr bool DEFORMED = decltype(deformed)::value;
 
-                        MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
-                                                               true>(
+                        MultiplyByDerivFactorAndAdvecVelKernel<
+                            ExecSpace, APPEND, DEFORMED>(
                             m_nqTot, m_coordDim, m_dimension, 1, derivsize,
                             reinterpret_cast<const simd_t *>(dfptr),
                             reinterpret_cast<const simd_t *>(advVelPtr),
                             advelsize,
                             reinterpret_cast<const simd_t *>(derivptr),
                             reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                    }
-                    else
-                    {
-                        MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
-                                                               true>(
-                            m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                            reinterpret_cast<const simd_t *>(dfptr),
-                            reinterpret_cast<const simd_t *>(advVelPtr),
-                            advelsize,
-                            reinterpret_cast<const simd_t *>(derivptr),
-                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                    }
-                    dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
-                }
-                else
-                {
-                    if (this->m_append)
-                    {
-                        // Reshape, if necessary.
-                        if (e % width_ratio == 0)
-                        {
-                            LibUtilities::ReshapeStorage<ExecSpace>(
-                                m_implInterleaveWidth, outInterleaveWidth,
-                                chunkSize, m_nqTot, (TData *)outptr);
-                        }
-
-                        MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
-                                                               false>(
-                            m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                            reinterpret_cast<const simd_t *>(dfptr),
-                            reinterpret_cast<const simd_t *>(advVelPtr),
-                            advelsize,
-                            reinterpret_cast<const simd_t *>(derivptr),
-                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                    }
-                    else
-                    {
-                        MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
-                                                               false>(
-                            m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                            reinterpret_cast<const simd_t *>(dfptr),
-                            reinterpret_cast<const simd_t *>(advVelPtr),
-                            advelsize,
-                            reinterpret_cast<const simd_t *>(derivptr),
-                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                    }
-                    dfptr += m_coordDim * m_dimension * simd_t::width;
-                }
+                    });
+                });
+                dfptr += m_coordDim * m_dimension *
+                         (m_isDeformed ? m_nqTot : 1u) * simd_t::width;
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

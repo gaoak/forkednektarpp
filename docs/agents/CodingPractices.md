@@ -40,8 +40,14 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
 6. **Device kernels use `NektarSpaces::Device::warpSize`** so access is
    coalesced.
 7. **Kernels are fused free functions, not local lambdas.** `DEFORMED` is a
-   kernel template parameter, dispatched once in the wrapper:
-   `if (m_isDeformed) Kernel<true> else Kernel<false>`.
+   kernel template parameter, dispatched once in the wrapper through
+   `DispatchDeformedFlag()`; `APPEND` and `SCALE` likewise through
+   `DispatchAppendFlag()` and `DispatchScaleFlag()`. MSVC does not treat a
+   captured `constexpr` local as a constant expression, so a template
+   argument inside a dispatch lambda is never a `constexpr` local of an
+   enclosing scope: a function-scope constant is declared `static
+   constexpr`, and nested dispatches declare every flag in the innermost
+   lambda from its `decltype`.
 
 ## Interfaces
 

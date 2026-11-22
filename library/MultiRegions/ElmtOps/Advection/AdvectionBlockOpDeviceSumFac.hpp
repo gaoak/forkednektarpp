@@ -462,33 +462,26 @@ protected:
         LibUtilities::ReshapeStorage<ExecSpace>(
             m_implInterleaveWidth, inInterleaveWidth, nelmt * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-        // Calculate derivative.
         if (this->m_append)
         {
             // Reshape, if necessary.
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
                 outblock.GetNumData(), (TData *)outptr, m_streamID);
+        }
+
+        // Calculate derivative.
+        this->DispatchAppendFlag(this->m_append, [&](auto append) {
+            constexpr bool APPEND = decltype(append)::value;
 
             DEVICE_2DGRID_KERNEL_LAUNCHER(
-                (AdvectionKernelLauncher<SHAPE_TYPE, Implementation, true,
+                (AdvectionKernelLauncher<SHAPE_TYPE, Implementation, APPEND,
                                          DEFORMED>),
                 kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
                 kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
                 m_D[ind0]..., m_f[ind1]..., m_dfptr, advVelPtr, advVelOffset,
                 nhomo, inptr, outptr, this->m_scale);
-        }
-        else
-        {
-            DEVICE_2DGRID_KERNEL_LAUNCHER(
-                (AdvectionKernelLauncher<SHAPE_TYPE, Implementation, false,
-                                         DEFORMED>),
-                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-                kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                m_D[ind0]..., m_f[ind1]..., m_dfptr, advVelPtr, advVelOffset,
-                nhomo, inptr, outptr, this->m_scale);
-        }
+        });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

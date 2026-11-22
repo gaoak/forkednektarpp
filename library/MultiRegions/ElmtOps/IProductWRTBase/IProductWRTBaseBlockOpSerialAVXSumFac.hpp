@@ -363,7 +363,8 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock,
         TSizeParameter sizeParam)
     {
-        constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
+        static constexpr unsigned int DIM =
+            LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 
         // sizeParam is built by the switch in
         // LibUtilities/BasicUtils/Switch/BlockOpSwitchCode.h.in.
@@ -373,20 +374,14 @@ protected:
                       "OperatorND expects a size parameter matching the "
                       "dimension of the shape.");
 
-        if (this->m_append)
-        {
-            OperatorNDImpl<SHAPE_TYPE, DEFORMED, true>(
+        this->DispatchAppendFlag(this->m_append, [&](auto append) {
+            constexpr bool APPEND = decltype(append)::value;
+
+            this->template OperatorNDImpl<SHAPE_TYPE, DEFORMED, APPEND>(
                 inblock, outblock, sizeParam,
                 std::make_integer_sequence<unsigned int, DIM>(),
                 std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>());
-        }
-        else
-        {
-            OperatorNDImpl<SHAPE_TYPE, DEFORMED, false>(
-                inblock, outblock, sizeParam,
-                std::make_integer_sequence<unsigned int, DIM>(),
-                std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>());
-        }
+        });
     }
 
     /**
@@ -497,20 +492,10 @@ protected:
                 // IProduct kernel.
                 if (this->m_integration)
                 {
-                    if (this->m_scale == 1.0)
-                    {
-                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, APPEND,
-                                                      DEFORMED>(
-                            sizeParam, m_isModified,
-                            reinterpret_cast<const simd_t *>(inptr),
-                            m_B[ind0]..., m_W[ind0]..., m_nodToModTrans,
-                            reinterpret_cast<const simd_t *>(jacptr),
-                            m_wsp[ind1].data()...,
-                            reinterpret_cast<simd_t *>(outptr));
-                    }
-                    else
-                    {
-                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, true, APPEND,
+                    this->DispatchScaleFlag(this->m_scale, [&](auto scale) {
+                        constexpr bool SCALE = decltype(scale)::value;
+
+                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, SCALE, APPEND,
                                                       DEFORMED>(
                             sizeParam, m_isModified,
                             reinterpret_cast<const simd_t *>(inptr),
@@ -518,30 +503,22 @@ protected:
                             reinterpret_cast<const simd_t *>(jacptr),
                             m_wsp[ind1].data()...,
                             reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                    }
+                    });
                 }
                 else
                 {
                     // IProduct kernel with no quadrature B^T op.
-                    if (this->m_scale == 1.0)
-                    {
-                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, false,
+                    this->DispatchScaleFlag(this->m_scale, [&](auto scale) {
+                        constexpr bool SCALE = decltype(scale)::value;
+
+                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, SCALE,
                                                       APPEND>(
                             sizeParam, m_isModified,
                             reinterpret_cast<const simd_t *>(inptr),
                             m_B[ind0]..., m_nodToModTrans,
                             m_wsp[ind1].data()...,
-                            reinterpret_cast<simd_t *>(outptr));
-                    }
-                    else
-                    {
-                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, true, APPEND>(
-                            sizeParam, m_isModified,
-                            reinterpret_cast<const simd_t *>(inptr),
-                            m_B[ind0]..., m_nodToModTrans,
-                            m_wsp[ind1].data()...,
                             reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                    }
+                    });
                 }
 
                 // Reshape back, if necessary.

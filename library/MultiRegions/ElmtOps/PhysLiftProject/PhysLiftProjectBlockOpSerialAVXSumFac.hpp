@@ -796,16 +796,12 @@ protected:
                 const auto outGroup = reinterpret_cast<simd_t *>(outPtr);
                 if constexpr (FORM == PhysLiftProjectForm::Pointwise)
                 {
-                    if (this->m_append)
-                    {
-                        PhysLiftProjectPointwiseKernel<true>(
+                    this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                        constexpr bool APPEND = decltype(append)::value;
+
+                        PhysLiftProjectPointwiseKernel<APPEND>(
                             m_nqTot, m_pointScale.data(), vol, outGroup);
-                    }
-                    else
-                    {
-                        PhysLiftProjectPointwiseKernel<false>(
-                            m_nqTot, m_pointScale.data(), vol, outGroup);
-                    }
+                    });
                 }
                 else
                 {
@@ -831,20 +827,14 @@ protected:
                         PhysLiftProjectCoefScaleKernel(m_nmTot, coefScale,
                                                        coef2);
                     }
-                    if (this->m_append)
-                    {
-                        BwdTransKernelLauncher<SHAPE_TYPE, true>(
+                    this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                        constexpr bool APPEND = decltype(append)::value;
+
+                        BwdTransKernelLauncher<SHAPE_TYPE, APPEND>(
                             sizeParam, m_isModified, m_basis[ind0]...,
                             m_nodToMod, m_bwdWsp[ind4].data()..., coef2,
                             outGroup);
-                    }
-                    else
-                    {
-                        BwdTransKernelLauncher<SHAPE_TYPE, false>(
-                            sizeParam, m_isModified, m_basis[ind0]...,
-                            m_nodToMod, m_bwdWsp[ind4].data()..., coef2,
-                            outGroup);
-                    }
+                    });
                 }
 
                 // Reshape back, if necessary.

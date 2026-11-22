@@ -491,35 +491,20 @@ protected:
                             m_implInterleaveWidth, outInterleaveWidth,
                             chunkSize, numDataOut, (TData *)outptr);
                     }
+                }
 
-                    if (m_isDeformed)
-                    {
-                        LaunchIProductWRTPhysTraceND<true, true>(
-                            traceid, inOffset, jacoffset, m_wsp[0], m_wsp[1],
-                            inptr, outptr);
-                    }
-                    else
-                    {
-                        LaunchIProductWRTPhysTraceND<false, true>(
-                            traceid, inOffset, jacoffset, m_wsp[0], m_wsp[1],
-                            inptr, outptr);
-                    }
-                }
-                else
-                {
-                    if (m_isDeformed)
-                    {
-                        LaunchIProductWRTPhysTraceND<true, false>(
-                            traceid, inOffset, jacoffset, m_wsp[0], m_wsp[1],
-                            inptr, outptr);
-                    }
-                    else
-                    {
-                        LaunchIProductWRTPhysTraceND<false, false>(
-                            traceid, inOffset, jacoffset, m_wsp[0], m_wsp[1],
-                            inptr, outptr);
-                    }
-                }
+                this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                    this->DispatchDeformedFlag(
+                        m_isDeformed, [&](auto deformed) {
+                            constexpr bool APPEND   = decltype(append)::value;
+                            constexpr bool DEFORMED = decltype(deformed)::value;
+
+                            this->template LaunchIProductWRTPhysTraceND<
+                                DEFORMED, APPEND>(traceid, inOffset, jacoffset,
+                                                  m_wsp[0], m_wsp[1], inptr,
+                                                  outptr);
+                        });
+                });
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
@@ -954,10 +939,14 @@ protected:
                             m_implInterleaveWidth, outInterleaveWidth,
                             chunkSize, numDataOut, (TData *)outptr);
                     }
+                }
+
+                this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                    constexpr bool APPEND = decltype(append)::value;
 
                     // IProductWRTPhysTrace kernel.
                     IProductWRTPhysTraceKernelLauncher<SHAPE_TYPE, DEFORMED,
-                                                       true>(
+                                                       APPEND>(
                         sizeParam, m_B[ind0]..., m_B[sizeof...(ind0) + ind1]...,
                         m_W[ind1]..., reinterpret_cast<const simd_t *>(jacptr),
                         m_wsp[ind2].data()...,
@@ -965,20 +954,7 @@ protected:
                         reinterpret_cast<simd_t *>(outptr),
                         (bool)this->m_isCollocated[ind1]...,
                         (bool)m_endPtsCollocated[ind0]...);
-                }
-                else
-                {
-                    // IProductWRTPhysTrace kernel.
-                    IProductWRTPhysTraceKernelLauncher<SHAPE_TYPE, DEFORMED,
-                                                       false>(
-                        sizeParam, m_B[ind0]..., m_B[sizeof...(ind0) + ind1]...,
-                        m_W[ind1]..., reinterpret_cast<const simd_t *>(jacptr),
-                        m_wsp[ind2].data()...,
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(outptr),
-                        (bool)this->m_isCollocated[ind1]...,
-                        (bool)m_endPtsCollocated[ind0]...);
-                }
+                });
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

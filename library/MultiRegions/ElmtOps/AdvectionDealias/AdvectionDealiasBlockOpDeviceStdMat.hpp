@@ -261,22 +261,15 @@ protected:
 
         // Multiply by derivative factor, the planes and components on the
         // second and third grid dimensions.
-        if (m_isDeformed)
-        {
+        this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+            constexpr bool DEFORMED = decltype(deformed)::value;
+
             DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (MultiplyByDerivFactorKernel<true>), gridSize, nhomo,
+                (MultiplyByDerivFactorKernel<DEFORMED>), gridSize, nhomo,
                 inblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
                 m_nqTot, m_coordDim, m_dimension, 1u, nelmt, derivoffset,
                 derivoffset, m_dfptr, derivWsp, derivWsp);
-        }
-        else
-        {
-            DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (MultiplyByDerivFactorKernel<false>), gridSize, nhomo,
-                inblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
-                m_nqTot, m_coordDim, m_dimension, 1u, nelmt, derivoffset,
-                derivoffset, m_dfptr, derivWsp, derivWsp);
-        }
+        });
 
         // Interpolate the physical gradient to the fine grid. One multiply
         // per coordinate direction, with the components and homogeneous modes

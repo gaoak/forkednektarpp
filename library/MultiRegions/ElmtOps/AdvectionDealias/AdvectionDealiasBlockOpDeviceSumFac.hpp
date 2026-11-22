@@ -364,14 +364,17 @@ protected:
         LibUtilities::ReshapeStorage<ExecSpace>(
             m_implInterleaveWidth, inInterleaveWidth, nelmt * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
-
-        // AdvectionDealias kernel.
         if (this->m_append)
         {
             // Reshape, if necessary.
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
                 outblock.GetNumData(), (TData *)outptr, m_streamID);
+        }
+
+        // AdvectionDealias kernel.
+        this->DispatchAppendFlag(this->m_append, [&](auto append) {
+            constexpr bool APPEND = decltype(append)::value;
 
             if (localPipeline)
             {
@@ -380,7 +383,7 @@ protected:
                 {
                     DEVICE_2DGRID_KERNEL_LAUNCHER(
                         (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
-                                                        Implementation, true,
+                                                        Implementation, APPEND,
                                                         DEFORMED, true, true>),
                         kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
                         kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
@@ -398,7 +401,7 @@ protected:
                 {
                     DEVICE_2DGRID_KERNEL_LAUNCHER(
                         (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
-                                                        Implementation, true,
+                                                        Implementation, APPEND,
                                                         DEFORMED, false, true>),
                         kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
                         kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
@@ -413,7 +416,7 @@ protected:
             {
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
-                                                    true, DEFORMED, false,
+                                                    APPEND, DEFORMED, false,
                                                     false>),
                     kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
                     kernelParams.shmemSize, m_streamID, sizeParam, nelmt, nvar,
@@ -422,59 +425,7 @@ protected:
                     this->m_scale, inptr, inCompStride, advVelPtr,
                     advVelPlaneStride, outptr, outCompStride, wspptr);
             }
-        }
-        else
-        {
-            if (localPipeline)
-            {
-                if constexpr (std::is_same_v<Implementation,
-                                             MultiRegions::SumFacTOP>)
-                {
-                    DEVICE_2DGRID_KERNEL_LAUNCHER(
-                        (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
-                                                        Implementation, false,
-                                                        DEFORMED, true, true>),
-                        kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
-                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                        nvar, nhomo, useSharedMemoryWsp, m_D[ind0]...,
-                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
-                        m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
-                        advVelPtr, advVelPlaneStride, outptr, outCompStride,
-                        wspptr);
-                }
-            }
-            else if (sharedScratch)
-            {
-                if constexpr (std::is_same_v<Implementation,
-                                             MultiRegions::SumFacTOP>)
-                {
-                    DEVICE_2DGRID_KERNEL_LAUNCHER(
-                        (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
-                                                        Implementation, false,
-                                                        DEFORMED, false, true>),
-                        kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
-                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                        nvar, nhomo, useSharedMemoryWsp, m_D[ind0]...,
-                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
-                        m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
-                        advVelPtr, advVelPlaneStride, outptr, outCompStride,
-                        wspptr);
-                }
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
-                                                    false, DEFORMED, false,
-                                                    false>),
-                    kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
-                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt, nvar,
-                    nhomo, useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]...,
-                    m_dfptr, m_Binterp[ind0]..., m_Bproject[ind0]...,
-                    this->m_scale, inptr, inCompStride, advVelPtr,
-                    advVelPlaneStride, outptr, outCompStride, wspptr);
-            }
-        }
+        });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

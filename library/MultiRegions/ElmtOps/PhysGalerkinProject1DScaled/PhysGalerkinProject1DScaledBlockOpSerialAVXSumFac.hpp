@@ -305,22 +305,15 @@ protected:
                 }
 
                 // PhysGalerkinProject1DScaled kernel.
-                if (this->m_append)
-                {
-                    BwdTransKernelLauncher<SHAPE_TYPE, true>(
+                this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                    constexpr bool APPEND = decltype(append)::value;
+
+                    BwdTransKernelLauncher<SHAPE_TYPE, APPEND>(
                         sizeParam, m_isModified, m_B[ind0]...,
                         (const simd_t *)nullptr, m_wsp[ind1].data()...,
                         reinterpret_cast<const simd_t *>(inptr),
                         reinterpret_cast<simd_t *>(outptr));
-                }
-                else
-                {
-                    BwdTransKernelLauncher<SHAPE_TYPE, false>(
-                        sizeParam, m_isModified, m_B[ind0]...,
-                        (const simd_t *)nullptr, m_wsp[ind1].data()...,
-                        reinterpret_cast<const simd_t *>(inptr),
-                        reinterpret_cast<simd_t *>(outptr));
-                }
+                });
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)

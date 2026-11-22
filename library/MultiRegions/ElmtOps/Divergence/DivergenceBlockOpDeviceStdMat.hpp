@@ -320,22 +320,15 @@ protected:
 
         // Multiply by derivative factor and sum over the components, every
         // plane within the one launch.
-        if (m_isDeformed)
-        {
+        this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+            constexpr bool DEFORMED = decltype(deformed)::value;
+
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (DivergenceDerivFactorKernel<true>), gridSize, nhomo, blockSize,
-                1, m_streamID, m_nqTot, m_coordDim, m_dimension, nelmt,
-                derivoffset, m_dimension * derivoffset, m_dfptr, derivptr,
-                outptr);
-        }
-        else
-        {
-            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (DivergenceDerivFactorKernel<false>), gridSize, nhomo,
+                (DivergenceDerivFactorKernel<DEFORMED>), gridSize, nhomo,
                 blockSize, 1, m_streamID, m_nqTot, m_coordDim, m_dimension,
                 nelmt, derivoffset, m_dimension * derivoffset, m_dfptr,
                 derivptr, outptr);
-        }
+        });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

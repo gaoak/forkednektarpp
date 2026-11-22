@@ -304,7 +304,8 @@ protected:
         std::integer_sequence<unsigned int, ind0...>,
         std::integer_sequence<unsigned int, ind1...>)
     {
-        constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
+        static constexpr unsigned int DIM =
+            LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 
         // Reshape advection velocity, if necessary.
         if (this->m_advVel->GetInterleaveWidth() != m_implInterleaveWidth)
@@ -440,18 +441,13 @@ protected:
                         nqTotFine, combinedFine, this->m_scale);
 
                     // Project directly into this component's output.
-                    if (this->m_append)
-                    {
-                        ProjectKernel<DIM, true>(
+                    this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                        constexpr bool APPEND = decltype(append)::value;
+
+                        ProjectKernel<DIM, APPEND>(
                             combinedFine,
                             reinterpret_cast<simd_t *>(outCompPtr));
-                    }
-                    else
-                    {
-                        ProjectKernel<DIM, false>(
-                            combinedFine,
-                            reinterpret_cast<simd_t *>(outCompPtr));
-                    }
+                    });
 
                     // Reshape back, if necessary.
                     if (e % width_ratio == width_ratio - 1)

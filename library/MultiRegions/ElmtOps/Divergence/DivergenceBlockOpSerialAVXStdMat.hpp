@@ -303,22 +303,15 @@ protected:
                 }
 
                 // Multiply by derivative factor.
-                if (m_isDeformed)
-                {
-                    MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    MultiplyByDerivDirFactorKernel<ExecSpace, false, DEFORMED>(
                         0, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(wspptr),
                         reinterpret_cast<simd_t *>(outptr));
-                }
-                else
-                {
-                    MultiplyByDerivDirFactorKernel<ExecSpace, false, false>(
-                        0, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
-                        reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(wspptr),
-                        reinterpret_cast<simd_t *>(outptr));
-                }
+                });
 
                 // Calculate dv/dy & dw/dz
                 for (unsigned c = 1; c < m_dimension; ++c)
@@ -340,22 +333,17 @@ protected:
                     }
 
                     // Multiply by derivative factor.
-                    if (m_isDeformed)
-                    {
-                        MultiplyByDerivDirFactorKernel<ExecSpace, true, true>(
-                            c, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
-                            reinterpret_cast<const simd_t *>(dfptr),
-                            reinterpret_cast<const simd_t *>(wspptr),
-                            reinterpret_cast<simd_t *>(outptr));
-                    }
-                    else
-                    {
-                        MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
-                            c, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
-                            reinterpret_cast<const simd_t *>(dfptr),
-                            reinterpret_cast<const simd_t *>(wspptr),
-                            reinterpret_cast<simd_t *>(outptr));
-                    }
+                    this->DispatchDeformedFlag(
+                        m_isDeformed, [&](auto deformed) {
+                            constexpr bool DEFORMED = decltype(deformed)::value;
+
+                            MultiplyByDerivDirFactorKernel<ExecSpace, true,
+                                                           DEFORMED>(
+                                c, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
+                                reinterpret_cast<const simd_t *>(dfptr),
+                                reinterpret_cast<const simd_t *>(wspptr),
+                                reinterpret_cast<simd_t *>(outptr));
+                        });
                 }
 
                 // Reshape back, if necessary.

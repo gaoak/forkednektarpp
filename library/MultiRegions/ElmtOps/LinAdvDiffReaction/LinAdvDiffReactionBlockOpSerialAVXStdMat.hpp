@@ -431,9 +431,10 @@ protected:
 
                 // Step 3: Multiply by diffusion coefficient, derivative
                 // factor and Jacobian and add advection.
-                if (m_isDeformed)
-                {
-                    ApplyMetricKernel<ExecSpace, true, VARCOEFF>(
+                this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                    constexpr bool DEFORMED = decltype(deformed)::value;
+
+                    ApplyMetricKernel<ExecSpace, DEFORMED, VARCOEFF>(
                         m_nqTot, m_coordDim, m_dimension, 1, derivsize,
                         derivsize, advelsize, diffCoeffPtr,
                         reinterpret_cast<const simd_t *>(varDiffCoeffPtr),
@@ -444,25 +445,10 @@ protected:
                         reinterpret_cast<const simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(derivptr),
                         reinterpret_cast<simd_t *>(bwdptr), this->m_lambda);
-                    jacptr += m_nqTot * simd_t::width;
-                    dfptr += m_coordDim * m_dimension * m_nqTot * simd_t::width;
-                }
-                else
-                {
-                    ApplyMetricKernel<ExecSpace, false, VARCOEFF>(
-                        m_nqTot, m_coordDim, m_dimension, 1, derivsize,
-                        derivsize, advelsize, diffCoeffPtr,
-                        reinterpret_cast<const simd_t *>(varDiffCoeffPtr),
-                        varDiffCoeffSize,
-                        reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(dfptr),
-                        reinterpret_cast<const simd_t *>(advVelPtr),
-                        reinterpret_cast<const simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(derivptr),
-                        reinterpret_cast<simd_t *>(bwdptr), this->m_lambda);
-                    jacptr += simd_t::width;
-                    dfptr += m_coordDim * m_dimension * simd_t::width;
-                }
+                    jacptr += (DEFORMED ? m_nqTot : 1u) * simd_t::width;
+                    dfptr += m_coordDim * m_dimension *
+                             (DEFORMED ? m_nqTot : 1u) * simd_t::width;
+                });
 
                 // Step 4: IProduct
                 // Perform matrix-matrix multiply.

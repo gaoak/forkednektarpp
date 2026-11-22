@@ -667,22 +667,15 @@ protected:
                 else
                 {
                     // Inner product without the quadrature metric wJ.
-                    if (this->m_append)
-                    {
-                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, true, true>(
+                    this->DispatchAppendFlag(this->m_append, [&](auto append) {
+                        constexpr bool APPEND = decltype(append)::value;
+
+                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, true, APPEND>(
                             sizeParam, m_isModified, m_tmpsum.data(),
                             m_B[ind0]..., m_nodToModTrans,
                             m_wsp[ind1].data()...,
                             reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                    }
-                    else
-                    {
-                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, true, false>(
-                            sizeParam, m_isModified, m_tmpsum.data(),
-                            m_B[ind0]..., m_nodToModTrans,
-                            m_wsp[ind1].data()...,
-                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
-                    }
+                    });
                 }
 
                 // Reshape back, if necessary.

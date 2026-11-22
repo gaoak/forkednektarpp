@@ -300,18 +300,13 @@ protected:
         if (this->m_integration) // integration with weights
         {
             // Multiply by jacobian.
-            if (m_isDeformed)
-            {
-                MultiplyByJacobian<ExecSpace, true>(nelmt, m_nqTot, ncomp,
-                                                    m_jacptr, inptr, wspptr,
-                                                    this->m_scale, m_streamID);
-            }
-            else
-            {
-                MultiplyByJacobian<ExecSpace, false>(nelmt, m_nqTot, ncomp,
-                                                     m_jacptr, inptr, wspptr,
-                                                     this->m_scale, m_streamID);
-            }
+            this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
+                constexpr bool DEFORMED = decltype(deformed)::value;
+
+                MultiplyByJacobian<ExecSpace, DEFORMED>(
+                    nelmt, m_nqTot, ncomp, m_jacptr, inptr, wspptr,
+                    this->m_scale, m_streamID);
+            });
 
             // Perform batched matrix-matrix multiply, one multiply per
             // component, with the homogeneous modes held in the columns.
