@@ -37,6 +37,8 @@
 
 #include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
 #include <MultiRegions/ElmtOps/Advection/AdvectionOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
@@ -97,6 +99,12 @@ protected:
     LibUtilities::Field<double, FieldState::Phys> m_traceAdvVel;
 
     // Initialise operators
+    std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
+    // CG only: projection of the solution to coefficients.
+    std::shared_ptr<FwdTransOp<double>> m_fwdTransOp;
+    // DG only: element-local projection of the solution to coefficients.
+    std::shared_ptr<IProductWRTBaseOp<double>> m_iProductWRTBaseOp;
+    std::shared_ptr<MultiplyByElmtInvMassOp<double>> m_multiplyByElmtInvMassOp;
     std::shared_ptr<AdvectionOp<double>> m_advectionCGOp;
     std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
     std::shared_ptr<LinearAdvVolumeFluxOp<double>> m_volumeFluxOp;
@@ -111,6 +119,10 @@ protected:
                 const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
     ~UnsteadyADR() override = default;
+
+    void DoProjection(LibUtilities::Field<double, FieldState::Phys> &in,
+                      LibUtilities::Field<double, FieldState::Phys> &out,
+                      const double &time);
 
     void DoImplicit(LibUtilities::Field<double, FieldState::Phys> &inout,
                     LibUtilities::Field<double, FieldState::Phys> &out,
@@ -128,15 +140,16 @@ protected:
 
     void v_GenerateSummary(SummaryList &s) override;
 
-    void InitialiseParameters();
+    void LoadSessionParameters();
 
-    void v_InitialiseFields() override;
-
-    void v_InitialiseOperators() override;
+    void SetAdvectionVel();
 
     void SetDiffusionCoeff();
 
-    void SetAdvectionVel();
+    void v_InitialiseOperators() override;
+
+    /// Project the solution to coefficients and return views of them.
+    CoefficientFieldViews v_GetOutputFieldViews() override;
 };
 
 } // namespace Nektar

@@ -93,21 +93,22 @@ void VelocityCorrectionScheme::v_InitObject(bool declareExpansionLists)
 
     // Load formulation and physical parameters before field allocation since
     // the linear-implicit formulation requires additional workspaces.
-    InitialiseParameters();
+    LoadSessionParameters();
 
     /// Create Fields for solution m_phys, m_coeff and others
     // One per expansion list: velocity (and added scalar) fields, and pressure
-    InitialiseFields();
+    v_InitialiseFields();
 
     // Set up diffusion Coeff.
     SetDiffusionCoeff();
 
     // Create and initialise all operators
-    InitialiseOperators();
+    v_InitialiseOperators();
 
     // Configure Time-integration
     // Note we exclude pressure from time integration
-    InitialiseTimeOp();
+    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
+    m_timeOp->DefineProjection(&VelocityCorrectionScheme::DoProjection, this);
     // The linear-implicit advection and the higher-order pressure boundary
     // data keep histories that are combined with the coefficients of the
     // explicit contributions of every implicit solve.
@@ -173,9 +174,8 @@ void VelocityCorrectionScheme::v_SetExpansionVariables()
 
 FieldRegistry VelocityCorrectionScheme::v_GetFieldRegistry()
 {
-    PhysicalFieldView solution{
-        m_phys[m_velocityIndex], m_expansionLists[m_velocityIndex], m_coordim,
-        MakeFieldComponents(m_variables[m_velocityIndex])};
+    // The velocity role leaves out the passive scalars, which the physical
+    // groups of the base class retain.
     PhysicalFieldView velocity{
         m_phys[m_velocityIndex], m_expansionLists[m_velocityIndex], m_coordim,
         MakeFieldComponents(m_variables[m_velocityIndex], 0, m_coordim)};
@@ -183,15 +183,9 @@ FieldRegistry VelocityCorrectionScheme::v_GetFieldRegistry()
         m_phys[m_pressureIndex], m_expansionLists[m_pressureIndex], m_coordim,
         MakeFieldComponents(m_variables[m_pressureIndex])};
 
-    FieldRegistry registry;
-    registry.SetRole(std::string(FieldRoles::Solution), solution);
+    FieldRegistry registry = UnsteadySystem::v_GetFieldRegistry();
     registry.SetRole(std::string(FieldRoles::Velocity), velocity);
     registry.SetRole(std::string(FieldRoles::Pressure), pressure);
-    // These groups deliberately retain passive scalars while remaining
-    // non-overlapping for point output.
-    registry.SetPhysicalGroups({solution, pressure});
-    registry.SetCoefficientProvider(
-        [this]() { return v_GetOutputFieldViews(); });
     return registry;
 }
 
@@ -400,8 +394,10 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
         // dealiased advection's interpolate/project round trip can leave.
         if (m_checkIfSystemSingular[m_pressureIndex][0])
         {
-            m_meanRemovalOp->SetNeumannBalance(m_poissonSolveOp.get());
-            m_meanRemovalOp->Apply(m_wsp_phys[m_pressureIndex]);
+            m_meanRemovalOp[m_pressureIndex]->SetNeumannBalance(
+                m_poissonSolveOp.get());
+            m_meanRemovalOp[m_pressureIndex]->Apply(
+                m_wsp_phys[m_pressureIndex]);
         }
     }
 
@@ -535,6 +531,20 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
                            m_coeff[m_velocityIndex]);
 
     // Transform to physical space
+    m_bwdTransOp->Apply(m_coeff[m_velocityIndex], out);
+}
+
+/**
+ * @brief Project the velocity onto the continuous space with its Dirichlet
+ * values at time. The coefficients are left in m_coeff[m_velocityIndex],
+ * of which out is then the backward transform, as after a velocity solve.
+ */
+void VelocityCorrectionScheme::DoProjection(
+    LibUtilities::Field<double, FieldState::Phys> &in,
+    LibUtilities::Field<double, FieldState::Phys> &out, const double &time)
+{
+    m_fwdTransOp->UpdateBndCoeffs(time);
+    m_fwdTransOp->Apply(in, m_coeff[m_velocityIndex]);
     m_bwdTransOp->Apply(m_coeff[m_velocityIndex], out);
 }
 
@@ -680,8 +690,10 @@ void VelocityCorrectionScheme::SetUpWeakPressureForcing(
         {
             // Shift F by the constant that makes its domain integral the
             // surface integral of the Neumann values.
-            m_meanRemovalOp->SetNeumannBalance(m_poissonSolveOp.get());
-            m_meanRemovalOp->Apply(m_wsp_phys[m_pressureIndex]);
+            m_meanRemovalOp[m_pressureIndex]->SetNeumannBalance(
+                m_poissonSolveOp.get());
+            m_meanRemovalOp[m_pressureIndex]->Apply(
+                m_wsp_phys[m_pressureIndex]);
         }
         m_iprodPressureOp->SetScale(-1.0);
         m_iprodPressureOp->Apply(m_wsp_phys[m_pressureIndex],
@@ -696,8 +708,10 @@ void VelocityCorrectionScheme::SetUpWeakPressureForcing(
     {
         // The constant whose domain integral is the surface integral of the
         // Neumann values.
-        m_meanRemovalOp->SetNeumannBalance(m_poissonSolveOp.get());
-        const double balancedMean = m_meanRemovalOp->GetBalancedMean()[0];
+        m_meanRemovalOp[m_pressureIndex]->SetNeumannBalance(
+            m_poissonSolveOp.get());
+        const double balancedMean =
+            m_meanRemovalOp[m_pressureIndex]->GetBalancedMean()[0];
 
         m_math.daxpy(-balancedMean, m_pressureBasisIntegrals,
                      m_wsp_coeff[m_pressureIndex],
@@ -1067,7 +1081,11 @@ void VelocityCorrectionScheme::SetDiffusionCoeff()
  */
 void VelocityCorrectionScheme::v_InitialiseOperators()
 {
-    EquationSystem::v_InitialiseOperators();
+    // Velocity transforms
+    m_bwdTransOp = BwdTransOp<double>::Create(m_expansionLists[m_velocityIndex],
+                                              m_variables[m_velocityIndex]);
+    m_fwdTransOp = CreateFwdTransOp(m_expansionLists[m_velocityIndex],
+                                    m_variables[m_velocityIndex]);
 
     // Create velocity operators. Only one of these two is actually used
     // (see EvaluateAdvectionContribution), selected by m_specHPDealiasing;
@@ -1144,7 +1162,8 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
     // values, and its reported error has zero mean.
     if (m_checkIfSystemSingular[m_pressureIndex][0])
     {
-        m_meanRemovalOp = SolverCore::MeanRemovalOp<double>::Create(
+        m_meanRemovalOp.resize(m_expansionLists.size());
+        m_meanRemovalOp[m_pressureIndex] = MeanRemovalOp<double>::Create(
             m_expansionLists[m_pressureIndex], m_variables[m_pressureIndex]);
     }
 
@@ -1356,7 +1375,7 @@ void VelocityCorrectionScheme::v_SetInitialConditions(double initialTime)
 /**
  * @brief Load physical parameters from the session file.
  */
-void VelocityCorrectionScheme::InitialiseParameters()
+void VelocityCorrectionScheme::LoadSessionParameters()
 {
     // Get gamma parameter from session file.
     m_session->LoadParameter("Kinvis", m_kinvis, 1.0);
@@ -1517,14 +1536,6 @@ std::vector<bool> VelocityCorrectionScheme::v_GetSystemSingularChecks()
 
     checks.back() = pressureSingular;
     return checks;
-}
-
-CoefficientFieldViews VelocityCorrectionScheme::v_GetOutputFieldViews()
-{
-    return {{m_coeff[m_velocityIndex], m_expansionLists[m_velocityIndex],
-             m_coordim, MakeFieldComponents(m_variables[m_velocityIndex])},
-            {m_coeff[m_pressureIndex], m_expansionLists[m_pressureIndex],
-             m_coordim, MakeFieldComponents(m_variables[m_pressureIndex])}};
 }
 
 /**

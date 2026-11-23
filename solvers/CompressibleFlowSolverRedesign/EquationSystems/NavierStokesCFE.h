@@ -37,6 +37,8 @@
 
 #include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEOp.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <SolverCore/AdvDiffusion/AdvWeakDGDiffusionIP/AdvWeakDGDiffusionIPOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/TraceFlux/TraceFluxOp.hpp>
@@ -69,12 +71,19 @@ protected:
     // Initialise operators
     std::shared_ptr<AdvDiffusionOp<double>> m_advDiffusionOp;
     std::shared_ptr<CFLVelocityCFEOp<double>> m_cflVelocityOp;
+    // Element-local projection of the solution to coefficients for output.
+    std::shared_ptr<IProductWRTBaseOp<double>> m_iProductWRTBaseOp;
+    std::shared_ptr<MultiplyByElmtInvMassOp<double>> m_multiplyByElmtInvMassOp;
     LibUtilities::Field<double, FieldState::Phys> m_cflVelocity;
 
     NavierStokesCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
                     const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
     ~NavierStokesCFE() override = default;
+
+    void DoProjection(LibUtilities::Field<double, FieldState::Phys> &in,
+                      LibUtilities::Field<double, FieldState::Phys> &out,
+                      const double &time);
 
     void DoOdeRhs(LibUtilities::Field<double, FieldState::Phys> &in,
                   LibUtilities::Field<double, FieldState::Phys> &out,
@@ -91,9 +100,12 @@ protected:
 
     void v_GenerateSummary(SummaryList &s) override;
 
+    void LoadSessionParameters();
+
     void v_InitialiseOperators() override;
 
-    void InitialiseParameters();
+    /// Project the solution to coefficients and return views of them.
+    CoefficientFieldViews v_GetOutputFieldViews() override;
 
     LibUtilities::Field<double, FieldState::Phys> &v_GetCFLVelocityField()
         override;

@@ -184,6 +184,7 @@ v5.11.0
 - Fix Polylib::JacZeros for zero and one point: it wrote past the end of its arrays, and the one-point Gauss-Legendre point was NaN; the quadrature rules themselves never called it with these sizes (!2942)
 - Fix intermittent IDR(s) failures in TestLinearADRSolve (!2946)
 - Introduce DispatchAppendFlag, DispatchScaleFlag, and DispatchDeformedFlag helper functions (!2950)
+- Making SolverCore's EquationSystem base class truly generic (!2951)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

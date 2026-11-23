@@ -37,6 +37,8 @@
 
 #include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEOp.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
@@ -68,12 +70,19 @@ protected:
     // Initialise operators
     std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
     std::shared_ptr<CFLVelocityCFEOp<double>> m_cflVelocityOp;
+    // Element-local projection of the solution to coefficients for output.
+    std::shared_ptr<IProductWRTBaseOp<double>> m_iProductWRTBaseOp;
+    std::shared_ptr<MultiplyByElmtInvMassOp<double>> m_multiplyByElmtInvMassOp;
     LibUtilities::Field<double, FieldState::Phys> m_cflVelocity;
 
     EulerCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
              const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
     ~EulerCFE() override = default;
+
+    void DoProjection(LibUtilities::Field<double, FieldState::Phys> &in,
+                      LibUtilities::Field<double, FieldState::Phys> &out,
+                      const double &time);
 
     void DoAdvection(LibUtilities::Field<double, FieldState::Phys> &in,
                      LibUtilities::Field<double, FieldState::Phys> &out,
@@ -87,9 +96,12 @@ protected:
 
     void v_GenerateSummary(SummaryList &s) override;
 
+    void LoadSessionParameters();
+
     void v_InitialiseOperators() override;
 
-    void InitialiseParameters();
+    /// Project the solution to coefficients and return views of them.
+    CoefficientFieldViews v_GetOutputFieldViews() override;
 
     LibUtilities::Field<double, FieldState::Phys> &v_GetCFLVelocityField()
         override;

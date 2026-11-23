@@ -49,14 +49,6 @@ public:
     /// Destructor
     SOLVER_CORE_EXPORT ~UnsteadySystem() override = default;
 
-    void InitialiseTimeOp()
-    {
-        ASSERTL0(m_phys[0].GetNumComponents() == m_variables[0].size(),
-                 "Number of fields in EquationSystem::m_phys[0] "
-                 "must be equal to number of fields for TimeOp.")
-        v_InitialiseTimeOp();
-    }
-
     void SetInitialConditions(double initialTime = 0.0)
     {
         v_SetInitialConditions(initialTime);
@@ -148,9 +140,6 @@ protected:
     /// Init object for UnsteadySystem class.
     SOLVER_CORE_EXPORT void v_InitObject(
         bool declareExpansionLists = true) override;
-
-    // Initialise Time-integration operator
-    SOLVER_CORE_EXPORT virtual void v_InitialiseTimeOp();
 
     // Parse initial conditions
     SOLVER_CORE_EXPORT virtual void v_SetInitialConditions(
