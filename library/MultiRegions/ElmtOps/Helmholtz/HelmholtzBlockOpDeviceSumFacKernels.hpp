@@ -875,9 +875,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     HelmholtzKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, [[maybe_unused]] const bool isModified,
-        const bool useSharedMemoryWsp, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
+        const size_t nelmt, [[maybe_unused]] const unsigned int elmtsPerBlock,
+        [[maybe_unused]] const bool isModified, const bool useSharedMemoryWsp,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT diffCoeff, const size_t varDiffCoeffSize,
@@ -959,8 +960,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     HelmholtzKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
-        const size_t nelmt, const bool isModified,
-        const bool useSharedMemoryWsp,
+        const size_t nelmt, [[maybe_unused]] const unsigned int elmtsPerBlock,
+        const bool isModified, const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -1115,6 +1116,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     HelmholtzKernelLauncher(
         const TSizeParameter3D sizeParam3D,
         [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         const bool isModified, const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,

@@ -793,7 +793,7 @@ protected:
     {
         // Set Kernel parameters.
         const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(nTracePts);
+            GetElmtsPerBlock<Implementation>(nTracePts, 0u);
         const unsigned int shmemsize =
             sizeof(TData) * PhysTraceExtractSharedMemorySize<Implementation>(
                                 sizeParam, elmtsPerBlock);
@@ -1015,7 +1015,7 @@ protected:
         const unsigned int nqTotOut =
             sizeParam.template nqTotTrace<SHAPE_TYPE>();
         const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(nqTotOut);
+            GetElmtsPerBlock<Implementation>(nqTotOut, 0u);
         const unsigned int shmemsize =
             sizeof(TData) * PhysTraceExtractSharedMemorySize<Implementation>(
                                 sizeParam, elmtsPerBlock);

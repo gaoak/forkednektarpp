@@ -474,13 +474,17 @@ protected:
         this->DispatchAppendFlag(this->m_append, [&](auto append) {
             constexpr bool APPEND = decltype(append)::value;
 
-            DEVICE_2DGRID_KERNEL_LAUNCHER(
-                (AdvectionKernelLauncher<SHAPE_TYPE, Implementation, APPEND,
-                                         DEFORMED>),
-                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-                kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                m_D[ind0]..., m_f[ind1]..., m_dfptr, advVelPtr, advVelOffset,
-                nhomo, inptr, outptr, this->m_scale);
+            DispatchElmtsPerBlock<Implementation>(
+                sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                    DEVICE_2DGRID_KERNEL_LAUNCHER(
+                        (AdvectionKernelLauncher<SHAPE_TYPE, Implementation,
+                                                 APPEND, DEFORMED>),
+                        kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                        elmtsPerBlockArg, m_D[ind0]..., m_f[ind1]..., m_dfptr,
+                        advVelPtr, advVelOffset, nhomo, inptr, outptr,
+                        this->m_scale);
+                });
         });
 
         // Reshape back, if necessary.

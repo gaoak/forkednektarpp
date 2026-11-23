@@ -29,14 +29,15 @@
 // DEALINGS IN THE SOFTWARE.
 //
 // Description: SumFacTOP device kernels of the advection operator, one
-// element per thread block.
+// element, or a group of them, per thread block.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
  * @file AdvectionBlockOpDeviceSumFacTOPKernels.hpp
- * @brief SumFacTOP device kernels of the advection operator: one element
- * per thread block, threads indexed over the element's quadrature points.
+ * @brief SumFacTOP device kernels of the advection operator: one element,
+ * or a group of them, at a time per thread block, threads indexed over the
+ * element's quadrature points.
  *
  * @details
  * These kernels compute the same thing as the SumFac ones in
@@ -44,17 +45,17 @@
  * the collapsed-to-standard coordinate correction, the geometric
  * derivative factors and the dot product with the advection velocity --
  * but distribute the work differently. A whole thread block takes one
- * element at a time and its threads stride over the element's quadrature
- * points, each thread computing the output at the points it owns. In two
- * and three dimensions the element's input values are staged in shared
- * memory first, so that the tensor contractions, which read across the
- * element, hit shared rather than global memory; the derivative factors
- * and the velocity stay in global memory and are read at the thread's own
- * point index, the collapsed-coordinate tables at the direction indices
- * that point resolves into. Accordingly the data is not interleaved (one
- * element's values are contiguous) and the derivative factors are taken
- * in the transposed layout, with each factor component contiguous over
- * the element's points.
+ * element, or a group of them (GetDeviceElmtBlock()), at a time and the
+ * threads of each element stride over its quadrature points, each thread
+ * computing the output at the points it owns. In two and three dimensions the
+ * element's input values are staged in shared memory first, so that the tensor
+ * contractions, which read across the element, hit shared rather than global
+ * memory; the derivative factors and the velocity stay in global memory and are
+ * read at the thread's own point index, the collapsed-coordinate tables at the
+ * direction indices that point resolves into. Accordingly the data is not
+ * interleaved (one element's values are contiguous) and the derivative factors
+ * are taken in the transposed layout, with each factor component contiguous
+ * over the element's points.
  *
  * The file provides, for each dimensionality: the per-element kernel
  * (Advection*DSumFacTOPKernel) and the device entry point the block
@@ -545,7 +546,9 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
  * -- runtime or compile-time, both satisfying IsPhysSizeParameter1D_v as
  * the static_assert enforces. Each thread block then starts at its own
  * block index in the grid's first dimension and strides by that
- * dimension's range, so the block's @p nelmt elements (padding included)
+ * dimension's range over the block's element groups
+ * (GetDeviceElmtBlock()), so the block's @p nelmt elements (padding
+ * included)
  * are covered whatever grid size was launched -- the grid may hold fewer
  * thread blocks than there are elements (see GetDeviceKernelParameters in
  * ElmtBlockOp.hpp). The grid's second dimension gives the index c of the
@@ -565,11 +568,14 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
  * @tparam APPEND               Accumulate onto @p out.
  * @tparam DEFORMED             Per-point derivative factors.
  * @tparam TPhysSizeParameter1D 1D physical-space size parameter.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
  *
  * @param   sizeParam1D  Element sizes: coordinate dimension and
  *                       quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetDeviceKernelParameters().
  * @param   D0           1D derivative matrix of the direction.
  * @param   df           Derivative factors of the block.
  * @param   advVel       Velocity data of the block.
@@ -585,15 +591,15 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter1D,
-          typename TthreadBlock, typename TData,
+          typename TElmtsPerBlock, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT advVel, const size_t advVelOffset,
-    const unsigned int nhomo, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, const TData scale,
+    const TElmtsPerBlock elmtsPerBlock, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT advVel,
+    const size_t advVelOffset, const unsigned int nhomo,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
     [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
@@ -607,10 +613,15 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e         = elmtBlock.elmtIdx;
         const TData *dfptr     = df + ndf * dfsize * e;
         const TData *inptr     = in + nq0 * nelmt * c + nq0 * e;
         TData *outptr          = out + nq0 * nelmt * c + nq0 * e;
@@ -618,9 +629,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
 
         Advection1DSumFacTOPKernel<APPEND, DEFORMED>(
             ncoord, nq0, D0, dfptr, advVelPtr, advVelOffset, inptr, outptr,
-            scale, threadBlock);
-
-        e += getBlockRange<0>(threadBlock);
+            scale, elmtBlock);
     }
 }
 
@@ -641,11 +650,14 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
  * @tparam APPEND               Accumulate onto @p out.
  * @tparam DEFORMED             Per-point derivative factors.
  * @tparam TPhysSizeParameter2D 2D physical-space size parameter.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
  *
  * @param   sizeParam2D  Element sizes: coordinate dimension and
  *                       per-direction quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetDeviceKernelParameters().
  * @param   D0           1D derivative matrix of direction 0.
  * @param   D1           1D derivative matrix of direction 1.
  * @param   f0           Collapsed-coordinate factor of direction 0.
@@ -658,24 +670,26 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
  * @param   out          Output values of the block.
  * @param   scale        Scalar factor applied to the result.
  * @param   shmemptr     Dynamic shared memory of the thread block, at
- *                       least one element's worth of values (see
+ *                       least one element's worth of values per
+ *                       element of the group (see
  *                       AdvectionSharedMemorySize).
  * @param   threadBlock  Thread-block handle supplied by the launcher
  *                       macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter2D,
-          typename TthreadBlock, typename TData,
+          typename TElmtsPerBlock, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT advVel,
-    const size_t advVelOffset, const unsigned int nhomo,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    const TElmtsPerBlock elmtsPerBlock, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT advVel, const size_t advVelOffset,
+    const unsigned int nhomo, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TData scale, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -692,12 +706,20 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const unsigned int ndf    = 2 * ncoord;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0 = (TData *)shmemptr;
+    // The element's share of the shared memory.
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+    TData *s_wsp0 = (TData *)shmemptr + nqTot * wspIdx;
 
-    size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e     = elmtBlock.elmtIdx;
         const TData *dfptr = df + ndf * dfsize * e;
         const TData *inptr = in + nqTot * nelmt * c + nqTot * e;
         TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
@@ -705,14 +727,12 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
             advVel + nqTot * nelmt * (c % nhomo) + nqTot * e;
 
         // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
-        localBarrier(threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
+        localBarrier(elmtBlock);
 
         Advection2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
             ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, advVelPtr, advVelOffset,
-            s_wsp0, outptr, scale, threadBlock);
-
-        e += getBlockRange<0>(threadBlock);
+            s_wsp0, outptr, scale, elmtBlock);
     }
 }
 
@@ -721,7 +741,8 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
  *
  * Counterpart of the 2D overload for three-dimensional shapes; the size
  * parameter carries no coordinate dimension, since a 3D element always
- * has three. One element is taken per thread block at a time, its input
+ * has three. One element, or a group of them, is taken per thread block at
+ * a time, each element's input
  * staged in shared memory behind a barrier, then Advection3DSumFacTOPKernel
  * computes its output.
  *
@@ -730,10 +751,13 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
  * @tparam APPEND               Accumulate onto @p out.
  * @tparam DEFORMED             Per-point derivative factors.
  * @tparam TPhysSizeParameter3D 3D physical-space size parameter.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
  *
  * @param   sizeParam3D  Element sizes: per-direction quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetDeviceKernelParameters().
  * @param   D0           1D derivative matrix of direction 0.
  * @param   D1           1D derivative matrix of direction 1.
  * @param   D2           1D derivative matrix of direction 2.
@@ -749,26 +773,27 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
  * @param   out          Output values of the block.
  * @param   scale        Scalar factor applied to the result.
  * @param   shmemptr     Dynamic shared memory of the thread block, at
- *                       least one element's worth of values (see
+ *                       least one element's worth of values per
+ *                       element of the group (see
  *                       AdvectionSharedMemorySize).
  * @param   threadBlock  Thread-block handle supplied by the launcher
  *                       macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter3D,
-          typename TthreadBlock, typename TData,
+          typename TElmtsPerBlock, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT advVel, const size_t advVelOffset,
-    [[maybe_unused]] const unsigned int nhomo, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, const TData scale, unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    const TElmtsPerBlock elmtsPerBlock, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT advVel,
+    const size_t advVelOffset, [[maybe_unused]] const unsigned int nhomo,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
@@ -785,26 +810,32 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     constexpr unsigned int ndf = 9u;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0 = (TData *)shmemptr;
+    // The element's share of the shared memory.
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+    TData *s_wsp0 = (TData *)shmemptr + nqTot * wspIdx;
 
-    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e         = elmtBlock.elmtIdx;
         const TData *dfptr     = df + ndf * dfsize * e;
         const TData *inptr     = in + nqTot * nelmt * c + nqTot * e;
         TData *outptr          = out + nqTot * nelmt * c + nqTot * e;
         const TData *advVelPtr = advVel + nqTot * e;
 
         // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
-        localBarrier(threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
+        localBarrier(elmtBlock);
 
         Advection3DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
             nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, advVelPtr,
-            advVelOffset, s_wsp0, outptr, scale, threadBlock);
-
-        e += getBlockRange<0>(threadBlock);
+            advVelOffset, s_wsp0, outptr, scale, elmtBlock);
     }
 }
 

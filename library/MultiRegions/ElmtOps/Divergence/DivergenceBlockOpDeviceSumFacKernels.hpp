@@ -448,6 +448,7 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacKernel(
  *                      count).
  * @param   nelmt       Elements of one plane of the block, padding
  *                      included.
+ * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   inoffset    Component stride; unused in one dimension.
  * @param   D0          1D derivative matrix.
  * @param   df          Derivative factors of the block,
@@ -465,6 +466,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     [[maybe_unused]] const size_t inoffset, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT out, [[maybe_unused]] unsigned char *shmemptr,
@@ -532,6 +534,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  *                      counts).
  * @param   nelmt       Elements of one plane of the block, padding
  *                      included.
+ * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   inoffset    Stride from one input component to the next,
  *                      a component spanning all the planes.
  * @param   D0          1D derivative matrix of direction 0.
@@ -555,11 +558,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const size_t inoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t inoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -641,6 +645,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  * @param   sizeParam3D Element sizes (point counts per direction).
  * @param   nelmt       Elements of one plane of the block, padding
  *                      included.
+ * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   inoffset    Stride from one input component to the next,
  *                      a component spanning all the planes.
  * @param   D0          1D derivative matrix of direction 0.
@@ -668,13 +673,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const size_t inoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t inoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,

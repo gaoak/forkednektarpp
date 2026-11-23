@@ -387,6 +387,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  *
  * @param   sizeParam1D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                      unused.
  * @param   isModified  First-direction basis is eModified_A; unused in 1D.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
  * in
@@ -417,6 +419,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     MassKernelLauncher(const TSizeParameter1D sizeParam1D, const size_t nelmt,
+                       [[maybe_unused]] const unsigned int elmtsPerBlock,
                        [[maybe_unused]] const bool isModified,
                        const bool useSharedMemoryWsp,
                        const TData *NEK_RESTRICT basis0,
@@ -496,6 +499,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   sizeParam2D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                      unused.
  * @param   isModified  First-direction basis is eModified_A.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
  * in
@@ -532,6 +537,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     MassKernelLauncher(const TSizeParameter2D sizeParam2D, const size_t nelmt,
+                       [[maybe_unused]] const unsigned int elmtsPerBlock,
                        const bool isModified, const bool useSharedMemoryWsp,
                        [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
                        const TData *NEK_RESTRICT basis0,
@@ -662,6 +668,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   sizeParam3D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                      unused.
  * @param   isModified  First-direction basis is eModified_A.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
  * in
@@ -700,6 +708,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     MassKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         const bool isModified, const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,

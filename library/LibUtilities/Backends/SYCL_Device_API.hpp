@@ -571,6 +571,23 @@ NEK_DEVICE_INLINE static TData warpReduceSum(
                                    sycl::plus<>());
 }
 
+// Sum of val over each aligned group of width consecutive lanes of the
+// sub-group, width a power of two no larger than the sub-group; every lane of
+// the sub-group must call it, and each lane gets its group's sum.
+template <int ndim, typename TData>
+NEK_DEVICE_INLINE static TData warpSegmentReduceSum(
+    const TData val, const unsigned int width,
+    const sycl::nd_item<ndim> &threadBlock)
+{
+    const auto subGroup = threadBlock.get_sub_group();
+    TData tmp           = val;
+    for (unsigned int offset = width / 2u; offset > 0u; offset /= 2u)
+    {
+        tmp += sycl::permute_group_by_xor(subGroup, tmp, offset);
+    }
+    return tmp;
+}
+
 template <int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMax(
     const TData val, const sycl::nd_item<ndim> &threadBlock)

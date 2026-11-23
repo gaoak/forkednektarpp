@@ -74,6 +74,8 @@
 
 #pragma once
 
+#include <limits>
+
 #include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
@@ -1421,7 +1423,9 @@ protected:
  * For SumFacTOP with a templated (compile-time) plain or physical-space
  * size parameter the bound is the parameter's total mode count (plain
  * forms) or total point count (physical-space forms) rounded up to whole
- * warps, at most the device's default block size; with any other size
+ * warps, at most the device's default block size, or the default block size
+ * where that count is half a warp or less, as such an element may share its
+ * block with others (GetElmtsPerBlock()); with any other size
  * parameter -- the runtime
  * forms and the trace forms -- the device's default block size is
  * used, which is the cap GetDeviceKernelParameters() applies at run time.
@@ -1448,18 +1452,22 @@ static constexpr unsigned int GetMaxThreadPerBlock(void)
                       IsTemplatedSizeParameter2D<TSizeParameter>::value ||
                       IsTemplatedSizeParameter3D<TSizeParameter>::value)
         {
-            return std::min((TSizeParameter::nmTot() + warpsize - 1u) /
-                                warpsize * warpsize,
-                            NektarSpaces::Device::defaultBlockSize);
+            constexpr unsigned int ndofs = TSizeParameter::nmTot();
+            return (2u * ndofs <= warpsize)
+                       ? NektarSpaces::Device::defaultBlockSize
+                       : std::min((ndofs + warpsize - 1u) / warpsize * warpsize,
+                                  NektarSpaces::Device::defaultBlockSize);
         }
         else if constexpr (
             IsTemplatedPhysSizeParameter1D<TSizeParameter>::value ||
             IsTemplatedPhysSizeParameter2D<TSizeParameter>::value ||
             IsTemplatedPhysSizeParameter3D<TSizeParameter>::value)
         {
-            return std::min((TSizeParameter::nqTot() + warpsize - 1u) /
-                                warpsize * warpsize,
-                            NektarSpaces::Device::defaultBlockSize);
+            constexpr unsigned int ndofs = TSizeParameter::nqTot();
+            return (2u * ndofs <= warpsize)
+                       ? NektarSpaces::Device::defaultBlockSize
+                       : std::min((ndofs + warpsize - 1u) / warpsize * warpsize,
+                                  NektarSpaces::Device::defaultBlockSize);
         }
         else
         {
@@ -1470,47 +1478,6 @@ static constexpr unsigned int GetMaxThreadPerBlock(void)
     {
         return 0;
     }
-}
-
-/**
- * @brief The calling thread's place in a thread block that takes several
- * whole elements (GetDeviceKernelParameters()): its element of the block,
- * and the points it takes, `pt = firstPoint; pt < npts; pt += pointStride`.
- */
-struct DevicePackedThread
-{
-    /// The thread's element of the block; elmtsPerBlock or more for a
-    /// thread past the block's last element, which takes none.
-    unsigned int elmt;
-    /// The first of the thread's points.
-    unsigned int firstPoint;
-    /// The step between its points.
-    unsigned int pointStride;
-};
-
-/**
- * @brief Split a packed thread block's threads into its elements, element
- * first: thread `tid` takes element `tid / npts` of the block and point
- * `tid % npts`; an element alone in its block strides over its points with
- * every thread of the block. A kernel loops over the block's element groups
- * with `e0 = getBlockIdx * elmtsPerBlock`, stepping `getBlockRange *
- * elmtsPerBlock`, and the thread works on element `e0 + elmt` where
- * `elmt < elmtsPerBlock` and that element is below the element count; the
- * block's barriers, if any, are reached by every thread.
- *
- * @param   npts           Points (threads) per element.
- * @param   elmtsPerBlock  Elements per block, from
- *                         GetDeviceKernelParameters().
- */
-template <typename TthreadBlock>
-NEK_DEVICE_INLINE static DevicePackedThread GetDevicePackedThread(
-    const unsigned int npts, const unsigned int elmtsPerBlock,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int tid = getLocalIdx(threadBlock);
-    const unsigned int stride =
-        (elmtsPerBlock == 1u) ? getLocalRange(threadBlock) : npts;
-    return {tid / stride, tid % stride, stride};
 }
 
 /**
@@ -1536,6 +1503,323 @@ NEK_HOSTDEVICE_INLINE void DispatchWorkSpace(const bool useSharedMemoryWsp,
         func(std::false_type{});
     }
 }
+
+/// One element per thread block as a compile-time constant. Passed to a
+/// SumFacTOP kernel in place of elmtsPerBlock, it folds the element-group
+/// indexing of GetDeviceElmtBlock() and GetDeviceSharedWorkSpaceIdx() away.
+using SingleElmtPerBlock = std::integral_constant<unsigned int, 1u>;
+
+/// Elements per thread block as a run-time count, which may be several.
+/// Passed to a SumFacTOP kernel in place of elmtsPerBlock where its blocks may
+/// take several elements (IsPackableSize()).
+class MultipleElmtPerBlock
+{
+public:
+    NEK_HOSTDEVICE_INLINE constexpr explicit MultipleElmtPerBlock(
+        const unsigned int elmtsPerBlock)
+        : m_elmtsPerBlock(elmtsPerBlock)
+    {
+    }
+
+    NEK_HOSTDEVICE_INLINE constexpr operator unsigned int() const
+    {
+        return m_elmtsPerBlock;
+    }
+
+private:
+    unsigned int m_elmtsPerBlock;
+};
+
+/**
+ * @brief Whether a SumFacTOP block of size parameter @p TSizeParameter may
+ * take several elements per thread block (GetElmtsPerBlock()): always for a
+ * run-time size, and for a templated one where its smallest mode or point
+ * count is half a warp or less; for a templated trace size, the volume point
+ * count its modes stand for in the lift operators.
+ */
+template <typename TSizeParameter> static constexpr bool IsPackableSize(void)
+{
+    constexpr unsigned int halfWarp = NektarSpaces::Device::warpSize / 2u;
+
+    if constexpr (IsTemplatedSizeParameter1D<TSizeParameter>::value ||
+                  IsTemplatedSizeParameter2D<TSizeParameter>::value ||
+                  IsTemplatedSizeParameter3D<TSizeParameter>::value)
+    {
+        return std::min(TSizeParameter::nmTot(), TSizeParameter::nqTot()) <=
+               halfWarp;
+    }
+    else if constexpr (IsTemplatedPhysSizeParameter1D<TSizeParameter>::value ||
+                       IsTemplatedPhysSizeParameter2D<TSizeParameter>::value ||
+                       IsTemplatedPhysSizeParameter3D<TSizeParameter>::value)
+    {
+        return TSizeParameter::nqTot() <= halfWarp;
+    }
+    else if constexpr (IsTemplatedTraceSizeParameter1D<TSizeParameter>::value ||
+                       IsTemplatedTraceSizeParameter2D<TSizeParameter>::value ||
+                       IsTemplatedTraceSizeParameter3D<TSizeParameter>::value)
+    {
+        // The volume's point counts, as the lift operators use them.
+        return TSizeParameter::nmTot() <= halfWarp;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+/**
+ * @brief Call @p func with the elements per thread block a kernel takes:
+ * SingleElmtPerBlock for a SumFacTOP launch of one element per block, so
+ * that its kernel is compiled for that case alone, MultipleElmtPerBlock for
+ * one of several, and @p elmtsPerBlock itself for SumFac.
+ *
+ * A templated size that cannot pack (IsPackableSize()) takes
+ * SingleElmtPerBlock only, and one that can takes MultipleElmtPerBlock only;
+ * a run-time size takes either, chosen at run time.
+ *
+ * @param   sizeParam       Size parameter of the launch.
+ * @param   elmtsPerBlock   Elements per thread block, from
+ *                          GetDeviceKernelParameters().
+ * @param   func            Launch, called with the elements per block.
+ */
+template <typename Implementation, typename TSizeParameter, typename TFunc>
+NEK_FORCE_INLINE static void DispatchElmtsPerBlock(
+    [[maybe_unused]] const TSizeParameter sizeParam,
+    const unsigned int elmtsPerBlock, TFunc &&func)
+{
+    constexpr bool templated =
+        IsTemplatedSizeParameter1D<TSizeParameter>::value ||
+        IsTemplatedSizeParameter2D<TSizeParameter>::value ||
+        IsTemplatedSizeParameter3D<TSizeParameter>::value ||
+        IsTemplatedPhysSizeParameter1D<TSizeParameter>::value ||
+        IsTemplatedPhysSizeParameter2D<TSizeParameter>::value ||
+        IsTemplatedPhysSizeParameter3D<TSizeParameter>::value ||
+        IsTemplatedTraceSizeParameter1D<TSizeParameter>::value ||
+        IsTemplatedTraceSizeParameter2D<TSizeParameter>::value ||
+        IsTemplatedTraceSizeParameter3D<TSizeParameter>::value;
+
+    if constexpr (!std::is_same_v<Implementation, SumFacTOP>)
+    {
+        func(elmtsPerBlock);
+    }
+    else if constexpr (!IsPackableSize<TSizeParameter>())
+    {
+        ASSERTL1(elmtsPerBlock == 1u,
+                 "This templated size takes one element per thread block.");
+        func(SingleElmtPerBlock{});
+    }
+    else if constexpr (templated)
+    {
+        func(MultipleElmtPerBlock{elmtsPerBlock});
+    }
+    else if (elmtsPerBlock == 1u)
+    {
+        func(SingleElmtPerBlock{});
+    }
+    else
+    {
+        func(MultipleElmtPerBlock{elmtsPerBlock});
+    }
+}
 #endif
 
 } // namespace Nektar::MultiRegions::detail
+
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+namespace Nektar
+{
+
+/**
+ * @brief A thread's share of a SumFacTOP thread block that takes
+ * @p elmtsPerBlock elements at a time (GetDeviceKernelParameters()), passed
+ * to the shape kernels in place of the thread block.
+ *
+ * The block's dimension 0 is split evenly between its elements, element first,
+ * `getLocalRange<0> / elmtsPerBlock` threads each: getLocalIdx() and
+ * getLocalRange() give the thread's place in its element's share in dimension
+ * 0, and in the thread block in the others; localBarrier() and the warp
+ * functions act on the whole block. A thread with no element, past the block's
+ * last or the element count, takes an index past every loop bound and only
+ * reaches the barriers; its element is the group's first, so that its pointers
+ * stay in range.
+ */
+template <typename TthreadBlock> struct DeviceElmtBlock
+{
+    /// The whole thread block.
+    const TthreadBlock &threadBlock;
+    /// The thread's element.
+    size_t elmtIdx;
+    /// The thread's index among its element's threads.
+    unsigned int elmtThreadIdx;
+    /// Threads per element.
+    unsigned int elmtThreadRange;
+};
+
+/**
+ * @brief The calling thread's share of the thread block for the element
+ * group starting at @p e0.
+ *
+ * A kernel loops over the block's element groups with `e0 = getBlockIdx *
+ * elmtsPerBlock`, stepping `getBlockRange * elmtsPerBlock`, so that every
+ * thread reaches the barriers of each group.
+ *
+ * @param   e0             First element of the group, below @p nelmt.
+ * @param   nelmt          Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                         GetDeviceKernelParameters().
+ * @param   threadBlock    Thread-block handle the index helpers read.
+ */
+template <typename TthreadBlock>
+NEK_DEVICE_INLINE static DeviceElmtBlock<TthreadBlock> GetDeviceElmtBlock(
+    const size_t e0, const size_t nelmt, const unsigned int elmtsPerBlock,
+    const TthreadBlock &threadBlock)
+{
+    if (elmtsPerBlock == 1u)
+    {
+        return {threadBlock, e0, getLocalIdx<0>(threadBlock),
+                getLocalRange<0>(threadBlock)};
+    }
+
+    constexpr unsigned int inactiveIdx =
+        std::numeric_limits<unsigned int>::max() / 2u;
+
+    const unsigned int range = getLocalRange<0>(threadBlock) / elmtsPerBlock;
+    const unsigned int tid   = getLocalIdx<0>(threadBlock);
+    const unsigned int slot  = tid / range;
+    const size_t e           = e0 + slot;
+    const bool active        = slot < elmtsPerBlock && e < nelmt;
+    return {threadBlock, active ? e : e0, active ? tid % range : inactiveIdx,
+            range};
+}
+
+/**
+ * @brief The index, below @p elmtsPerBlock, of the calling thread's share of
+ * its thread block's workspace: `getLocalIdx / (getLocalRange /
+ * elmtsPerBlock)`, the last for a thread past the block's last element.
+ *
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                         GetDeviceKernelParameters().
+ * @param   threadBlock    Thread-block handle the index helpers read.
+ */
+template <typename TthreadBlock>
+NEK_DEVICE_INLINE static unsigned int GetDeviceSharedWorkSpaceIdx(
+    const unsigned int elmtsPerBlock, const TthreadBlock &threadBlock)
+{
+    if (elmtsPerBlock == 1u)
+    {
+        return 0u;
+    }
+    else
+    {
+        const unsigned int range =
+            getLocalRange<0>(threadBlock) / elmtsPerBlock;
+        const unsigned int idx = getLocalIdx<0>(threadBlock) / range;
+        return (idx < elmtsPerBlock) ? idx : elmtsPerBlock - 1u;
+    }
+}
+
+template <unsigned int dim = 0, typename TthreadBlock>
+NEK_DEVICE_INLINE static unsigned int getLocalIdx(
+    const DeviceElmtBlock<TthreadBlock> &elmtBlock)
+{
+    if constexpr (dim == 0)
+    {
+        return elmtBlock.elmtThreadIdx;
+    }
+    else
+    {
+        return getLocalIdx<dim>(elmtBlock.threadBlock);
+    }
+}
+
+template <unsigned int dim = 0, typename TthreadBlock>
+NEK_DEVICE_INLINE static unsigned int getLocalRange(
+    const DeviceElmtBlock<TthreadBlock> &elmtBlock)
+{
+    if constexpr (dim == 0)
+    {
+        return elmtBlock.elmtThreadRange;
+    }
+    else
+    {
+        return getLocalRange<dim>(elmtBlock.threadBlock);
+    }
+}
+
+template <typename TthreadBlock>
+NEK_DEVICE_INLINE static void localBarrier(
+    const DeviceElmtBlock<TthreadBlock> &elmtBlock)
+{
+    localBarrier(elmtBlock.threadBlock);
+}
+
+template <typename TthreadBlock>
+NEK_DEVICE_INLINE static unsigned int getLaneIdx(
+    const DeviceElmtBlock<TthreadBlock> &elmtBlock)
+{
+    return getLaneIdx(elmtBlock.threadBlock);
+}
+
+template <typename TData, typename TthreadBlock>
+NEK_DEVICE_INLINE static TData warpReduceSum(
+    const TData val, const DeviceElmtBlock<TthreadBlock> &elmtBlock)
+{
+    return warpReduceSum(val, elmtBlock.threadBlock);
+}
+
+/**
+ * @brief Add @p val, summed over an element's share of the thread block,
+ * onto @p red with block-local atomics.
+ *
+ * Each warp reduces first when the shares are whole warps, and each aligned
+ * group of a share's lanes when the shares are a power of two below a warp
+ * (GetElmtThreads()), so that the lanes reduced together are of one element;
+ * otherwise, and on the SYCL CPU back-ends, where a sub-group need not be
+ * consecutive work-items, each thread adds its own value. A thread with no
+ * element adds nothing.
+ */
+template <typename Scope, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void blockReduceSum(
+    const TData val, const DeviceElmtBlock<TthreadBlock> &elmtBlock, TData *red)
+{
+    static_assert(std::is_same_v<Scope, NektarSpaces::LocalScope>,
+                  "An element's share reduces into a block-local result.");
+
+    const bool active = elmtBlock.elmtThreadIdx < elmtBlock.elmtThreadRange;
+
+#if !(defined(SYCL_ENABLE_CPU) &&                                              \
+      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    if (elmtBlock.elmtThreadRange % warpsize == 0u)
+    {
+        // A share with no element is whole warps, which return together.
+        if (active)
+        {
+            blockReduceSum<Scope>(val, elmtBlock.threadBlock, red);
+        }
+        return;
+    }
+
+    if (warpsize % elmtBlock.elmtThreadRange == 0u)
+    {
+        // Every lane of the warp takes part, one with no element adding zero.
+        const TData tmp = warpSegmentReduceSum(active ? val : TData(0),
+                                               elmtBlock.elmtThreadRange,
+                                               elmtBlock.threadBlock);
+        if (elmtBlock.elmtThreadIdx == 0u)
+        {
+            atomic_add<Scope>(red, tmp);
+        }
+        return;
+    }
+#endif
+
+    if (active)
+    {
+        atomic_add<Scope>(red, val);
+    }
+}
+
+} // namespace Nektar
+#endif

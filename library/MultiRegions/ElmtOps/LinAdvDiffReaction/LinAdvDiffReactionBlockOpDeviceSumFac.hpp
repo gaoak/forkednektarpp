@@ -631,8 +631,8 @@ protected:
             useSharedMemoryWsp
                 ? 0
                 : HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      WorkSpaceNumElmts<Implementation>(nelmt,
-                                                        kernelParams.gridSize),
+                      WorkSpaceNumElmts<Implementation>(
+                          nelmt, kernelParams.gridSize, elmtsPerBlock),
                       m_coordDim, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -647,16 +647,21 @@ protected:
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         // LinAdvDiffReaction kernel.
-        DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (LinAdvDiffReactionKernelLauncher<SHAPE_TYPE, Implementation,
-                                              DEFORMED, VARCOEFF>),
-            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-            kernelParams.shmemSize, m_streamID, sizeParam, m_coordDim, nelmt,
-            nhomo, m_isModified, useSharedMemoryWsp, m_index[ind1]...,
-            m_B[ind0]..., m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_nodToMod,
-            m_dfptr, m_jacptr, diffCoeffPtr, varDiffCoeffSize, advVelPtr,
-            advVelPtr + advVelSize, advVelPtr + 2 * advVelSize, inptr, outptr,
-            wspptr, this->m_lambda);
+        DispatchElmtsPerBlock<Implementation>(
+            sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                DEVICE_2DGRID_KERNEL_LAUNCHER(
+                    (LinAdvDiffReactionKernelLauncher<
+                        SHAPE_TYPE, Implementation, DEFORMED, VARCOEFF>),
+                    kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, m_coordDim,
+                    nelmt, elmtsPerBlockArg, nhomo, m_isModified,
+                    useSharedMemoryWsp, m_index[ind1]..., m_B[ind0]...,
+                    m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_nodToMod,
+                    m_dfptr, m_jacptr, diffCoeffPtr, varDiffCoeffSize,
+                    advVelPtr, advVelPtr + advVelSize,
+                    advVelPtr + 2 * advVelSize, inptr, outptr, wspptr,
+                    this->m_lambda);
+            });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

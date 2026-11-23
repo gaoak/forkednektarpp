@@ -1029,6 +1029,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
  * @param   sizeParam1D Coordinate dimension and point count of the
  *                      element.
  * @param   nelmt       Elements in the block, including padding.
+ * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   outoffset   Stride between the Cartesian planes of @p out.
  * @param   D0          1D differentiation matrix.
  * @param   df          Derivative factors of the block.
@@ -1048,10 +1049,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-    const size_t outoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, [[maybe_unused]] unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t outoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
@@ -1114,6 +1115,7 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  * @param   sizeParam1D Coordinate dimension and point count of the
  *                      element.
  * @param   nelmt       Elements in the block, including padding.
+ * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   D0          1D differentiation matrix.
  * @param   df          Derivative factors of the block.
  * @param   in          Input values of the block.
@@ -1127,6 +1129,7 @@ template <typename Implementation, bool APPEND, bool DEFORMED, unsigned int DIR,
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
@@ -1194,6 +1197,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
  * @param   sizeParam2D Coordinate dimension and point counts of the
  *                      element.
  * @param   nelmt       Elements in the block, including padding.
+ * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   outoffset   Stride between the Cartesian planes of @p out.
  * @param   D0,D1       1D differentiation matrices.
  * @param   f0,f1       Collapsed-coordinate factor tables.
@@ -1213,11 +1217,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const size_t outoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t outoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -1306,6 +1311,7 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  * @param   sizeParam2D Coordinate dimension and point counts of the
  *                      element.
  * @param   nelmt       Elements in the block, including padding.
+ * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   D0,D1       1D differentiation matrices.
  * @param   f0,f1       Collapsed-coordinate factor tables.
  * @param   df          Derivative factors of the block.
@@ -1322,6 +1328,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
@@ -1410,6 +1417,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  *
  * @param   sizeParam3D     Point counts of the element.
  * @param   nelmt           Elements in the block, including padding.
+ * @param   elmtsPerBlock   Elements per thread block, one per thread; unused.
  * @param   outoffset       Stride between the Cartesian planes of
  *                          @p out.
  * @param   D0,D1,D2        1D differentiation matrices.
@@ -1432,13 +1440,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const size_t outoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t outoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
@@ -1553,6 +1561,7 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  *
  * @param   sizeParam3D     Point counts of the element.
  * @param   nelmt           Elements in the block, including padding.
+ * @param   elmtsPerBlock   Elements per thread block, one per thread; unused.
  * @param   D0,D1,D2        1D differentiation matrices.
  * @param   f0,f1,f1m,f2    Collapsed-coordinate factor tables.
  * @param   df              Derivative factors of the block.
@@ -1570,6 +1579,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,

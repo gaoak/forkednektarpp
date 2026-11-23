@@ -420,12 +420,17 @@ protected:
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         // Calculate derivative.
-        DEVICE_3DGRID_KERNEL_LAUNCHER(
-            (PhysDerivKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            kernelParams.gridSize, inblock.GetNumHomoModes(),
-            inblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
-            kernelParams.shmemSize, m_streamID, sizeParam, nelmt, outoffset,
-            m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr, outptr);
+        DispatchElmtsPerBlock<Implementation>(
+            sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                DEVICE_3DGRID_KERNEL_LAUNCHER(
+                    (PhysDerivKernelLauncher<SHAPE_TYPE, Implementation,
+                                             DEFORMED>),
+                    kernelParams.gridSize, inblock.GetNumHomoModes(),
+                    inblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                    elmtsPerBlockArg, outoffset, m_D[ind0]..., m_f[ind1]...,
+                    m_dfptr, inptr, outptr);
+            });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

@@ -205,7 +205,12 @@ NEK_DEVICE_INLINE static void MatVecSumFacTOPKernel(
     constexpr bool rowPerThread = TRANSPOSE;
 #endif
 
-    if constexpr (rowPerThread)
+    // One output per warp needs the threads to be a whole number of
+    // warps, which they need not be when a thread block takes several
+    // elements.
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    if (rowPerThread || stride % warpsize != 0u)
     {
         // One output per thread: with TRANSPOSE consecutive threads read
         // consecutive entries of each matrix row.
@@ -237,11 +242,9 @@ NEK_DEVICE_INLINE static void MatVecSumFacTOPKernel(
     }
     else
     {
-        // One output per warp, so that the lanes read consecutive entries of
-        // its matrix row; the block size is a whole number of warps, so every
-        // lane of a warp takes part in its reduction.
-        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
+        // One output per warp, so that the lanes read consecutive entries
+        // of its matrix row; every lane of a warp takes part in its
+        // reduction.
         const unsigned int lane  = getLaneIdx(threadBlock);
         const unsigned int warp  = idx0 / warpsize;
         const unsigned int nwarp = stride / warpsize;

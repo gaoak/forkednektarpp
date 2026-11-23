@@ -491,11 +491,12 @@ protected:
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            useSharedMemoryWsp ? 0
-                               : MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                                     WorkSpaceNumElmts<Implementation>(
-                                         nelmt, kernelParams.gridSize),
-                                     sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : MassWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                      WorkSpaceNumElmts<Implementation>(
+                          nelmt, kernelParams.gridSize, elmtsPerBlock),
+                      sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -519,14 +520,18 @@ protected:
         this->DispatchScaleFlag(this->m_scale, [&](auto scale) {
             constexpr bool SCALE = decltype(scale)::value;
 
-            DEVICE_2DGRID_KERNEL_LAUNCHER(
-                (MassKernelLauncher<SHAPE_TYPE, Implementation, SCALE, APPEND,
-                                    DEFORMED>),
-                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-                kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                m_isModified, useSharedMemoryWsp, m_index[ind1]...,
-                m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr, outptr,
-                wspptr, this->m_scale);
+            DispatchElmtsPerBlock<Implementation>(
+                sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                    DEVICE_2DGRID_KERNEL_LAUNCHER(
+                        (MassKernelLauncher<SHAPE_TYPE, Implementation, SCALE,
+                                            APPEND, DEFORMED>),
+                        kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                        elmtsPerBlockArg, m_isModified, useSharedMemoryWsp,
+                        m_index[ind1]..., m_B[ind0]..., m_W[ind0]...,
+                        m_nodToMod, m_jacptr, inptr, outptr, wspptr,
+                        this->m_scale);
+                });
         });
 
         // Reshape back, if necessary.

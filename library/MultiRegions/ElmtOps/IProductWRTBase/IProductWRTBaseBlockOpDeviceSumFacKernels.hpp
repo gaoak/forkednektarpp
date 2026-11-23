@@ -2267,6 +2267,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacKernel(
  *
  * @param   sizeParam1D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                      unused.
  * @param   isModified  First-direction basis is eModified_A; unused in 1D.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr; the segment
  *                      kernel keeps none, so unused.
@@ -2291,6 +2293,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     IProductWRTBaseKernelLauncher(
         const TSizeParameter1D sizeParam1D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         [[maybe_unused]] const bool isModified,
         [[maybe_unused]] const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
@@ -2340,6 +2343,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   sizeParam1D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                      unused.
  * @param   isModified  First-direction basis is eModified_A; unused in 1D.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr; the segment
  *                      kernel keeps none, so unused.
@@ -2362,6 +2367,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     IProductWRTBaseKernelLauncher(
         const TSizeParameter1D sizeParam1D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         [[maybe_unused]] const bool isModified,
         [[maybe_unused]] const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0,
@@ -2427,6 +2433,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   sizeParam2D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                      unused.
  * @param   isModified  First-direction basis is eModified_A.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
  * in
@@ -2459,6 +2467,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     IProductWRTBaseKernelLauncher(
         const TSizeParameter2D sizeParam2D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         const bool isModified, const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
@@ -2538,6 +2547,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   sizeParam2D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                      unused.
  * @param   isModified  First-direction basis is eModified_A.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
  * in
@@ -2564,6 +2575,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     IProductWRTBaseKernelLauncher(
         const TSizeParameter2D sizeParam2D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         const bool isModified, const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
@@ -2653,6 +2665,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   sizeParam3D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                      unused.
  * @param   isModified  First-direction basis is eModified_A.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
  * in
@@ -2685,8 +2699,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     IProductWRTBaseKernelLauncher(
-        TSizeParameter3D sizeParam3D, const size_t nelmt, const bool isModified,
-        const bool useSharedMemoryWsp,
+        TSizeParameter3D sizeParam3D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
+        const bool isModified, const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index2,
@@ -2776,6 +2791,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   sizeParam3D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                      unused.
  * @param   isModified  First-direction basis is eModified_A.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
  * in
@@ -2802,6 +2819,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     IProductWRTBaseKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         const bool isModified, const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,

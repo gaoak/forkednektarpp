@@ -719,7 +719,7 @@ protected:
         // the ntrace of one in two dimensions; in three the regions are
         // sized per face already.
         const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
+            GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
         unsigned int shmemsize = 0;
         if constexpr (IsTraceSizeParameter2D_v<TTraceSizeParameter>)
         {
@@ -927,7 +927,7 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
+            GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
         const unsigned int shmemsize =
             sizeof(TData) *
             IProductWRTPhysTraceSharedMemorySize<Implementation>(sizeParam,
