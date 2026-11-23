@@ -296,6 +296,8 @@ NEK_DEVICE_INLINE static void AddAdvection3DSumFacKernel(
  *                          upper triangle therefore has
  *                          ncoord * (ncoord + 1) / 2 entries.
  * @param   nelmt           Elements in the block, padding included.
+ * @param   elmtsPerBlock   Elements per thread block, one per thread;
+ *                          unused.
  * @param   nhomo           Homogeneous planes of the field.
  * @param   isModified      First-direction basis is eModified_A; unused
  *                          for segments.
@@ -337,10 +339,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     LinAdvDiffReactionKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, const unsigned int nhomo,
-        [[maybe_unused]] const bool isModified, const bool useSharedMemoryWsp,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT w0,
+        const size_t nelmt, [[maybe_unused]] const unsigned int elmtsPerBlock,
+        const unsigned int nhomo, [[maybe_unused]] const bool isModified,
+        const bool useSharedMemoryWsp, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT diffCoeff, const size_t varDiffCoeffSize,
@@ -458,6 +460,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam2D     Element mode and point counts.
  * @param   ncoord          Coordinate dimension (2 or 3).
  * @param   nelmt           Elements in the block, padding included.
+ * @param   elmtsPerBlock   Elements per thread block, one per thread;
+ *                          unused.
  * @param   nhomo           Homogeneous planes of the field.
  * @param   isModified      First-direction basis is eModified_A.
  * @param   useSharedMemoryWsp       Stage intermediates in @p shmemptr rather
@@ -496,7 +500,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     LinAdvDiffReactionKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
-        const size_t nelmt, const unsigned int nhomo, const bool isModified,
+        const size_t nelmt, [[maybe_unused]] const unsigned int elmtsPerBlock,
+        const unsigned int nhomo, const bool isModified,
         const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
@@ -683,6 +688,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam3D     Element mode and point counts.
  * @param   ncoord          Coordinate dimension; unused.
  * @param   nelmt           Elements in the block, padding included.
+ * @param   elmtsPerBlock   Elements per thread block, one per thread;
+ *                          unused.
  * @param   nhomo           Homogeneous planes; unused, a 3D field has
  *                          one.
  * @param   isModified      First-direction basis is eModified_A.
@@ -725,6 +732,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LinAdvDiffReactionKernelLauncher(
         const TSizeParameter3D sizeParam3D,
         [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         [[maybe_unused]] const unsigned int nhomo, const bool isModified,
         const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,

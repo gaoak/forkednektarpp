@@ -29,15 +29,15 @@
 // DEALINGS IN THE SOFTWARE.
 //
 // Description: Device SumFacTOP kernels of the backward transform, one
-// element per thread block
+// element, or a group of them, per thread block
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
  * @file BwdTransBlockOpDeviceSumFacTOPKernels.hpp
- * @brief Device SumFacTOP kernels of the backward transform: one element
- * per thread block, with the coefficients, the basis tables and the
- * sum-factorisation intermediates staged in shared memory.
+ * @brief Device SumFacTOP kernels of the backward transform: one element,
+ * or a group of them, per thread block at a time, with the coefficients, the
+ * basis tables and the sum-factorisation intermediates staged in shared memory.
  *
  * These are the kernels the Device/SumFacTOP block implementation
  * launches (see BwdTransBlockOpDeviceSumFac.hpp); the SumFac counterparts,
@@ -49,16 +49,17 @@
  * (NEKTAR_ENABLE_DEVICE and DEVICE_COMPILE_ONLY).
  *
  * ### Work decomposition
- * The threads of one block cooperate on one element, indexed over the
+ * The threads of one block, or its share per element when it takes a group
+ * of them (GetDeviceElmtBlock()), cooperate on one element, indexed over the
  * entries a sum-factorisation stage produces rather than over elements.
  * The block storage is left non-interleaved (width 1), so an element's
  * values are contiguous.
  *
- * The BwdTransKernelLauncher overloads take the element of their block's
- * first-dimension index and stride by the grid's first-dimension size;
- * within a stage each thread starts at its local thread index and
- * strides by the block size. The grid's second dimension instead holds
- * one block-column per component, `c = getBlockIdx<1>(threadBlock)`,
+ * The BwdTransKernelLauncher overloads take the element group of their
+ * block's first-dimension index and stride by the grid's first-dimension
+ * size; within a stage each thread starts at its index in its element's
+ * share and strides by the share's size. The grid's second dimension instead
+ * holds one block-column per component, `c = getBlockIdx<1>(threadBlock)`,
  * fixed for a block's whole element loop, so a single launch covers
  * every component (see BwdTransBlockOpDeviceSumFac.hpp). Neither loop
  * constrains the launch configuration, which is why the block size may
@@ -83,9 +84,10 @@
  * When the coefficients and intermediates do not fit in shared memory
  * alongside the basis tables, the block implementation clears
  * useSharedMemoryWsp and the launchers stage them instead in the block's
- * slice of the global-memory workspace, one element's worth per thread
- * block, sized by BwdTransWorkSpaceSize. BwdTransSharedMemorySize gives
- * the amount of dynamic shared memory the block implementation requests.
+ * slice of the global-memory workspace, one element's worth per element
+ * of a thread block's group, sized by BwdTransWorkSpaceSize.
+ * BwdTransSharedMemorySize gives the amount of dynamic shared memory the block
+ * implementation requests.
  *
  * ### Conventions
  * The basis tables, mode orderings, isModified corrections and nodal
@@ -120,8 +122,9 @@ namespace Nektar::MultiRegions::detail
  *                           lives in BwdTransBlockOpDeviceSumFacKernels.hpp.
  * @tparam TSizeParameter1D  1D size parameter, runtime or templated.
  *
- * @param   nelmt        Elements whose workspace is held at once: one per
- *                       thread block (see WorkSpaceNumElmts).
+ * @param   nelmt        Elements whose workspace is held at once: those of
+ *                       one group per thread block (see
+ *                       WorkSpaceNumElmts).
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
  *
  * @return 0.
@@ -143,7 +146,7 @@ inline constexpr size_t BwdTransWorkSpaceSize(
  * @brief Workspace a 2D SumFacTOP backward transform needs, in TData
  * values.
  *
- * Per thread block, the element's nmTot coefficients followed by the
+ * Per element, its nmTot coefficients followed by the
  * first stage's intermediate (nq0 * nm1 values for the quadrilateral,
  * nm0 * nq1 for the triangles); the blocks' regions follow one another.
  *
@@ -151,8 +154,9 @@ inline constexpr size_t BwdTransWorkSpaceSize(
  * @tparam Implementation    MultiRegions::SumFacTOP.
  * @tparam TSizeParameter2D  2D size parameter, runtime or templated.
  *
- * @param   nelmt        Elements whose workspace is held at once: one per
- *                       thread block (see WorkSpaceNumElmts).
+ * @param   nelmt        Elements whose workspace is held at once: those of
+ *                       one group per thread block (see
+ *                       WorkSpaceNumElmts).
  * @param   sizeParam2D  Modal and quadrature sizes per direction.
  *
  * @return Number of TData values.
@@ -187,7 +191,7 @@ inline constexpr size_t BwdTransWorkSpaceSize(
  * @brief Workspace a 3D SumFacTOP backward transform needs, in TData
  * values.
  *
- * Per thread block, the element's nmTot coefficients followed by the
+ * Per element, its nmTot coefficients followed by the
  * intermediates of the first two stages, of the sizes listed under
  * BwdTransSharedMemorySize; the blocks' regions follow one another.
  *
@@ -196,8 +200,9 @@ inline constexpr size_t BwdTransWorkSpaceSize(
  * @tparam Implementation    MultiRegions::SumFacTOP.
  * @tparam TSizeParameter3D  3D size parameter, runtime or templated.
  *
- * @param   nelmt        Elements whose workspace is held at once: one per
- *                       thread block (see WorkSpaceNumElmts).
+ * @param   nelmt        Elements whose workspace is held at once: those of
+ *                       one group per thread block (see
+ *                       WorkSpaceNumElmts).
  * @param   sizeParam3D  Modal and quadrature sizes per direction.
  *
  * @return Number of TData values.
@@ -1328,8 +1333,9 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
 
 /**
  * @brief Device entry point of the 1D backward transform under
- * SumFacTOP: unpack the size parameter, then walk the block's elements,
- * one thread block per element, applying the segment kernel to each.
+ * SumFacTOP: unpack the size parameter, then stride the device block over
+ * the block's element groups (GetDeviceElmtBlock()), applying the segment
+ * kernel to each element.
  *
  * Launched through DEVICE_2DGRID_KERNEL_LAUNCHER, which appends the last
  * two arguments and supplies grid, block, shared-memory size and stream
@@ -1342,8 +1348,8 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
  * macro passes the pointer in. The basis table is copied into it once
  * before the element loop.
  *
- * The block takes the element at its index in the grid's first dimension
- * and advances by that dimension's block count, so the block's
+ * The block takes the element group at its index in the grid's first
+ * dimension and advances by that dimension's block count, so the block's
  * elements -- padding included, their results being discarded -- are
  * covered however many blocks were launched.
  *
@@ -1354,10 +1360,13 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
  * @tparam TSizeParameter1D 1D size parameter, in the runtime or the
  *                          compile-time form; with the latter the sizes
  *                          below are compile-time constants.
+ * @tparam TElmtsPerBlock   SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock     Back-end thread-block handle type.
  *
  * @param   sizeParam1D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                      GetDeviceKernelParameters().
  * @param   isModified  First-direction basis is eModified_A; the segment
  *                      kernel needs no correction, so unused.
  * @param   useSharedMemoryWsp   Unused: the segment launcher has no
@@ -1373,14 +1382,15 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
  * @param   threadBlock Thread-block handle, appended by the launcher.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool APPEND, typename TSizeParameter1D, typename TthreadBlock,
-          typename TData,
+          bool APPEND, typename TSizeParameter1D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     BwdTransKernelLauncher(const TSizeParameter1D sizeParam1D,
                            const size_t nelmt,
+                           const TElmtsPerBlock elmtsPerBlock,
                            [[maybe_unused]] const bool isModified,
                            [[maybe_unused]] const bool useSharedMemoryWsp,
                            const TData *NEK_RESTRICT basis0,
@@ -1407,30 +1417,35 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
     localBarrier(threadBlock);
 
-    size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e = elmtBlock.elmtIdx;
+
         const TData *inptr = in + nm0 * nelmt * c + nm0 * e;
         TData *outptr      = out + nq0 * nelmt * c + nq0 * e;
         BwdTransSegSumFacTOPKernel<APPEND>(nm0, nq0, s_basis0, inptr, outptr,
-                                           threadBlock);
-        e += getBlockRange<0>(threadBlock);
+                                           elmtBlock);
     }
 }
 
 /**
  * @brief Device entry point of the 2D backward transform under
- * SumFacTOP: stage the basis tables, then walk the block's elements, one
- * thread block per element, applying the shape kernel selected by
- * @p SHAPE_TYPE to each.
+ * SumFacTOP: stage the basis tables, then stride the device block over the
+ * block's element groups (GetDeviceElmtBlock()), applying the shape kernel
+ * selected by @p SHAPE_TYPE to each element.
  *
  * Constrained, launched and bounded as the 1D entry point, but here
  * @p shmemptr is carved up: the two basis tables are copied in once
  * before the element loop, and each element then stages its
- * coefficients and the first stage's intermediate in the workspace --
- * the rest of @p shmemptr with @p useSharedMemoryWsp, else the block's
- * slice of @p wsp. The pieces and their sizes are those
+ * coefficients and the first stage's intermediate in its share of the
+ * workspace -- the rest of @p shmemptr with @p useSharedMemoryWsp, else the
+ * block's slice of @p wsp. The pieces and their sizes are those
  * BwdTransSharedMemorySize and BwdTransWorkSpaceSize add up, and they
  * must agree. For NodalTri the staged coefficients are converted to the
  * modified modal basis before the triangular kernel runs on them.
@@ -1441,10 +1456,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *                          overwriting.
  * @tparam TSizeParameter2D 2D size parameter, runtime or compile-time
  *                          form.
+ * @tparam TElmtsPerBlock   SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock     Back-end thread-block handle type.
  *
  * @param   sizeParam2D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                      GetDeviceKernelParameters().
  * @param   isModified  First-direction basis is eModified_A.
  * @param   useSharedMemoryWsp   Stage the workspace in @p shmemptr rather
  *                      than in @p wsp.
@@ -1459,19 +1477,20 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   threadBlock Thread-block handle, appended by the launcher.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool APPEND, typename TSizeParameter2D, typename TthreadBlock,
-          typename TData,
+          bool APPEND, typename TSizeParameter2D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     BwdTransKernelLauncher(
         const TSizeParameter2D sizeParam2D, const size_t nelmt,
-        const bool isModified, const bool useSharedMemoryWsp,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const TElmtsPerBlock elmtsPerBlock, const bool isModified,
+        const bool useSharedMemoryWsp, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT nodToMod,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -1507,49 +1526,59 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LoadToSharedMemory(basisDataSize.basis0(), basis0, s_basis0, threadBlock);
     LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
 
-    size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
 
     DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
-        // Workspace: after the basis data, or the thread block's slice.
-        const size_t iblock =
-            getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
-        TData *wsp0 = isShared ? s_basis0 + basisDataSize.total()
-                               : wsp + (nmTot + wsp1Size) * iblock;
+        // Workspace: the element's share after the basis data, or of the
+        // thread block's slice.
+        const size_t globalWspIdx =
+            (getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c) *
+                elmtsPerBlock +
+            wspIdx;
+        TData *wsp0 = isShared ? s_basis0 + basisDataSize.total() +
+                                     (nmTot + wsp1Size) * wspIdx
+                               : wsp + (nmTot + wsp1Size) * globalWspIdx;
         TData *wsp1 = wsp0 + nmTot;
 
-        while (e < nelmt)
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
         {
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e = elmtBlock.elmtIdx;
+
             const TData *inptr = in + nmTot * nelmt * c + nmTot * e;
             TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
             if constexpr (isNodal)
             {
                 // Nodal to Modal in the workspace.
-                MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, wsp0,
-                                      threadBlock);
+                MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, wsp0, elmtBlock);
             }
             else
             {
                 // Copy to the workspace.
-                LoadToSharedMemory(nmTot, inptr, wsp0, threadBlock);
-                localBarrier(threadBlock);
+                LoadToSharedMemory(nmTot, inptr, wsp0, elmtBlock);
+                localBarrier(elmtBlock);
             }
 
             BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
                 nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1, wsp0,
-                outptr, wsp1, threadBlock);
-
-            e += getBlockRange<0>(threadBlock);
+                outptr, wsp1, elmtBlock);
         }
     });
 }
 
 /**
  * @brief Device entry point of the 3D backward transform under
- * SumFacTOP: stage the basis tables, then walk the block's elements, one
- * thread block per element, applying the shape kernel selected by
- * @p SHAPE_TYPE to each.
+ * SumFacTOP: stage the basis tables, then stride the device block over the
+ * block's element groups (GetDeviceElmtBlock()), applying the shape kernel
+ * selected by @p SHAPE_TYPE to each element.
  *
  * As the 2D entry point, with three basis tables and two stage
  * intermediates staged instead of two and one; the pieces and their
@@ -1568,10 +1597,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *                          overwriting.
  * @tparam TSizeParameter3D 3D size parameter, runtime or compile-time
  *                          form.
+ * @tparam TElmtsPerBlock   SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock     Back-end thread-block handle type.
  *
  * @param   sizeParam3D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                      GetDeviceKernelParameters().
  * @param   isModified  First-direction basis is eModified_A.
  * @param   useSharedMemoryWsp   Stage the workspace in @p shmemptr rather
  *                      than in @p wsp.
@@ -1587,21 +1619,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   threadBlock Thread-block handle, appended by the launcher.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool APPEND, typename TSizeParameter3D, typename TthreadBlock,
-          typename TData,
+          bool APPEND, typename TSizeParameter3D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     BwdTransKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
-        const bool isModified, const bool useSharedMemoryWsp,
-        const unsigned int *index0, const unsigned int *index1,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT nodToMod,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        const TElmtsPerBlock elmtsPerBlock, const bool isModified,
+        const bool useSharedMemoryWsp, const unsigned int *index0,
+        const unsigned int *index1, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
                   "Template argument must be either of type "
@@ -1657,42 +1689,53 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LoadToSharedMemory(basisDataSize.basis1(), basis1, s_basis1, threadBlock);
     LoadToSharedMemory(basisDataSize.basis2(), basis2, s_basis2, threadBlock);
 
-    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
 
     DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
-        // Workspace: after the basis data, or the thread block's slice.
-        const size_t iblock =
-            getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
-        TData *wsp0 = isShared ? s_basis0 + basisDataSize.total()
-                               : wsp + (nmTot + wsp1Size + wsp2Size) * iblock;
+        // Workspace: the element's share after the basis data, or of the
+        // thread block's slice.
+        const size_t globalWspIdx =
+            (getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c) *
+                elmtsPerBlock +
+            wspIdx;
+        TData *wsp0 = isShared
+                          ? s_basis0 + basisDataSize.total() +
+                                (nmTot + wsp1Size + wsp2Size) * wspIdx
+                          : wsp + (nmTot + wsp1Size + wsp2Size) * globalWspIdx;
         TData *wsp1 = wsp0 + nmTot;
         TData *wsp2 = wsp1 + wsp1Size;
 
-        while (e < nelmt)
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
         {
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e = elmtBlock.elmtIdx;
+
             const TData *inptr = in + nmTot * nelmt * c + nmTot * e;
             TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
             if constexpr (isNodal)
             {
                 // Nodal to Modal in the workspace.
-                MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, wsp0,
-                                      threadBlock);
+                MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, wsp0, elmtBlock);
             }
             else
             {
                 // Copy to the workspace.
-                LoadToSharedMemory(nmTot, inptr, wsp0, threadBlock);
-                localBarrier(threadBlock);
+                LoadToSharedMemory(nmTot, inptr, wsp0, elmtBlock);
+                localBarrier(elmtBlock);
             }
 
             BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index1,
                 s_basis0, s_basis1, s_basis2, wsp0, outptr, wsp1, wsp2,
-                threadBlock);
-
-            e += getBlockRange<0>(threadBlock);
+                elmtBlock);
         }
     });
 }

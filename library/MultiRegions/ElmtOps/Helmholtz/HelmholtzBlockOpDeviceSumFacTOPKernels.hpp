@@ -39,8 +39,8 @@
  *
  * @details
  * Thread-only parallel kernels for the weak Helmholtz operator: each
- * thread block handles one element with threads collaborating via shared
- * memory.
+ * thread block handles one element, or a group of them, at a time with
+ * threads collaborating via shared memory.
  */
 #pragma once
 
@@ -82,8 +82,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int HelmholtzDerivWorkSpaceSize(
 
 /**
  * @brief Global-memory workspace of the TOP kernels, in TData values: one
- * element's staging area per thread block, the blocks' regions following one
- * another.
+ * staging area per element of a thread block's group, the regions following
+ * one another.
  *
  * In 1D the nq0 physical values and three derivative slots.
  */
@@ -224,7 +224,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                                IsSizeParameter2D_v<TSizeParameter2D>,
                            bool>
               Enable = true>
-inline constexpr unsigned int HelmholtzSharedWorkSpaceSize(
+NEK_HOSTDEVICE_INLINE constexpr unsigned int HelmholtzSharedWorkSpaceSize(
     const TSizeParameter2D sizeParam2D)
 {
     // Padding of the inner product's intermediate stage.
@@ -262,7 +262,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                                IsSizeParameter3D_v<TSizeParameter3D>,
                            bool>
               Enable = true>
-inline constexpr unsigned int HelmholtzSharedWorkSpaceSize(
+NEK_HOSTDEVICE_INLINE constexpr unsigned int HelmholtzSharedWorkSpaceSize(
     const TSizeParameter3D sizeParam3D)
 {
     // Padding of the inner product's intermediate stages.
@@ -1150,20 +1150,23 @@ NEK_DEVICE_INLINE static void ScaleMass3DSumFacTOPKernel(
 }
 
 /**
- * @brief 1D TOP launcher stringing together the five sum-factorised stages.
+ * @brief 1D TOP launcher stringing together the five sum-factorised stages,
+ * striding the device block over the block's element groups
+ * (GetDeviceElmtBlock()).
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, bool VARCOEFF, typename TSizeParameter1D,
-          typename TthreadBlock, typename TData,
+          typename TElmtsPerBlock, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     HelmholtzKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, [[maybe_unused]] const bool isModified,
-        const bool useSharedMemoryWsp, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
+        const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
+        [[maybe_unused]] const bool isModified, const bool useSharedMemoryWsp,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
+        const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT diffCoeff, const size_t varDiffCoeffSize,
@@ -1190,22 +1193,34 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     // Copy to shared memory.
     LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
 
-    size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
     DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
-        // Workspace: after the basis data, or the thread block's slice.
-        const size_t iblock =
-            getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
+        // Workspace: the element's share after the basis data, or of the
+        // thread block's slice.
+        const size_t globalWspIdx =
+            (getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c) *
+                elmtsPerBlock +
+            wspIdx;
         const size_t wspSize =
             HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(1u, ncoord,
                                                                sizeParam1D);
-        TData *wspbase =
-            isShared ? s_D0T + basisDataSize : wsp + wspSize * iblock;
-        TData *bwd   = wspbase;
-        TData *deriv = bwd + nq0;
+        TData *wspbase = isShared ? s_D0T + basisDataSize + wspSize * wspIdx
+                                  : wsp + wspSize * globalWspIdx;
+        TData *bwd     = wspbase;
+        TData *deriv   = bwd + nq0;
 
-        while (e < nelmt)
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
         {
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e = elmtBlock.elmtIdx;
+
             const TData *diffCoeffPtr =
                 VARCOEFF ? diffCoeff + (c % nhomo) * nelmt * nq0 + e * nq0
                          : diffCoeff;
@@ -1215,36 +1230,37 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             TData *outptr       = out + nm0 * nelmt * c + nm0 * e;
 
             BwdTransSegSumFacTOPKernel<false>(nm0, nq0, basis0, inptr, bwd,
-                                              threadBlock);
+                                              elmtBlock);
             PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nq0, D0, dfptr,
-                                                 bwd, deriv, threadBlock);
+                                                 bwd, deriv, elmtBlock);
             ApplyMetric1DSumFacTOPKernel<DEFORMED, VARCOEFF>(
                 ncoord, nq0, nq0, w0, dfptr, jacptr, diffCoeffPtr,
-                varDiffCoeffSize, deriv, deriv, bwd, lambda, threadBlock);
-            SumDerivTensor1DSumFacTOPKernel<false, true>(
-                nq0, s_D0T, deriv, bwd, (TData)1.0, threadBlock);
+                varDiffCoeffSize, deriv, deriv, bwd, lambda, elmtBlock);
+            SumDerivTensor1DSumFacTOPKernel<false, true>(nq0, s_D0T, deriv, bwd,
+                                                         (TData)1.0, elmtBlock);
             IProductWRTBaseSegSumFacTOPKernel<false, false>(
-                nm0, nq0, basis0, bwd, outptr, (TData)1.0, threadBlock);
-
-            e += getBlockRange<0>(threadBlock);
+                nm0, nq0, basis0, bwd, outptr, (TData)1.0, elmtBlock);
         }
     });
 }
 
 /**
- * @brief 2D TOP launcher stringing together the five sum-factorised stages.
+ * @brief 2D TOP launcher stringing together the five sum-factorised stages,
+ * striding the device block over the block's element groups
+ * (GetDeviceElmtBlock()).
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, bool VARCOEFF, typename TSizeParameter2D,
-          typename TthreadBlock, typename TData,
+          typename TElmtsPerBlock, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     HelmholtzKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
-        const size_t nelmt, const bool isModified,
-        const bool useSharedMemoryWsp, const unsigned int *NEK_RESTRICT index0,
+        const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
+        const bool isModified, const bool useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
@@ -1295,23 +1311,31 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
     LoadTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
 
-    size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
     DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
         // Inner-product rows are padded in shared memory only.
         constexpr bool padInput = decltype(isShared)::value;
 
-        // Workspace: after the basis data, or the thread block's slice.
-        const size_t iblock =
-            getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
+        // Workspace: the element's share after the basis data, or of the
+        // thread block's slice.
+        const size_t globalWspIdx =
+            (getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c) *
+                elmtsPerBlock +
+            wspIdx;
         const size_t wspSize =
             HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(1u, ncoord,
                                                                sizeParam2D);
         TData *wspbase =
             isShared
-                ? s_basis0 + SharedMemoryAlignedSize<TData>(
-                                 basisDataSize.total() + nq0 * nq0 + nq1 * nq1)
-                : wsp + wspSize * iblock;
+                ? s_basis0 +
+                      SharedMemoryAlignedSize<TData>(basisDataSize.total() +
+                                                     nq0 * nq0 + nq1 * nq1) +
+                      HelmholtzSharedWorkSpaceSize<SHAPE_TYPE, Implementation,
+                                                   TData>(sizeParam2D) *
+                          wspIdx
+                : wsp + wspSize * globalWspIdx;
 
         TData *metric = wspbase;
         TData *bwd =
@@ -1329,8 +1353,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             (isShared ? IProductWRTBaseFusedWorkSpaceOffset<TData>(sizeParam2D)
                       : nmTot);
 
-        while (e < nelmt)
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
         {
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e = elmtBlock.elmtIdx;
+
             const TData *diffCoeffPtr =
                 VARCOEFF ? diffCoeff + (c % nhomo) * nelmt * nqTot + e * nqTot
                          : diffCoeff;
@@ -1342,71 +1374,71 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             if constexpr (isNodal)
             {
                 // Nodal to Modal in the workspace.
-                MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, modal,
-                                      threadBlock);
+                MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, modal, elmtBlock);
             }
             else
             {
                 // Copy to the workspace.
-                LoadToSharedMemory(nmTot, inptr, modal, threadBlock);
-                localBarrier(threadBlock);
+                LoadToSharedMemory(nmTot, inptr, modal, elmtBlock);
+                localBarrier(elmtBlock);
             }
 
             BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, false>(
                 nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1,
-                modal, bwd, wsp0, threadBlock);
+                modal, bwd, wsp0, elmtBlock);
 
             TData dmetric[(DEFORMED || VARCOEFF) ? 6 : 1] = {0.0};
             PhysDerivApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED,
                                                   VARCOEFF>(
                 ncoord, nq0, nq1, D0, D1, w0, w1, f0, f1, dfptr, jacptr,
                 diffCoeffPtr, varDiffCoeffSize, bwd, deriv0, deriv1,
-                (DEFORMED || VARCOEFF) ? dmetric : metric, threadBlock);
+                (DEFORMED || VARCOEFF) ? dmetric : metric, elmtBlock);
             ScaleMass2DSumFacTOPKernel<DEFORMED>(nq0, nq1, w0, w1, jacptr,
-                                                 lambda, bwd, threadBlock);
-            SumDerivTensor2DSumFacTOPKernel<false, true>(
-                nq0, nq1, s_D0T, s_D1T, deriv0, deriv1, bwd, (TData)1.0,
-                threadBlock);
+                                                 lambda, bwd, elmtBlock);
+            SumDerivTensor2DSumFacTOPKernel<false, true>(nq0, nq1, s_D0T, s_D1T,
+                                                         deriv0, deriv1, bwd,
+                                                         (TData)1.0, elmtBlock);
 
             if (isShared && isPadded)
             {
                 LoadWithPaddingToSharedMemory(nq0, nq1, ldi, bwd, ipb,
-                                              threadBlock);
-                localBarrier(threadBlock);
+                                              elmtBlock);
+                localBarrier(elmtBlock);
             }
 
             IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, false, false,
                                              padInput>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
                 s_basis1, ipb, isNodal ? modal : outptr, wsp0, (TData)1.0,
-                threadBlock);
+                elmtBlock);
 
             if constexpr (isNodal)
             {
                 // Multiply by transpose nodToMod to transform coeffs.
                 MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, modal,
-                                                   outptr, threadBlock);
+                                                   outptr, elmtBlock);
             }
-
-            e += getBlockRange<0>(threadBlock);
         }
     });
 }
 
 /**
- * @brief 3D TOP launcher stringing together the five sum-factorised stages.
+ * @brief 3D TOP launcher stringing together the five sum-factorised stages,
+ * striding the device block over the block's element groups
+ * (GetDeviceElmtBlock()).
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, bool VARCOEFF, typename TSizeParameter3D,
-          typename TthreadBlock, typename TData,
+          typename TElmtsPerBlock, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
     HelmholtzKernelLauncher(
         const TSizeParameter3D sizeParam3D, const unsigned int ncoord,
-        const size_t nelmt, const bool isModified,
-        const bool useSharedMemoryWsp, const unsigned int *NEK_RESTRICT index0,
+        const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
+        const bool isModified, const bool useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
         const unsigned int *NEK_RESTRICT index3,
@@ -1495,23 +1527,32 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LoadTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
     LoadTransposeToSharedMemory(nq2, nq2, D2, s_D2T, threadBlock);
 
-    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
     DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
         // Inner-product rows are padded in shared memory only.
         constexpr bool padInput = decltype(isShared)::value;
 
-        // Workspace: after the basis data, or the thread block's slice.
-        const size_t iblock =
-            getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c;
+        // Workspace: the element's share after the basis data, or of the
+        // thread block's slice.
+        const size_t globalWspIdx =
+            (getBlockIdx<0>(threadBlock) + getBlockRange<0>(threadBlock) * c) *
+                elmtsPerBlock +
+            wspIdx;
         const size_t wspSize =
             HelmholtzWorkSpaceSize<SHAPE_TYPE, Implementation>(1u, ncoord,
                                                                sizeParam3D);
-        TData *wspbase = isShared
-                             ? s_basis0 + SharedMemoryAlignedSize<TData>(
-                                              basisDataSize.total() +
-                                              nq0 * nq0 + nq1 * nq1 + nq2 * nq2)
-                             : wsp + wspSize * iblock;
+        TData *wspbase =
+            isShared
+                ? s_basis0 +
+                      SharedMemoryAlignedSize<TData>(basisDataSize.total() +
+                                                     nq0 * nq0 + nq1 * nq1 +
+                                                     nq2 * nq2) +
+                      HelmholtzSharedWorkSpaceSize<SHAPE_TYPE, Implementation,
+                                                   TData>(sizeParam3D) *
+                          wspIdx
+                : wsp + wspSize * globalWspIdx;
 
         TData *metric = wspbase;
         TData *bwd =
@@ -1533,8 +1574,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             wsp0 + (isShared ? SharedMemoryAlignedSize<TData>(wsp0Size)
                              : wsp0Size - wspPadSize);
 
-        while (e < nelmt)
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
         {
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e = elmtBlock.elmtIdx;
+
             const TData *diffCoeffPtr =
                 VARCOEFF ? diffCoeff + (c % nhomo) * nelmt * nqTot + e * nqTot
                          : diffCoeff;
@@ -1546,37 +1595,36 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             if constexpr (isNodal)
             {
                 // Nodal to Modal in the workspace.
-                MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, modal,
-                                      threadBlock);
+                MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, modal, elmtBlock);
             }
             else
             {
                 // Copy to the workspace.
-                LoadToSharedMemory(nmTot, inptr, modal, threadBlock);
-                localBarrier(threadBlock);
+                LoadToSharedMemory(nmTot, inptr, modal, elmtBlock);
+                localBarrier(elmtBlock);
             }
 
             BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, false>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index3,
                 s_basis0, s_basis1, s_basis2, modal, bwd, wsp0, wsp1,
-                threadBlock);
+                elmtBlock);
             TData dmetric[(DEFORMED || VARCOEFF) ? 9 : 1] = {0.0};
             PhysDerivApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED,
                                                   VARCOEFF>(
                 nq0, nq1, nq2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, dfptr,
                 jacptr, diffCoeffPtr, varDiffCoeffSize, bwd, deriv0, deriv1,
-                deriv2, (DEFORMED || VARCOEFF) ? dmetric : metric, threadBlock);
+                deriv2, (DEFORMED || VARCOEFF) ? dmetric : metric, elmtBlock);
             ScaleMass3DSumFacTOPKernel<DEFORMED>(
-                nq0, nq1, nq2, w0, w1, w2, jacptr, lambda, bwd, threadBlock);
+                nq0, nq1, nq2, w0, w1, w2, jacptr, lambda, bwd, elmtBlock);
             SumDerivTensor3DSumFacTOPKernel<false, true>(
                 nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2, bwd,
-                (TData)1.0, threadBlock);
+                (TData)1.0, elmtBlock);
 
             if (isShared && isPadded)
             {
                 LoadWithPaddingToSharedMemory(nq0, nq1 * nq2, ldi, bwd, ipb,
-                                              threadBlock);
-                localBarrier(threadBlock);
+                                              elmtBlock);
+                localBarrier(elmtBlock);
             }
 
             // The collapsed shapes take the two scratches the other way round.
@@ -1586,16 +1634,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, index2, s_basis0, s_basis1, s_basis2, ipb,
                 isNodal ? modal : outptr, hex ? wsp0 : wsp1, hex ? wsp1 : wsp0,
-                (TData)1.0, threadBlock);
+                (TData)1.0, elmtBlock);
 
             if constexpr (isNodal)
             {
                 // Multiply by transpose nodToMod to transform coeffs.
                 MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, modal,
-                                                   outptr, threadBlock);
+                                                   outptr, elmtBlock);
             }
-
-            e += getBlockRange<0>(threadBlock);
         }
     });
 }

@@ -733,6 +733,8 @@ NEK_DEVICE_INLINE static void Curl3DSumFacKernel(
  * @param   sizeParam1D  Element sizes: coordinate dimension and
  *                       quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                       unused.
  * @param   inoffset     Component stride; unused in one dimension.
  * @param   useSharedMemoryWsp    Stage the vorticity in @p shmemptr; unused in
  * one dimension.
@@ -753,6 +755,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     [[maybe_unused]] const size_t inoffset,
     [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
@@ -817,6 +820,8 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
  * @param   sizeParam2D  Element sizes: coordinate dimension and
  *                       per-direction quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                       unused.
  * @param   inoffset     Stride between the components of @p in, also used
  *                       between those of @p out.
  * @param   useSharedMemoryWsp    Stage the vorticity in @p shmemptr rather than
@@ -846,11 +851,12 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const size_t inoffset, const bool useSharedMemoryWsp,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t inoffset,
+    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT wsp,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     static_assert(
@@ -942,8 +948,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const size_t inoffset, const size_t outoffset,
-    [[maybe_unused]] const bool useSharedMemoryWsp,
+    [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t inoffset,
+    const size_t outoffset, [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
@@ -1028,6 +1034,8 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
  *
  * @param   sizeParam3D  Element sizes: per-direction quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                       unused.
  * @param   inoffset     Stride between the components of @p in, of
  *                       @p wsp and of @p out.
  * @param   useSharedMemoryWsp    Stage the vorticity in @p shmemptr rather than
@@ -1064,13 +1072,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const size_t inoffset, const bool useSharedMemoryWsp,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT wsp,
-    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t inoffset,
+    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     static_assert(

@@ -489,8 +489,8 @@ protected:
             useSharedMemoryWsp
                 ? 0
                 : CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      WorkSpaceNumElmts<Implementation>(nelmt,
-                                                        kernelParams.gridSize),
+                      WorkSpaceNumElmts<Implementation>(
+                          nelmt, kernelParams.gridSize, elmtsPerBlock),
                       sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -507,12 +507,16 @@ protected:
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         // Curl-curl kernel.
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
-            (CurlCurlKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            kernelParams.gridSize, kernelParams.blockSize,
-            kernelParams.shmemSize, m_streamID, sizeParam, nelmt, inoffset,
-            useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr,
-            wspptr, outptr);
+        DispatchElmtsPerBlock<Implementation>(
+            sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                DEVICE_1DGRID_KERNEL_LAUNCHER(
+                    (CurlCurlKernelLauncher<SHAPE_TYPE, Implementation,
+                                            DEFORMED>),
+                    kernelParams.gridSize, kernelParams.blockSize,
+                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                    elmtsPerBlockArg, inoffset, useSharedMemoryWsp,
+                    m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr, wspptr, outptr);
+            });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
@@ -591,12 +595,16 @@ protected:
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         // Plane part of one curl.
-        DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (Curl3DH1KernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
-            kernelParams.shmemSize, m_streamID, sizeParam, nelmt, inoffset,
-            outoffset, useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]..., m_dfptr,
-            inptr, outptr);
+        DispatchElmtsPerBlock<Implementation>(
+            sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                DEVICE_2DGRID_KERNEL_LAUNCHER(
+                    (Curl3DH1KernelLauncher<SHAPE_TYPE, Implementation,
+                                            DEFORMED>),
+                    kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                    elmtsPerBlockArg, inoffset, outoffset, useSharedMemoryWsp,
+                    m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr, outptr);
+            });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

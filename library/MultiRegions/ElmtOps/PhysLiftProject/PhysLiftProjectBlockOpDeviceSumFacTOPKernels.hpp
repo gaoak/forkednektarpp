@@ -68,9 +68,9 @@
  * PhysLiftProjectDirectLiftKernelLauncher, the Pointwise form's direct
  * lift, and PhysLiftProjectLiftJacobianKernelLauncher, the lift and the
  * division by the Jacobian ahead of the dense projector of tetrahedra,
- * prisms and pyramids (PhysLiftProjectDenseTail()). A block takes as many
- * whole elements as fit in 128 points, one at least,
- * and each thread computes its element of the block, then its point. Their
+ * prisms and pyramids (PhysLiftProjectDenseTail()). A block takes whole
+ * elements as GetElmtsPerBlock() gives, and each thread computes its element
+ * of the block, then its point. Their
  * launch bounds are the default block size, which is what
  * GetMaxThreadPerBlock() gives for a trace size parameter.
  */
@@ -1578,10 +1578,10 @@ NEK_DEVICE_INLINE static TData PhysLiftProjectOnePointLiftTOPKernel(
  *
  * One thread per volume point of a thread block's elements, over every
  * component, the block at width one. A thread block takes @p elmtsPerBlock
- * whole elements at a time, as many as fit in 128
- * points (one at least): an element has as few as one point here, so one
- * element per block would leave most of each block idle. Each thread computes
- * its element of the block first, then its point (GetDevicePackedThread());
+ * whole elements at a time (GetElmtsPerBlock()): an element has as few as
+ * one point here, so one element per block would leave most of each block
+ * idle. Each thread computes
+ * its element of the block first, then its point (GetDeviceElmtBlock());
  * consecutive threads take consecutive points of an element and then of the
  * next, so the reads and writes of the volume are coalesced. An element of
  * more points than the block has threads is taken alone, its points strided
@@ -1589,14 +1589,14 @@ NEK_DEVICE_INLINE static TData PhysLiftProjectOnePointLiftTOPKernel(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TTraceSizeParameter1D,
-          typename TthreadBlock, typename TData,
+          typename TElmtsPerBlock, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter1D>()))
     PhysLiftProjectDirectLiftKernelLauncher(
         const TTraceSizeParameter1D traceSizeParam1D, const size_t nelmt,
-        const unsigned int ncomp, const unsigned int elmtsPerBlock,
+        const unsigned int ncomp, const TElmtsPerBlock elmtsPerBlock,
         const TData scale, const bool lift, const TData *NEK_RESTRICT nbasis0,
         [[maybe_unused]] const TData *NEK_RESTRICT tjac,
         const TData *NEK_RESTRICT weights, const TData *NEK_RESTRICT jac,
@@ -1609,38 +1609,34 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     // This thread's element of the block, then its points; a block may hold
     // several elements, and a lone element strides over the whole block.
-    const DevicePackedThread thread =
-        GetDevicePackedThread(nqTot, elmtsPerBlock, threadBlock);
     for (size_t e0 =
              static_cast<size_t>(getBlockIdx(threadBlock)) * elmtsPerBlock;
          e0 < nelmt;
          e0 += static_cast<size_t>(getBlockRange(threadBlock)) * elmtsPerBlock)
     {
-        const size_t e = e0 + thread.elmt;
-        if (thread.elmt < elmtsPerBlock && e < nelmt)
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e = elmtBlock.elmtIdx;
+        for (unsigned int pt = getLocalIdx(elmtBlock); pt < nqTot;
+             pt += getLocalRange(elmtBlock))
         {
-            for (unsigned int pt = thread.firstPoint; pt < nqTot;
-                 pt += thread.pointStride)
-            {
-                const TData factor =
-                    PhysLiftProjectDirectLiftFactorTOPKernel<DEFORMED>(
-                        e, nqTot, pt, scale, weights, jac);
-                const TData h0 = nbasis0[2u * pt];
-                const TData h1 = nbasis0[2u * pt + 1u];
+            const TData factor =
+                PhysLiftProjectDirectLiftFactorTOPKernel<DEFORMED>(
+                    e, nqTot, pt, scale, weights, jac);
+            const TData h0 = nbasis0[2u * pt];
+            const TData h1 = nbasis0[2u * pt + 1u];
 
-                for (unsigned int c = 0; c < ncomp; ++c)
+            for (unsigned int c = 0; c < ncomp; ++c)
+            {
+                const size_t ientry = compSize * c + nqTot * e + pt;
+                TData val           = in[ientry];
+                if (lift)
                 {
-                    const size_t ientry = compSize * c + nqTot * e + pt;
-                    TData val           = in[ientry];
-                    if (lift)
-                    {
-                        const TData *traceptr =
-                            trace + compTraceSize * c + 2u * e;
-                        val += h0 * traceptr[0] + h1 * traceptr[1];
-                    }
-                    PhysLiftProjectDirectLiftStoreTOPKernel<APPEND>(
-                        out, ientry, factor, val);
+                    const TData *traceptr = trace + compTraceSize * c + 2u * e;
+                    val += h0 * traceptr[0] + h1 * traceptr[1];
                 }
+                PhysLiftProjectDirectLiftStoreTOPKernel<APPEND>(out, ientry,
+                                                                factor, val);
             }
         }
     }
@@ -1656,10 +1652,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * One thread per volume point of a thread block's elements, over every
  * component, the block at width one. A thread block takes @p elmtsPerBlock
- * whole elements at a time, as many as fit in 128
- * points (one at least): an element has as few as one point here, so one
- * element per block would leave most of each block idle. Each thread computes
- * its element of the block first, then its point (GetDevicePackedThread());
+ * whole elements at a time (GetElmtsPerBlock()): an element has as few as
+ * one point here, so one element per block would leave most of each block
+ * idle. Each thread computes
+ * its element of the block first, then its point (GetDeviceElmtBlock());
  * consecutive threads take consecutive points of an element and then of the
  * next, so the reads and writes of the volume are coalesced. An element of
  * more points than the block has threads is taken alone, its points strided
@@ -1667,14 +1663,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TTraceSizeParameter2D,
-          typename TthreadBlock, typename TData,
+          typename TElmtsPerBlock, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter2D>()))
     PhysLiftProjectDirectLiftKernelLauncher(
         const TTraceSizeParameter2D traceSizeParam2D, const size_t nelmt,
-        const unsigned int ncomp, const unsigned int elmtsPerBlock,
+        const unsigned int ncomp, const TElmtsPerBlock elmtsPerBlock,
         const TData scale, const bool lift, const TData *NEK_RESTRICT nbasis0,
         const TData *NEK_RESTRICT nbasis1, const TData *NEK_RESTRICT tw00,
         const TData *NEK_RESTRICT tw10, const TData *NEK_RESTRICT tjac,
@@ -1703,92 +1699,87 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     // This thread's element of the block, then its points; a block may hold
     // several elements, and a lone element strides over the whole block.
-    const DevicePackedThread thread =
-        GetDevicePackedThread(nqTot, elmtsPerBlock, threadBlock);
     for (size_t e0 =
              static_cast<size_t>(getBlockIdx(threadBlock)) * elmtsPerBlock;
          e0 < nelmt;
          e0 += static_cast<size_t>(getBlockRange(threadBlock)) * elmtsPerBlock)
     {
-        const size_t e = e0 + thread.elmt;
-        if (thread.elmt < elmtsPerBlock && e < nelmt)
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e = elmtBlock.elmtIdx;
+        for (unsigned int pt = getLocalIdx(elmtBlock); pt < nqTot;
+             pt += getLocalRange(elmtBlock))
         {
-            for (unsigned int pt = thread.firstPoint; pt < nqTot;
-                 pt += thread.pointStride)
-            {
-                const TData factor =
-                    PhysLiftProjectDirectLiftFactorTOPKernel<DEFORMED>(
-                        e, nqTot, pt, scale, weights, jac);
-                const TData *tjacptr     = tjac + numDataJac * e;
-                const size_t traceOffset = static_cast<size_t>(nqTotTrace) * e;
-                const size_t volOffset   = static_cast<size_t>(nqTot) * e + pt;
+            const TData factor =
+                PhysLiftProjectDirectLiftFactorTOPKernel<DEFORMED>(
+                    e, nqTot, pt, scale, weights, jac);
+            const TData *tjacptr     = tjac + numDataJac * e;
+            const size_t traceOffset = static_cast<size_t>(nqTotTrace) * e;
+            const size_t volOffset   = static_cast<size_t>(nqTot) * e + pt;
 
-                if constexpr (!isCollapsed)
+            if constexpr (!isCollapsed)
+            {
+                // The point of each edge beside this point, the edge's
+                // weight there and the end-point interpolant along its
+                // normal.
+                const unsigned int p        = pt % nq0;
+                const unsigned int q        = pt / nq0;
+                const unsigned int k[nedge] = {q, nq1 + q, 2u * nq1 + p,
+                                               2u * nq1 + nq0 + p};
+                const TData w[nedge] = {tw00[q], tw00[q], tw10[p], tw10[p]};
+                const TData h[nedge] = {nbasis0[2u * p], nbasis0[2u * p + 1u],
+                                        nbasis1[2u * q], nbasis1[2u * q + 1u]};
+                // Each edge's factor, formed once for every component.
+                TData coef[nedge];
+                for (unsigned int iedge = 0; iedge < nedge; ++iedge)
                 {
-                    // The point of each edge beside this point, the edge's
-                    // weight there and the end-point interpolant along its
-                    // normal.
-                    const unsigned int p        = pt % nq0;
-                    const unsigned int q        = pt / nq0;
-                    const unsigned int k[nedge] = {q, nq1 + q, 2u * nq1 + p,
-                                                   2u * nq1 + nq0 + p};
-                    const TData w[nedge] = {tw00[q], tw00[q], tw10[p], tw10[p]};
-                    const TData h[nedge] = {
-                        nbasis0[2u * p], nbasis0[2u * p + 1u], nbasis1[2u * q],
-                        nbasis1[2u * q + 1u]};
-                    // Each edge's factor, formed once for every component.
-                    TData coef[nedge];
-                    for (unsigned int iedge = 0; iedge < nedge; ++iedge)
+                    TData edgeJac;
+                    if constexpr (DEFORMED)
                     {
-                        TData edgeJac;
-                        if constexpr (DEFORMED)
-                        {
-                            edgeJac = tjacptr[k[iedge]];
-                        }
-                        else
-                        {
-                            edgeJac = tjacptr[iedge];
-                        }
-                        coef[iedge] = edgeJac * w[iedge] * h[iedge];
+                        edgeJac = tjacptr[k[iedge]];
                     }
-                    for (unsigned int c = 0; c < ncomp; ++c)
+                    else
                     {
-                        const size_t ientry = compSize * c + volOffset;
-                        TData val           = in[ientry];
-                        if (lift)
-                        {
-                            const TData *traceptr =
-                                trace + compTraceSize * c + traceOffset;
-                            for (unsigned int iedge = 0; iedge < nedge; ++iedge)
-                            {
-                                val += traceptr[k[iedge]] * coef[iedge];
-                            }
-                        }
-                        PhysLiftProjectDirectLiftStoreTOPKernel<APPEND>(
-                            out, ientry, factor, val);
+                        edgeJac = tjacptr[iedge];
                     }
+                    coef[iedge] = edgeJac * w[iedge] * h[iedge];
                 }
-                else
+                for (unsigned int c = 0; c < ncomp; ++c)
                 {
-                    const unsigned int tnq[2] = {traceSizeParam2D.nq00(),
-                                                 traceSizeParam2D.nq10()};
-                    const TData *nbasis[2]    = {nbasis0, nbasis1};
-                    const TData *tw[2]        = {tw00, tw10};
-                    for (unsigned int c = 0; c < ncomp; ++c)
+                    const size_t ientry = compSize * c + volOffset;
+                    TData val           = in[ientry];
+                    if (lift)
                     {
-                        const size_t ientry = compSize * c + volOffset;
-                        TData val           = in[ientry];
-                        if (lift)
+                        const TData *traceptr =
+                            trace + compTraceSize * c + traceOffset;
+                        for (unsigned int iedge = 0; iedge < nedge; ++iedge)
                         {
-                            val +=
-                                PhysLiftProjectOnePointLiftTOPKernel<SHAPE_TYPE,
-                                                                     DEFORMED>(
-                                    tnq, nbasis, tw, tjacptr,
-                                    trace + compTraceSize * c + traceOffset);
+                            val += traceptr[k[iedge]] * coef[iedge];
                         }
-                        PhysLiftProjectDirectLiftStoreTOPKernel<APPEND>(
-                            out, ientry, factor, val);
                     }
+                    PhysLiftProjectDirectLiftStoreTOPKernel<APPEND>(
+                        out, ientry, factor, val);
+                }
+            }
+            else
+            {
+                const unsigned int tnq[2] = {traceSizeParam2D.nq00(),
+                                             traceSizeParam2D.nq10()};
+                const TData *nbasis[2]    = {nbasis0, nbasis1};
+                const TData *tw[2]        = {tw00, tw10};
+                for (unsigned int c = 0; c < ncomp; ++c)
+                {
+                    const size_t ientry = compSize * c + volOffset;
+                    TData val           = in[ientry];
+                    if (lift)
+                    {
+                        val += PhysLiftProjectOnePointLiftTOPKernel<SHAPE_TYPE,
+                                                                    DEFORMED>(
+                            tnq, nbasis, tw, tjacptr,
+                            trace + compTraceSize * c + traceOffset);
+                    }
+                    PhysLiftProjectDirectLiftStoreTOPKernel<APPEND>(
+                        out, ientry, factor, val);
                 }
             }
         }
@@ -1803,10 +1794,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * One thread per volume point of a thread block's elements, over every
  * component, the block at width one. A thread block takes @p elmtsPerBlock
- * whole elements at a time, as many as fit in 128
- * points (one at least): an element has as few as one point here, so one
- * element per block would leave most of each block idle. Each thread computes
- * its element of the block first, then its point (GetDevicePackedThread());
+ * whole elements at a time (GetElmtsPerBlock()): an element has as few as
+ * one point here, so one element per block would leave most of each block
+ * idle. Each thread computes
+ * its element of the block first, then its point (GetDeviceElmtBlock());
  * consecutive threads take consecutive points of an element and then of the
  * next, so the reads and writes of the volume are coalesced. An element of
  * more points than the block has threads is taken alone, its points strided
@@ -1861,14 +1852,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TTraceSizeParameter3D,
-          typename TthreadBlock, typename TData,
+          typename TElmtsPerBlock, typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter3D>()))
     PhysLiftProjectDirectLiftKernelLauncher(
         const TTraceSizeParameter3D traceSizeParam3D, const size_t nelmt,
-        const unsigned int ncomp, const unsigned int elmtsPerBlock,
+        const unsigned int ncomp, const TElmtsPerBlock elmtsPerBlock,
         const TData scale, const bool lift, const TData *NEK_RESTRICT nbasis0,
         const TData *NEK_RESTRICT nbasis1, const TData *NEK_RESTRICT nbasis2,
         const TData *NEK_RESTRICT tw00, const TData *NEK_RESTRICT tw01,
@@ -1905,107 +1896,101 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     // This thread's element of the block, then its points; a block may hold
     // several elements, and a lone element strides over the whole block.
-    const DevicePackedThread thread =
-        GetDevicePackedThread(nqTot, elmtsPerBlock, threadBlock);
     for (size_t e0 =
              static_cast<size_t>(getBlockIdx(threadBlock)) * elmtsPerBlock;
          e0 < nelmt;
          e0 += static_cast<size_t>(getBlockRange(threadBlock)) * elmtsPerBlock)
     {
-        const size_t e = e0 + thread.elmt;
-        if (thread.elmt < elmtsPerBlock && e < nelmt)
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e = elmtBlock.elmtIdx;
+        for (unsigned int pt = getLocalIdx(elmtBlock); pt < nqTot;
+             pt += getLocalRange(elmtBlock))
         {
-            for (unsigned int pt = thread.firstPoint; pt < nqTot;
-                 pt += thread.pointStride)
+            const TData factor =
+                PhysLiftProjectDirectLiftFactorTOPKernel<DEFORMED>(
+                    e, nqTot, pt, scale, weights, jac);
+            const TData *tjacptr     = tjac + numDataJac * e;
+            const size_t traceOffset = static_cast<size_t>(nqTotTrace) * e;
+            const size_t volOffset   = static_cast<size_t>(nqTot) * e + pt;
+
+            if constexpr (!isCollapsed)
             {
-                const TData factor =
-                    PhysLiftProjectDirectLiftFactorTOPKernel<DEFORMED>(
-                        e, nqTot, pt, scale, weights, jac);
-                const TData *tjacptr     = tjac + numDataJac * e;
-                const size_t traceOffset = static_cast<size_t>(nqTotTrace) * e;
-                const size_t volOffset   = static_cast<size_t>(nqTot) * e + pt;
+                const unsigned int p = pt % nq0;
+                const unsigned int q = (pt / nq0) % nq1;
+                const unsigned int r = pt / nq01;
 
-                if constexpr (!isCollapsed)
+                // The point of each face beside this point, the face's
+                // in-face weights there and the end-point interpolant along
+                // its normal.
+                const unsigned int fsz0     = nq1 * nq2;
+                const unsigned int fsz1     = nq0 * nq2;
+                const unsigned int off1     = 2u * fsz0;
+                const unsigned int off2     = off1 + 2u * fsz1;
+                const unsigned int k[nface] = {
+                    r * nq1 + q,        fsz0 + r * nq1 + q,
+                    off1 + r * nq0 + p, off1 + fsz1 + r * nq0 + p,
+                    off2 + q * nq0 + p, off2 + nq01 + q * nq0 + p};
+                const TData w0[nface] = {tw00[q], tw00[q], tw10[p],
+                                         tw10[p], tw20[p], tw20[p]};
+                const TData w1[nface] = {tw01[r], tw01[r], tw11[r],
+                                         tw11[r], tw21[q], tw21[q]};
+                const TData h[nface]  = {nbasis0[2u * p], nbasis0[2u * p + 1u],
+                                         nbasis1[2u * q], nbasis1[2u * q + 1u],
+                                         nbasis2[2u * r], nbasis2[2u * r + 1u]};
+                // Each face's factor, formed once for every component.
+                TData coef[nface];
+                for (unsigned int iface = 0; iface < nface; ++iface)
                 {
-                    const unsigned int p = pt % nq0;
-                    const unsigned int q = (pt / nq0) % nq1;
-                    const unsigned int r = pt / nq01;
-
-                    // The point of each face beside this point, the face's
-                    // in-face weights there and the end-point interpolant along
-                    // its normal.
-                    const unsigned int fsz0     = nq1 * nq2;
-                    const unsigned int fsz1     = nq0 * nq2;
-                    const unsigned int off1     = 2u * fsz0;
-                    const unsigned int off2     = off1 + 2u * fsz1;
-                    const unsigned int k[nface] = {
-                        r * nq1 + q,        fsz0 + r * nq1 + q,
-                        off1 + r * nq0 + p, off1 + fsz1 + r * nq0 + p,
-                        off2 + q * nq0 + p, off2 + nq01 + q * nq0 + p};
-                    const TData w0[nface] = {tw00[q], tw00[q], tw10[p],
-                                             tw10[p], tw20[p], tw20[p]};
-                    const TData w1[nface] = {tw01[r], tw01[r], tw11[r],
-                                             tw11[r], tw21[q], tw21[q]};
-                    const TData h[nface]  = {
-                        nbasis0[2u * p], nbasis0[2u * p + 1u],
-                        nbasis1[2u * q], nbasis1[2u * q + 1u],
-                        nbasis2[2u * r], nbasis2[2u * r + 1u]};
-                    // Each face's factor, formed once for every component.
-                    TData coef[nface];
-                    for (unsigned int iface = 0; iface < nface; ++iface)
+                    TData faceJac;
+                    if constexpr (DEFORMED)
                     {
-                        TData faceJac;
-                        if constexpr (DEFORMED)
-                        {
-                            faceJac = tjacptr[k[iface]];
-                        }
-                        else
-                        {
-                            faceJac = tjacptr[iface];
-                        }
-                        coef[iface] =
-                            faceJac * w0[iface] * w1[iface] * h[iface];
+                        faceJac = tjacptr[k[iface]];
                     }
-                    for (unsigned int c = 0; c < ncomp; ++c)
+                    else
                     {
-                        const size_t ientry = compSize * c + volOffset;
-                        TData val           = in[ientry];
-                        if (lift)
-                        {
-                            const TData *traceptr =
-                                trace + compTraceSize * c + traceOffset;
-                            for (unsigned int iface = 0; iface < nface; ++iface)
-                            {
-                                val += traceptr[k[iface]] * coef[iface];
-                            }
-                        }
-                        PhysLiftProjectDirectLiftStoreTOPKernel<APPEND>(
-                            out, ientry, factor, val);
+                        faceJac = tjacptr[iface];
                     }
+                    coef[iface] = faceJac * w0[iface] * w1[iface] * h[iface];
                 }
-                else
+                for (unsigned int c = 0; c < ncomp; ++c)
                 {
-                    const unsigned int tnq[6] = {
-                        traceSizeParam3D.nq00(), traceSizeParam3D.nq01(),
-                        traceSizeParam3D.nq10(), traceSizeParam3D.nq11(),
-                        traceSizeParam3D.nq20(), traceSizeParam3D.nq21()};
-                    const TData *nbasis[3] = {nbasis0, nbasis1, nbasis2};
-                    const TData *tw[6] = {tw00, tw01, tw10, tw11, tw20, tw21};
-                    for (unsigned int c = 0; c < ncomp; ++c)
+                    const size_t ientry = compSize * c + volOffset;
+                    TData val           = in[ientry];
+                    if (lift)
                     {
-                        const size_t ientry = compSize * c + volOffset;
-                        TData val           = in[ientry];
-                        if (lift)
+                        const TData *traceptr =
+                            trace + compTraceSize * c + traceOffset;
+                        for (unsigned int iface = 0; iface < nface; ++iface)
                         {
-                            val +=
-                                PhysLiftProjectOnePointLiftTOPKernel<SHAPE_TYPE,
-                                                                     DEFORMED>(
-                                    tnq, nbasis, tw, tjacptr,
-                                    trace + compTraceSize * c + traceOffset);
+                            val += traceptr[k[iface]] * coef[iface];
                         }
-                        PhysLiftProjectDirectLiftStoreTOPKernel<APPEND>(
-                            out, ientry, factor, val);
                     }
+                    PhysLiftProjectDirectLiftStoreTOPKernel<APPEND>(
+                        out, ientry, factor, val);
+                }
+            }
+            else
+            {
+                const unsigned int tnq[6] = {
+                    traceSizeParam3D.nq00(), traceSizeParam3D.nq01(),
+                    traceSizeParam3D.nq10(), traceSizeParam3D.nq11(),
+                    traceSizeParam3D.nq20(), traceSizeParam3D.nq21()};
+                const TData *nbasis[3] = {nbasis0, nbasis1, nbasis2};
+                const TData *tw[6]     = {tw00, tw01, tw10, tw11, tw20, tw21};
+                for (unsigned int c = 0; c < ncomp; ++c)
+                {
+                    const size_t ientry = compSize * c + volOffset;
+                    TData val           = in[ientry];
+                    if (lift)
+                    {
+                        val += PhysLiftProjectOnePointLiftTOPKernel<SHAPE_TYPE,
+                                                                    DEFORMED>(
+                            tnq, nbasis, tw, tjacptr,
+                            trace + compTraceSize * c + traceOffset);
+                    }
+                    PhysLiftProjectDirectLiftStoreTOPKernel<APPEND>(
+                        out, ientry, factor, val);
                 }
             }
         }
@@ -2278,14 +2263,15 @@ struct PhysLiftProjectLiftPoint
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           unsigned int CHUNK, unsigned int STAGE_MASK,
-          typename TTraceSizeParameter3D, typename TthreadBlock, typename TData,
+          typename TTraceSizeParameter3D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter3D>()))
     PhysLiftProjectLiftJacobianKernelLauncher(
         const TTraceSizeParameter3D traceSizeParam3D, const size_t nelmt,
-        const unsigned int ncomp, const unsigned int elmtsPerBlock,
+        const unsigned int ncomp, const TElmtsPerBlock elmtsPerBlock,
         const bool lift, const TData *NEK_RESTRICT nbasis0,
         const TData *NEK_RESTRICT nbasis1, const TData *NEK_RESTRICT nbasis2,
         const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis01,
@@ -2363,16 +2349,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const size_t compTraceSize = static_cast<size_t>(nqTotTrace) * nelmt;
 
     // This thread's element of the thread block, then its point
-    // (GetDevicePackedThread()), and what the point reads of each
-    // direction's faces, for every element: a block may hold several
-    // elements. A thread takes one point, the dense projector's elements
-    // being no larger than a block.
-    const DevicePackedThread thread =
-        GetDevicePackedThread(nqTot, elmtsPerBlock, threadBlock);
+    // (GetDeviceElmtBlock() over the block's own elements), and what the
+    // point reads of each direction's faces, for every element: a block may
+    // hold several elements. A thread takes one point, the dense projector's
+    // elements being no larger than an element's share of a block.
+    const auto elmtBlock =
+        GetDeviceElmtBlock(0u, elmtsPerBlock, elmtsPerBlock, threadBlock);
     const unsigned int tid    = getLocalIdx(threadBlock);
-    const unsigned int el     = thread.elmt;
-    const bool active         = el < elmtsPerBlock && thread.firstPoint < nqTot;
-    const unsigned int pt     = active ? thread.firstPoint : 0u;
+    const unsigned int el     = static_cast<unsigned int>(elmtBlock.elmtIdx);
+    const bool active         = getLocalIdx(elmtBlock) < nqTot;
+    const unsigned int pt     = active ? getLocalIdx(elmtBlock) : 0u;
     const unsigned int p      = pt % nq0;
     const unsigned int q      = (pt / nq0) % nq1;
     const unsigned int r      = pt / nq01;

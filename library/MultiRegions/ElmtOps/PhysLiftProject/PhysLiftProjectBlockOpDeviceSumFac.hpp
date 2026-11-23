@@ -46,7 +46,8 @@
  *   point adding its traces' contributions to its inner product directly
  *   and scaling the sum by `scale / (w J)`, with no scratch: on SumFac at
  *   warpSize, lanes first; on SumFacTOP at width one, several whole
- *   elements per thread block (128). It takes the blocks
+ *   elements per thread block where they are small (GetElmtsPerBlock()).
+ *   It takes the blocks
  * whose trace values lie at volume points (#m_directLift): segments,
  * quadrilaterals and hexahedra whose traces have the volume points in every
  * in-trace direction, and triangles, tetrahedra, prisms and pyramids of one
@@ -944,9 +945,9 @@ protected:
         }
     }
 
-    /// One launch of PhysLiftProjectLiftJacobianKernelLauncher: as many whole
-    /// elements per thread block as fit in 128 points
-    /// (GetElmtsPerBlock()) and @p CHUNK components, with @p
+    /// One launch of PhysLiftProjectLiftJacobianKernelLauncher: whole
+    /// elements per thread block as GetElmtsPerBlock() gives and @p CHUNK
+    /// components, with @p
     /// stageSize shared-memory entries per element and component where it
     /// lifts.
     template <LibUtilities::ShapeType SHAPE_TYPE, unsigned int CHUNK,
@@ -961,22 +962,27 @@ protected:
     {
         constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
         const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(m_nqTot, 128u);
+            GetElmtsPerBlock<Implementation>(m_nqTot);
         const unsigned int shmemsize =
             lift ? elmtsPerBlock * sizeof(TData) * CHUNK * stageSize : 0u;
         const unsigned int passesPerBlock = 1u;
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
             m_nqTot, nelmt, shmemsize, elmtsPerBlock, passesPerBlock);
-        DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (PhysLiftProjectLiftJacobianKernelLauncher<
-                SHAPE_TYPE, Implementation, CHUNK, STAGE_MASK>),
-            kernelParams.gridSize, (ncomp + CHUNK - 1u) / CHUNK,
-            kernelParams.blockSize, 1, kernelParams.shmemSize, m_streamID,
-            traceSizeParam, nelmt, ncomp, kernelParams.elmtsPerBlock, lift,
-            m_liftB[ind0]..., m_liftB[DIM + ind1]..., m_liftW[ind1]...,
-            m_traceJacptr, (bool)m_isCollocated[ind1]...,
-            (bool)m_endPtsCollocated[ind0]..., m_jacptr, inptr, traceptr,
-            outptr);
+        DispatchElmtsPerBlock<Implementation>(
+            traceSizeParam, kernelParams.elmtsPerBlock,
+            [&](const auto elmtsPerBlockArg) {
+                DEVICE_2DGRID_KERNEL_LAUNCHER(
+                    (PhysLiftProjectLiftJacobianKernelLauncher<
+                        SHAPE_TYPE, Implementation, CHUNK, STAGE_MASK>),
+                    kernelParams.gridSize, (ncomp + CHUNK - 1u) / CHUNK,
+                    kernelParams.blockSize, 1, kernelParams.shmemSize,
+                    m_streamID, traceSizeParam, nelmt, ncomp, elmtsPerBlockArg,
+                    lift, m_liftB[ind0]..., m_liftB[DIM + ind1]...,
+                    m_liftW[ind1]..., m_traceJacptr,
+                    (bool)m_isCollocated[ind1]...,
+                    (bool)m_endPtsCollocated[ind0]..., m_jacptr, inptr,
+                    traceptr, outptr);
+            });
     }
 
     /// ApplyFusedImpl() with the index sequences of the shape's dimension;
@@ -1007,7 +1013,7 @@ protected:
                 return;
             }
             const unsigned int elmtsPerBlock =
-                GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
+                GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
             unsigned int shmemsize =
                 SharedMemoryBytes<SHAPE_TYPE, PhysLiftProjectKernel::Fused>(
                     sizeParam, traceSizeParam, elmtsPerBlock);
@@ -1226,11 +1232,10 @@ protected:
             }
             else
             {
-                // One thread per point of as many whole elements per thread
-                // block as fit in 128 points, one at
-                // least.
+                // One thread per point of whole elements per thread block, as
+                // GetElmtsPerBlock() gives.
                 const unsigned int elmtsPerBlock =
-                    GetElmtsPerBlock<Implementation>(m_nqTot, 128u);
+                    GetElmtsPerBlock<Implementation>(m_nqTot);
                 const unsigned int shmemsize      = 0u;
                 const unsigned int passesPerBlock = 1u;
                 const auto kernelParams =
@@ -1240,14 +1245,20 @@ protected:
                 this->DispatchAppendFlag(this->m_append, [&](auto append) {
                     constexpr bool APPEND = decltype(append)::value;
 
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (PhysLiftProjectDirectLiftKernelLauncher<
-                            SHAPE_TYPE, Implementation, APPEND, DEFORMED>),
-                        kernelParams.gridSize, kernelParams.blockSize,
-                        m_streamID, traceSizeParam, nelmt, ncomp,
-                        kernelParams.elmtsPerBlock, this->m_scale, lift,
-                        m_liftB[ind0]..., m_liftW[ind1]..., m_traceJacptr,
-                        m_weightsptr, m_jacptr, inptr, traceptr, kernelOut);
+                    DispatchElmtsPerBlock<Implementation>(
+                        traceSizeParam, kernelParams.elmtsPerBlock,
+                        [&](const auto elmtsPerBlockArg) {
+                            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                                (PhysLiftProjectDirectLiftKernelLauncher<
+                                    SHAPE_TYPE, Implementation, APPEND,
+                                    DEFORMED>),
+                                kernelParams.gridSize, kernelParams.blockSize,
+                                m_streamID, traceSizeParam, nelmt, ncomp,
+                                elmtsPerBlockArg, this->m_scale, lift,
+                                m_liftB[ind0]..., m_liftW[ind1]...,
+                                m_traceJacptr, m_weightsptr, m_jacptr, inptr,
+                                traceptr, kernelOut);
+                        });
                 });
             }
         }
@@ -1305,7 +1316,7 @@ protected:
         else if (m_invMassIsDiagonal)
         {
             const unsigned int elmtsPerBlock =
-                GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
+                GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
             const unsigned int shmemsize =
                 SharedMemoryBytes<SHAPE_TYPE, PhysLiftProjectKernel::Fused>(
                     sizeParam, traceSizeParam, elmtsPerBlock);
@@ -1334,7 +1345,7 @@ protected:
             // transpose, the batched product, then the scale and the
             // backward transform.
             const unsigned int elmtsPerBlock =
-                GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
+                GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
             SizeScratch(inblock, false);
             const unsigned int shmemsizeA =
                 SharedMemoryBytes<SHAPE_TYPE,

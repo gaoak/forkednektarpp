@@ -430,11 +430,16 @@ protected:
         // Calculate derivative du/dx. Each plane holds one xy divergence over
         // the same geometry, so they ride the second grid dimension of a
         // single launch and the kernel picks its plane from the block index.
-        DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (DivergenceKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
-            kernelParams.shmemSize, m_streamID, sizeParam, nelmt, inoffset,
-            m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr, outptr);
+        DispatchElmtsPerBlock<Implementation>(
+            sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                DEVICE_2DGRID_KERNEL_LAUNCHER(
+                    (DivergenceKernelLauncher<SHAPE_TYPE, Implementation,
+                                              DEFORMED>),
+                    kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                    elmtsPerBlockArg, inoffset, m_D[ind0]..., m_f[ind1]...,
+                    m_dfptr, inptr, outptr);
+            });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

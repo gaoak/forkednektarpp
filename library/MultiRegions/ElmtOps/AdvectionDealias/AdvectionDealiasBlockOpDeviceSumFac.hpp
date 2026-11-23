@@ -381,17 +381,23 @@ protected:
                 if constexpr (std::is_same_v<Implementation,
                                              MultiRegions::SumFacTOP>)
                 {
-                    DEVICE_2DGRID_KERNEL_LAUNCHER(
-                        (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
-                                                        Implementation, APPEND,
-                                                        DEFORMED, true, true>),
-                        kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
-                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                        nvar, nhomo, useSharedMemoryWsp, m_D[ind0]...,
-                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
-                        m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
-                        advVelPtr, advVelPlaneStride, outptr, outCompStride,
-                        wspptr);
+                    DispatchElmtsPerBlock<Implementation>(
+                        sizeParam, elmtsPerBlock,
+                        [&](const auto elmtsPerBlockArg) {
+                            DEVICE_2DGRID_KERNEL_LAUNCHER(
+                                (AdvectionDealiasKernelLauncher<
+                                    SHAPE_TYPE, Implementation, APPEND,
+                                    DEFORMED, true, true>),
+                                kernelParams.gridSize, nhomo,
+                                kernelParams.blockSize, 1,
+                                kernelParams.shmemSize, m_streamID, sizeParam,
+                                nelmt, elmtsPerBlockArg, nvar, nhomo,
+                                useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]...,
+                                m_dfptr, m_Binterp[ind0]...,
+                                m_Bproject[ind0]..., this->m_scale, inptr,
+                                inCompStride, advVelPtr, advVelPlaneStride,
+                                outptr, outCompStride, wspptr);
+                        });
                 }
             }
             else if (sharedScratch)
@@ -399,31 +405,42 @@ protected:
                 if constexpr (std::is_same_v<Implementation,
                                              MultiRegions::SumFacTOP>)
                 {
-                    DEVICE_2DGRID_KERNEL_LAUNCHER(
-                        (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
-                                                        Implementation, APPEND,
-                                                        DEFORMED, false, true>),
-                        kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
-                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                        nvar, nhomo, useSharedMemoryWsp, m_D[ind0]...,
-                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
-                        m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
-                        advVelPtr, advVelPlaneStride, outptr, outCompStride,
-                        wspptr);
+                    DispatchElmtsPerBlock<Implementation>(
+                        sizeParam, elmtsPerBlock,
+                        [&](const auto elmtsPerBlockArg) {
+                            DEVICE_2DGRID_KERNEL_LAUNCHER(
+                                (AdvectionDealiasKernelLauncher<
+                                    SHAPE_TYPE, Implementation, APPEND,
+                                    DEFORMED, false, true>),
+                                kernelParams.gridSize, nhomo,
+                                kernelParams.blockSize, 1,
+                                kernelParams.shmemSize, m_streamID, sizeParam,
+                                nelmt, elmtsPerBlockArg, nvar, nhomo,
+                                useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]...,
+                                m_dfptr, m_Binterp[ind0]...,
+                                m_Bproject[ind0]..., this->m_scale, inptr,
+                                inCompStride, advVelPtr, advVelPlaneStride,
+                                outptr, outCompStride, wspptr);
+                        });
                 }
             }
             else
             {
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
-                                                    APPEND, DEFORMED, false,
-                                                    false>),
-                    kernelParams.gridSize, nhomo, kernelParams.blockSize, 1,
-                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt, nvar,
-                    nhomo, useSharedMemoryWsp, m_D[ind0]..., m_f[ind1]...,
-                    m_dfptr, m_Binterp[ind0]..., m_Bproject[ind0]...,
-                    this->m_scale, inptr, inCompStride, advVelPtr,
-                    advVelPlaneStride, outptr, outCompStride, wspptr);
+                DispatchElmtsPerBlock<Implementation>(
+                    sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                        DEVICE_2DGRID_KERNEL_LAUNCHER(
+                            (AdvectionDealiasKernelLauncher<
+                                SHAPE_TYPE, Implementation, APPEND, DEFORMED,
+                                false, false>),
+                            kernelParams.gridSize, nhomo,
+                            kernelParams.blockSize, 1, kernelParams.shmemSize,
+                            m_streamID, sizeParam, nelmt, elmtsPerBlockArg,
+                            nvar, nhomo, useSharedMemoryWsp, m_D[ind0]...,
+                            m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                            m_Bproject[ind0]..., this->m_scale, inptr,
+                            inCompStride, advVelPtr, advVelPlaneStride, outptr,
+                            outCompStride, wspptr);
+                    });
             }
         });
 

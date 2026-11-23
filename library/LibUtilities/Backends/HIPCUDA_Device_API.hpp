@@ -789,6 +789,26 @@ NEK_DEVICE_INLINE static TData warpReduceSum(
 #endif
 }
 
+// Sum of val over each aligned group of width consecutive lanes of the warp,
+// width a power of two no larger than the warp; every lane of the warp must
+// call it, and each lane gets its group's sum.
+template <unsigned int ndim, typename TData>
+NEK_DEVICE_INLINE static TData warpSegmentReduceSum(
+    const TData val, const unsigned int width,
+    [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)
+{
+    TData tmp = val;
+    for (unsigned int offset = width / 2u; offset > 0u; offset /= 2u)
+    {
+#if defined(__CUDACC__)
+        tmp += __shfl_xor_sync(0xffffffff, tmp, offset);
+#elif defined(__HIPCC__)
+        tmp += __shfl_xor(tmp, offset);
+#endif
+    }
+    return tmp;
+}
+
 template <unsigned int ndim, typename TData>
 NEK_DEVICE_INLINE static TData warpReduceMax(
     const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock)

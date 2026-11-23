@@ -597,8 +597,8 @@ protected:
             useSharedMemoryWsp
                 ? 0
                 : IProductWRTDerivBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      WorkSpaceNumElmts<Implementation>(nelmt,
-                                                        kernelParams.gridSize),
+                      WorkSpaceNumElmts<Implementation>(
+                          nelmt, kernelParams.gridSize, elmtsPerBlock),
                       sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -632,15 +632,19 @@ protected:
             this->DispatchAppendFlag(this->m_append, [&](auto append) {
                 constexpr bool APPEND = decltype(append)::value;
 
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBasePhysKernelLauncher<
-                        SHAPE_TYPE, Implementation, APPEND, DEFORMED>),
-                    kernelParams.gridSize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
-                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                    inoffset, useSharedMemoryWsp, m_D[ind0]..., m_W[ind0]...,
-                    m_f[ind2]..., m_dfptr, m_jacptr, inptr, outptr, wspptr,
-                    this->m_scale);
+                DispatchElmtsPerBlock<Implementation>(
+                    sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                        DEVICE_3DGRID_KERNEL_LAUNCHER(
+                            (IProductWRTDerivBasePhysKernelLauncher<
+                                SHAPE_TYPE, Implementation, APPEND, DEFORMED>),
+                            kernelParams.gridSize, outblock.GetNumHomoModes(),
+                            outblock.GetNumComponents(), kernelParams.blockSize,
+                            1, 1, kernelParams.shmemSize, m_streamID, sizeParam,
+                            nelmt, elmtsPerBlockArg, inoffset,
+                            useSharedMemoryWsp, m_D[ind0]..., m_W[ind0]...,
+                            m_f[ind2]..., m_dfptr, m_jacptr, inptr, outptr,
+                            wspptr, this->m_scale);
+                    });
             });
         }
         else if constexpr (TFieldOut == FieldState::Coeff)
@@ -649,16 +653,20 @@ protected:
             this->DispatchAppendFlag(this->m_append, [&](auto append) {
                 constexpr bool APPEND = decltype(append)::value;
 
-                DEVICE_3DGRID_KERNEL_LAUNCHER(
-                    (IProductWRTDerivBaseKernelLauncher<
-                        SHAPE_TYPE, Implementation, APPEND, DEFORMED>),
-                    kernelParams.gridSize, outblock.GetNumHomoModes(),
-                    outblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
-                    kernelParams.shmemSize, m_streamID, sizeParam, m_coordDim,
-                    nelmt, inoffset, m_isModified, useSharedMemoryWsp,
-                    m_index[ind1]..., m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
-                    m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr, inptr, outptr,
-                    wspptr, this->m_scale);
+                DispatchElmtsPerBlock<Implementation>(
+                    sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                        DEVICE_3DGRID_KERNEL_LAUNCHER(
+                            (IProductWRTDerivBaseKernelLauncher<
+                                SHAPE_TYPE, Implementation, APPEND, DEFORMED>),
+                            kernelParams.gridSize, outblock.GetNumHomoModes(),
+                            outblock.GetNumComponents(), kernelParams.blockSize,
+                            1, 1, kernelParams.shmemSize, m_streamID, sizeParam,
+                            m_coordDim, nelmt, elmtsPerBlockArg, inoffset,
+                            m_isModified, useSharedMemoryWsp, m_index[ind1]...,
+                            m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
+                            m_f[ind2]..., m_nodToMod, m_dfptr, m_jacptr, inptr,
+                            outptr, wspptr, this->m_scale);
+                    });
             });
         }
 

@@ -582,6 +582,8 @@ NEK_DEVICE_INLINE static void Advection3DSumFacKernel(
  * @param   sizeParam1D  Element sizes: coordinate dimension and
  *                       quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                       unused.
  * @param   D0           1D derivative matrix of the direction.
  * @param   df           Derivative factors of the block.
  * @param   advVel       Velocity data of the block.
@@ -602,6 +604,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel, const size_t advVelOffset,
     const unsigned int nhomo, const TData *NEK_RESTRICT in,
@@ -663,6 +666,8 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
  * @param   sizeParam2D  Element sizes: coordinate dimension and
  *                       per-direction quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                       unused.
  * @param   D0           1D derivative matrix of direction 0.
  * @param   D1           1D derivative matrix of direction 1.
  * @param   f0           Collapsed-coordinate factor of direction 0.
@@ -686,6 +691,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT advVel,
@@ -766,6 +772,8 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
  *
  * @param   sizeParam3D  Element sizes: per-direction quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, one per thread;
+ *                       unused.
  * @param   D0           1D derivative matrix of direction 0.
  * @param   D1           1D derivative matrix of direction 1.
  * @param   D2           1D derivative matrix of direction 2.
@@ -792,6 +800,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,

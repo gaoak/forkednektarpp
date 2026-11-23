@@ -34,8 +34,9 @@
 
 /**
  * @file CurlCurlBlockOpDeviceSumFacTOPKernels.hpp
- * @brief SumFacTOP device kernels of the curl-curl operator: one element
- * per thread block, threads indexed over the element's quadrature points.
+ * @brief SumFacTOP device kernels of the curl-curl operator: one element,
+ * or a group of them, at a time per thread block, threads indexed over the
+ * element's quadrature points.
  *
  * @details
  * These kernels compute the same thing as the SumFac ones in
@@ -43,16 +44,16 @@
  * every component, the collapsed-to-standard coordinate correction, the
  * geometric derivative factors and the curl, twice over for the double
  * curl -- but distribute the work differently. A whole thread block takes
- * one element at a time and its threads stride over the element's
- * quadrature points, each thread computing the output at the points it
- * owns. The element's input components are staged in shared memory first,
- * so that the tensor contractions, which read across the element, hit
- * shared rather than global memory, and the vorticity omega formed by the
- * first curl is written to shared memory too, where the second curl reads
- * it; the derivative factors stay in global memory and are read at the
- * thread's own point index, the collapsed-coordinate tables at the
- * direction indices that point resolves into. Accordingly the data is not
- * interleaved (one element's values are contiguous) and the derivative
+ * one element, or a group of them (GetDeviceElmtBlock()), at a time and the
+ * threads of each element stride over its quadrature points, each thread
+ * computing the output at the points it owns. The element's input components
+ * are staged in shared memory first, so that the tensor contractions, which
+ * read across the element, hit shared rather than global memory, and the
+ * vorticity omega formed by the first curl is written to shared memory too,
+ * where the second curl reads it; the derivative factors stay in global memory
+ * and are read at the thread's own point index, the collapsed-coordinate tables
+ * at the direction indices that point resolves into. Accordingly the data is
+ * not interleaved (one element's values are contiguous) and the derivative
  * factors are taken in the transposed layout, with each factor component
  * contiguous over the element's points.
  *
@@ -69,8 +70,8 @@
  * plane part of a single curl. When one element's buffers do not fit in
  * shared memory the block implementation clears useSharedMemoryWsp: the
  * launchers then read the input in place, and the 2D and 3D
- * CurlCurlKernelLauncher hold the vorticity in the thread block's slice
- * of the global workspace.
+ * CurlCurlKernelLauncher hold the vorticity in the element's share of the
+ * thread block's slice of the global workspace.
  * CurlCurlSharedMemorySize reports how much dynamic shared memory such a
  * launch must request and CurlCurlWorkSpaceSize how much global
  * workspace. The launchers and helpers
@@ -129,8 +130,8 @@ inline constexpr size_t CurlCurlWorkSpaceSize(
  * @brief Workspace a SumFacTOP launch needs, in elements of TData, for a
  * two-dimensional shape.
  *
- * Per thread block, the out-of-plane vorticity; the input is read in
- * place. The blocks' regions follow one another.
+ * Per element of a thread block's group, the out-of-plane vorticity; the input
+ * is read in place. The elements' regions follow one another.
  *
  * @tparam SHAPE_TYPE            Element shape; unused.
  * @tparam Implementation        Implementation tag; this overload is
@@ -138,8 +139,9 @@ inline constexpr size_t CurlCurlWorkSpaceSize(
  * @tparam TPhysSizeParameter2D  2D physical-space size parameter (see
  *                               ElmtHelper.hpp).
  *
- * @param   nelmt        Elements whose workspace is held at once: one per
- *                       thread block (see WorkSpaceNumElmts).
+ * @param   nelmt        Elements whose workspace is held at once: those of
+ *                       one group per thread block (see
+ *                       WorkSpaceNumElmts).
  * @param   sizeParam2D  Quadrature-point counts per direction.
  *
  * @return nq0 * nq1 * @p nelmt.
@@ -161,8 +163,9 @@ inline constexpr size_t CurlCurlWorkSpaceSize(
  * @brief Workspace a SumFacTOP launch needs, in elements of TData, for a
  * three-dimensional shape.
  *
- * Per thread block, the three components of the vorticity; the input is
- * read in place. The blocks' regions follow one another.
+ * Per element of a thread block's group, the three components of the
+ * vorticity; the input is
+ * read in place. The elements' regions follow one another.
  *
  * @tparam SHAPE_TYPE            Element shape; unused.
  * @tparam Implementation        Implementation tag; this overload is
@@ -170,8 +173,9 @@ inline constexpr size_t CurlCurlWorkSpaceSize(
  * @tparam TPhysSizeParameter3D  3D physical-space size parameter (see
  *                               ElmtHelper.hpp).
  *
- * @param   nelmt        Elements whose workspace is held at once: one per
- *                       thread block (see WorkSpaceNumElmts).
+ * @param   nelmt        Elements whose workspace is held at once: those of
+ *                       one group per thread block (see
+ *                       WorkSpaceNumElmts).
  * @param   sizeParam3D  Quadrature-point counts per direction.
  *
  * @return 3 * nq0 * nq1 * nq2 * @p nelmt.
@@ -693,7 +697,8 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
  * runtime or compile-time, both satisfying IsPhysSizeParameter1D_v as the
  * static_assert enforces. The element index comes from the thread-block
  * index and advances by the number of thread blocks in the grid, so the
- * whole block cooperates on one element at a time and the block's
+ * whole block cooperates on one element, or a group of them
+ * (GetDeviceElmtBlock()), at a time and the block's
  * @p nelmt elements (padding included) are covered whatever grid size was
  * launched; the input, output and derivative-factor pointers are offset by
  * whole elements, the data being contiguous rather than warp interleaved,
@@ -706,11 +711,14 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
  * @tparam Implementation       Implementation tag; SumFacTOP here.
  * @tparam DEFORMED             Per-point derivative factors.
  * @tparam TPhysSizeParameter1D 1D physical-space size parameter.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
  *
  * @param   sizeParam1D  Element sizes: coordinate dimension and
  *                       quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetDeviceKernelParameters().
  * @param   inoffset     Component stride; unused in one dimension.
  * @param   useSharedMemoryWsp    Unused: the 1D launcher stages nothing.
  * @param   D0           1D derivative matrix of the direction.
@@ -725,13 +733,13 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
  *                       macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TPhysSizeParameter1D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, typename TPhysSizeParameter1D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-    [[maybe_unused]] const size_t inoffset,
+    const TElmtsPerBlock elmtsPerBlock, [[maybe_unused]] const size_t inoffset,
     [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT in, [[maybe_unused]] TData *NEK_RESTRICT wsp,
@@ -749,15 +757,19 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    size_t e = getBlockIdx<0>(threadBlock);
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e     = elmtBlock.elmtIdx;
         const TData *dfptr = df + ndf * dfsize * e;
         const TData *inptr = in + nq0 * e;
         TData *outptr      = out + nq0 * e;
         PhysDerivDir1DSumFacTOPKernel<false, DEFORMED, 0>(
-            ncoord, nq0, D0, dfptr, inptr, outptr, threadBlock);
-        e += getBlockRange<0>(threadBlock);
+            ncoord, nq0, D0, dfptr, inptr, outptr, elmtBlock);
     }
 }
 
@@ -767,13 +779,15 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
  *
  * As in 1D, but with a workspace: FETCH_SHARED_MEMORY() binds
  * @p shmemptr to the block's dynamic shared memory (a no-op on the
- * back-ends that pass it in). With @p useSharedMemoryWsp, @p shmemptr
- * holds the element's two input components followed by its vorticity:
+ * back-ends that pass it in). With @p useSharedMemoryWsp, the element's
+ * share of @p shmemptr holds its two input components followed by its
+ * vorticity:
  * each element's input components are copied in -- the threads share the
  * copy work with the same stride they later compute with -- and a barrier
  * publishes the copy before Curl2DScalarSumFacTOPKernel reads across it to
  * write the vorticity into the third buffer. Without it, the input is read
- * in place and the vorticity goes to the thread block's slice of @p wsp.
+ * in place and the vorticity goes to the element's share of the thread
+ * block's slice of @p wsp.
  * Either way, Curl2DVectorSumFacTOPKernel
  * then reads the vorticity and writes the output straight to global
  * memory. Both kernels end with a barrier of their own, so the vorticity
@@ -784,11 +798,14 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
  * @tparam Implementation       Implementation tag; SumFacTOP here.
  * @tparam DEFORMED             Per-point derivative factors.
  * @tparam TPhysSizeParameter2D 2D physical-space size parameter.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
  *
  * @param   sizeParam2D  Element sizes: coordinate dimension and
  *                       per-direction quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetDeviceKernelParameters().
  * @param   inoffset     Stride between the components of @p in, also used
  *                       between those of @p out.
  * @param   useSharedMemoryWsp    Stage the workspace in @p shmemptr rather
@@ -809,17 +826,18 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
  *                       macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TPhysSizeParameter2D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, typename TPhysSizeParameter2D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const size_t inoffset, const bool useSharedMemoryWsp,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TElmtsPerBlock elmtsPerBlock, const size_t inoffset,
+    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT wsp,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     static_assert(
@@ -837,20 +855,31 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const unsigned int ndf    = 2 * ncoord;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    size_t e = getBlockIdx<0>(threadBlock);
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
 
     DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
-        // Staged input then omega in shared memory, or omega alone in the
-        // thread block's slice.
-        const size_t iblock = getBlockIdx<0>(threadBlock);
-        TData *s_in         = (TData *)shmemptr;
-        TData *omega = isShared ? s_in + 2u * nqTot : wsp + nqTot * iblock;
+        // The element's share of the staged input then omega in shared
+        // memory, or of omega alone in the thread block's slice.
+        const size_t globalWspIdx =
+            static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock +
+            wspIdx;
+        TData *s_in = (TData *)shmemptr + 3u * nqTot * wspIdx;
+        TData *omega =
+            isShared ? s_in + 2u * nqTot : wsp + nqTot * globalWspIdx;
 
-        while (e < nelmt)
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
         {
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e            = elmtBlock.elmtIdx;
+            const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
+            const unsigned int stride = getLocalRange<0>(elmtBlock);
+
             const TData *dfptr = df + ndf * dfsize * e;
             const TData *inptr = in + nqTot * e;
             TData *outptr      = out + nqTot * e;
@@ -864,7 +893,7 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
                     s_in[nqTot + idx] = inptr[inoffset + idx];
                 }
 
-                localBarrier(threadBlock);
+                localBarrier(elmtBlock);
             }
 
             // The input, staged or in place, and its component stride.
@@ -874,14 +903,12 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
             // omega = dv/dx - du/dy
             Curl2DScalarSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, instride, D0, D1, f0, f1, dfptr, inbase,
-                omega, threadBlock);
+                omega, elmtBlock);
 
             // out = {d(omega)/dy, -d(omega)/dx}
             Curl2DVectorSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, inoffset, D0, D1, f0, f1, dfptr, omega,
-                outptr, threadBlock);
-
-            e += getBlockRange<0>(threadBlock);
+                outptr, elmtBlock);
         }
     });
 }
@@ -900,18 +927,19 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
 // second grid dimension of a single launch and the kernel picks its plane
 // from the block index.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TPhysSizeParameter2D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, typename TPhysSizeParameter2D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const size_t inoffset, const size_t outoffset,
-    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    const TElmtsPerBlock elmtsPerBlock, const size_t inoffset,
+    const size_t outoffset, const bool useSharedMemoryWsp,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -928,18 +956,27 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
     const unsigned int ndf    = 2 * ncoord;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int p = getBlockIdx<1>(threadBlock);
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
 
     DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
-        TData *s_in  = (TData *)shmemptr;
+        // The element's share of the shared memory.
+        TData *s_in  = (TData *)shmemptr + 3u * nqTot * wspIdx;
         TData *s_inz = s_in + 2u * nqTot;
 
-        while (e < nelmt)
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
         {
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e            = elmtBlock.elmtIdx;
+            const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
+            const unsigned int stride = getLocalRange<0>(elmtBlock);
+
             const TData *dfptr = df + ndf * dfsize * e;
             const TData *inptr = in + nqTot * (nelmt * p + e);
             TData *outptr      = out + nqTot * (nelmt * p + e);
@@ -954,7 +991,7 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
                     s_inz[idx]        = inptr[2u * inoffset + idx];
                 }
 
-                localBarrier(threadBlock);
+                localBarrier(elmtBlock);
             }
 
             // The input, staged or in place, and its component stride.
@@ -965,14 +1002,12 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
             // The third component, df_y/dx - df_x/dy.
             Curl2DScalarSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, instride, D0, D1, f0, f1, dfptr, inxy,
-                outptr + 2u * outoffset, threadBlock);
+                outptr + 2u * outoffset, elmtBlock);
 
             // The first two components, {df_z/dy, -df_z/dx}.
             Curl2DVectorSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 ncoord, nq0, nq1, outoffset, D0, D1, f0, f1, dfptr, inz, outptr,
-                threadBlock);
-
-            e += getBlockRange<0>(threadBlock);
+                elmtBlock);
         }
     });
 }
@@ -992,10 +1027,13 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
  * @tparam Implementation       Implementation tag; SumFacTOP here.
  * @tparam DEFORMED             Per-point derivative factors.
  * @tparam TPhysSizeParameter3D 3D physical-space size parameter.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
  *
  * @param   sizeParam3D  Element sizes: per-direction quadrature points.
  * @param   nelmt        Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                       GetDeviceKernelParameters().
  * @param   inoffset     Stride between the components of @p in, also used
  *                       between those of @p out.
  * @param   useSharedMemoryWsp    Stage the workspace in @p shmemptr rather
@@ -1023,19 +1061,19 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
  *                       macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TPhysSizeParameter3D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, typename TPhysSizeParameter3D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const size_t inoffset, const bool useSharedMemoryWsp,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT wsp,
-    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TElmtsPerBlock elmtsPerBlock, const size_t inoffset,
+    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT wsp, TData *NEK_RESTRICT out, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     static_assert(
@@ -1053,20 +1091,31 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     constexpr unsigned int ndf = 9u;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
 
     DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
-        // Staged input then omega in shared memory, or omega alone in the
-        // thread block's slice.
-        const size_t iblock = getBlockIdx<0>(threadBlock);
-        TData *s_in         = (TData *)shmemptr;
-        TData *omega = isShared ? s_in + 3u * nqTot : wsp + 3u * nqTot * iblock;
+        // The element's share of the staged input then omega in shared
+        // memory, or of omega alone in the thread block's slice.
+        const size_t globalWspIdx =
+            static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock +
+            wspIdx;
+        TData *s_in = (TData *)shmemptr + 6u * nqTot * wspIdx;
+        TData *omega =
+            isShared ? s_in + 3u * nqTot : wsp + 3u * nqTot * globalWspIdx;
 
-        while (e < nelmt)
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
         {
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e            = elmtBlock.elmtIdx;
+            const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
+            const unsigned int stride = getLocalRange<0>(elmtBlock);
+
             const TData *dfptr = df + ndf * dfsize * e;
             const TData *inptr = in + nqTot * e;
             TData *outptr      = out + nqTot * e;
@@ -1081,7 +1130,7 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
                     s_in[2u * nqTot + idx] = inptr[2u * inoffset + idx];
                 }
 
-                localBarrier(threadBlock);
+                localBarrier(elmtBlock);
             }
 
             // The input, staged or in place, and its component stride.
@@ -1091,14 +1140,12 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
             // omega = curl(u)
             Curl3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, instride, nqTot, D0, D1, D2, f0, f1, f1m, f2,
-                dfptr, inbase, omega, threadBlock);
+                dfptr, inbase, omega, elmtBlock);
 
             // out = curl(omega)
             Curl3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, nqTot, inoffset, D0, D1, D2, f0, f1, f1m, f2,
-                dfptr, omega, outptr, threadBlock);
-
-            e += getBlockRange<0>(threadBlock);
+                dfptr, omega, outptr, elmtBlock);
         }
     });
 }

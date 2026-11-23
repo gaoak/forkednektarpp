@@ -34,8 +34,8 @@
 /**
  * @file PhysDerivBlockOpDeviceSumFacTOPKernels.hpp
  * @brief Device SumFacTOP kernels of the physical derivative: one
- * element per thread block, the block's threads striding over the
- * element's output points.
+ * element, or a group of them, per thread block at a time, the threads
+ * striding over each element's output points.
  *
  * @details
  * The SumFacTOP counterpart of PhysDerivBlockOpDeviceSumFacKernels.hpp. Every
@@ -50,12 +50,12 @@
  *   element is simply at index @em n. Each ends with a block barrier,
  *   so the caller may reuse the shared workspace immediately;
  * - the launch entry points, which check the size-parameter type at
- *   compile time, unpack it, then for each element in turn stride their
- *   thread block over it: in two and three dimensions they first copy
- *   the element's input values into shared memory and synchronise
- *   before calling the per-element kernel on the shared copy; in one
- *   dimension no shared memory is used and the per-element kernel reads
- *   straight from global memory. The three PhysDerivKernelLauncher
+ *   compile time, unpack it, then for each element group in turn
+ *   (GetDeviceElmtBlock()) stride their threads over its elements: in two and
+ * three dimensions they first copy the element's input values into shared
+ * memory and synchronise before calling the per-element kernel on the shared
+ * copy; in one dimension no shared memory is used and the per-element kernel
+ * reads straight from global memory. The three PhysDerivKernelLauncher
  *   overloads (one per dimension, selected by the size-parameter type)
  *   are what the block operator launches through
  *   DEVICE_3DGRID_KERNEL_LAUNCHER, whose grid Y and Z axes carry the
@@ -1106,7 +1106,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
 /**
  * @brief SumFacTOP launch entry point for a block of segments: unpacks
  * the size parameter, then strides the thread block over the block's
- * segments on the grid's X axis, one element per thread block per pass,
+ * segment groups (GetDeviceElmtBlock()) on the grid's X axis,
  * while the Y and Z axes select the homogeneous mode and component of a
  * single fused launch that covers every (component, mode) pair at
  * once.
@@ -1136,12 +1136,15 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
  * @tparam Implementation       Constrained to MultiRegions::SumFacTOP.
  * @tparam DEFORMED             Derivative factors vary point by point.
  * @tparam TPhysSizeParameter1D 1D physical size-parameter type.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Thread-block handle type.
  * @tparam TData                Floating-point type of the field data.
  *
  * @param   sizeParam1D Coordinate dimension and point count of the
  *                      element.
  * @param   nelmt       Elements in the block, including padding.
+ * @param   elmtsPerBlock Elements per thread block, from
+ *                      GetDeviceKernelParameters().
  * @param   outoffset   Stride between the Cartesian planes of @p out.
  * @param   D0          1D differentiation matrix.
  * @param   df          Derivative factors of the block.
@@ -1155,16 +1158,16 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
  *                      macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TPhysSizeParameter1D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, typename TPhysSizeParameter1D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-    const size_t outoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, [[maybe_unused]] unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    const TElmtsPerBlock elmtsPerBlock, const size_t outoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
@@ -1177,27 +1180,31 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    size_t e                  = getBlockIdx<0>(threadBlock);
     const unsigned int m      = getBlockIdx<1>(threadBlock);
     const unsigned int c      = getBlockIdx<2>(threadBlock);
     const unsigned int nmode  = getBlockRange<1>(threadBlock);
     const unsigned int outDim = (nmode > 1) ? 3u : ncoord;
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e     = elmtBlock.elmtIdx;
         const TData *dfptr = df + ndf * dfsize * e;
         const TData *inptr = in + nq0 * nelmt * (nmode * c + m) + nq0 * e;
         TData *outptr = out + nq0 * nelmt * (outDim * nmode * c + m) + nq0 * e;
         PhysDeriv1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, outoffset, D0, dfptr,
-                                             inptr, outptr, threadBlock);
-        e += getBlockRange<0>(threadBlock);
+                                             inptr, outptr, elmtBlock);
     }
 }
 
 /**
  * @brief SumFacTOP launch entry point for one Cartesian component of a
  * block of segments: unpacks the size parameter, then strides the
- * thread block over the block's segments on the grid's X axis, one
- * element per thread block per pass, offsetting the data pointers by
+ * thread block over the block's segment groups (GetDeviceElmtBlock()) on
+ * the grid's X axis, offsetting the data pointers by
  * the block index `c` (component) alone -- there is no homogeneous-mode
  * axis here.
  *
@@ -1215,12 +1222,15 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  * @tparam DEFORMED             Derivative factors vary point by point.
  * @tparam DIR                  Cartesian component to produce.
  * @tparam TPhysSizeParameter1D 1D physical size-parameter type.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Thread-block handle type.
  * @tparam TData                Floating-point type of the field data.
  *
  * @param   sizeParam1D Coordinate dimension and point count of the
  *                      element.
  * @param   nelmt       Elements in the block, including padding.
+ * @param   elmtsPerBlock Elements per thread block, from
+ *                      GetDeviceKernelParameters().
  * @param   D0          1D differentiation matrix.
  * @param   df          Derivative factors of the block.
  * @param   in          Input values of the block.
@@ -1229,14 +1239,15 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  *                      macro.
  */
 template <typename Implementation, bool APPEND, bool DEFORMED, unsigned int DIR,
-          typename TPhysSizeParameter1D, typename TthreadBlock, typename TData,
+          typename TPhysSizeParameter1D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    const TthreadBlock &threadBlock)
+    const TElmtsPerBlock elmtsPerBlock, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
@@ -1249,27 +1260,31 @@ NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e     = elmtBlock.elmtIdx;
         const TData *dfptr = df + ndf * dfsize * e;
         const TData *inptr = in + nq0 * nelmt * c + nq0 * e;
         TData *outptr      = out + nq0 * nelmt * c + nq0 * e;
         PhysDerivDir1DSumFacTOPKernel<APPEND, DEFORMED, DIR>(
-            ncoord, nq0, 0, D0, dfptr, inptr, outptr, threadBlock);
-        e += getBlockRange<0>(threadBlock);
+            ncoord, nq0, 0, D0, dfptr, inptr, outptr, elmtBlock);
     }
 }
 
 /**
  * @brief SumFacTOP launch entry point for a block of quadrilaterals or
  * triangles: claims the dynamic shared memory, unpacks the size
- * parameter, then strides the thread block over the block's elements
- * on the grid's X axis, staging each element's input values in shared
- * memory before differentiating it, while the Y and Z axes select the
- * homogeneous mode and component of a single fused launch that covers
- * every (component, mode) pair at once.
+ * parameter, then strides the thread block over the block's element
+ * groups (GetDeviceElmtBlock()) on the grid's X axis, staging each element's
+ * input values in shared memory before differentiating it, while the Y and Z
+ * axes select the homogeneous mode and component of a single fused launch that
+ * covers every (component, mode) pair at once.
  *
  * Per element the threads cooperatively copy the element's nqTot input
  * values into the dynamic shared memory sized by
@@ -1291,12 +1306,15 @@ NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
  * @tparam Implementation       Constrained to MultiRegions::SumFacTOP.
  * @tparam DEFORMED             Derivative factors vary point by point.
  * @tparam TPhysSizeParameter2D 2D physical size-parameter type.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Thread-block handle type.
  * @tparam TData                Floating-point type of the field data.
  *
  * @param   sizeParam2D Coordinate dimension and point counts of the
  *                      element.
  * @param   nelmt       Elements in the block, including padding.
+ * @param   elmtsPerBlock Elements per thread block, from
+ *                      GetDeviceKernelParameters().
  * @param   outoffset   Stride between the Cartesian planes of @p out.
  * @param   D0,D1       1D differentiation matrices.
  * @param   f0,f1       Collapsed-coordinate factor tables.
@@ -1310,17 +1328,18 @@ NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
  *                      macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TPhysSizeParameter2D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, typename TPhysSizeParameter2D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const size_t outoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    const TElmtsPerBlock elmtsPerBlock, const size_t outoffset,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -1337,29 +1356,33 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const unsigned int ndf    = 2 * ncoord;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0 = (TData *)shmemptr;
-
-    size_t e                  = getBlockIdx<0>(threadBlock);
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+    TData *s_wsp0             = (TData *)shmemptr + nqTot * wspIdx;
     const unsigned int m      = getBlockIdx<1>(threadBlock);
     const unsigned int c      = getBlockIdx<2>(threadBlock);
     const unsigned int nmode  = getBlockRange<1>(threadBlock);
     const unsigned int outDim = (nmode > 1) ? 3u : ncoord;
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e     = elmtBlock.elmtIdx;
         const TData *dfptr = df + ndf * dfsize * e;
         const TData *inptr = in + nqTot * nelmt * (nmode * c + m) + nqTot * e;
         TData *outptr =
             out + nqTot * nelmt * (outDim * nmode * c + m) + nqTot * e;
 
         // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
-        localBarrier(threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
+        localBarrier(elmtBlock);
 
         PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             ncoord, nq0, nq1, outoffset, D0, D1, f0, f1, dfptr, s_wsp0, outptr,
-            threadBlock);
-
-        e += getBlockRange<0>(threadBlock);
+            elmtBlock);
     }
 }
 
@@ -1367,7 +1390,8 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  * @brief SumFacTOP launch entry point for one Cartesian component of a
  * block of quadrilaterals or triangles: claims the dynamic shared
  * memory, unpacks the size parameter, then strides the thread block
- * over the block's elements on the grid's X axis, staging each
+ * over the block's element groups (GetDeviceElmtBlock()) on the grid's X
+ * axis, staging each
  * element's input values in shared memory before differentiating it,
  * offsetting the data pointers by the block index `c` (component)
  * alone -- there is no homogeneous-mode axis here.
@@ -1388,12 +1412,15 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  * @tparam DEFORMED             Derivative factors vary point by point.
  * @tparam DIR                  Cartesian component to produce.
  * @tparam TPhysSizeParameter2D 2D physical size-parameter type.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Thread-block handle type.
  * @tparam TData                Floating-point type of the field data.
  *
  * @param   sizeParam2D Coordinate dimension and point counts of the
  *                      element.
  * @param   nelmt       Elements in the block, including padding.
+ * @param   elmtsPerBlock Elements per thread block, from
+ *                      GetDeviceKernelParameters().
  * @param   D0,D1       1D differentiation matrices.
  * @param   f0,f1       Collapsed-coordinate factor tables.
  * @param   df          Derivative factors of the block.
@@ -1405,16 +1432,17 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, unsigned int DIR,
-          typename TPhysSizeParameter2D, typename TthreadBlock, typename TData,
+          typename TPhysSizeParameter2D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    const TElmtsPerBlock elmtsPerBlock, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -1430,33 +1458,37 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
     const unsigned int ndf    = 4u;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0 = (TData *)shmemptr;
-
-    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+    TData *s_wsp0        = (TData *)shmemptr + nqTot * wspIdx;
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e     = elmtBlock.elmtIdx;
         const TData *dfptr = df + ndf * dfsize * e;
         const TData *inptr = in + nqTot * nelmt * c + nqTot * e;
         TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
         // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
-        localBarrier(threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
+        localBarrier(elmtBlock);
 
         PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
-            nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, outptr, threadBlock);
-
-        e += getBlockRange<0>(threadBlock);
+            nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, outptr, elmtBlock);
     }
 }
 
 /**
  * @brief SumFacTOP launch entry point for a block of three-dimensional
  * elements: claims the dynamic shared memory, unpacks the size
- * parameter, then strides the thread block over the block's elements,
- * staging each element's input values in shared memory before
- * differentiating it.
+ * parameter, then strides the thread block over the block's element
+ * groups (GetDeviceElmtBlock()), staging each element's input values in shared
+ * memory before differentiating it.
  *
  * As the two-dimensional overload, with three differentiation matrices
  * and four collapsed-coordinate tables read from global memory, and the
@@ -1471,11 +1503,14 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  * @tparam Implementation       Constrained to MultiRegions::SumFacTOP.
  * @tparam DEFORMED             Derivative factors vary point by point.
  * @tparam TPhysSizeParameter3D 3D physical size-parameter type.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Thread-block handle type.
  * @tparam TData                Floating-point type of the field data.
  *
  * @param   sizeParam3D     Point counts of the element.
  * @param   nelmt           Elements in the block, including padding.
+ * @param   elmtsPerBlock   Elements per thread block, from
+ *                          GetDeviceKernelParameters().
  * @param   outoffset       Stride between the Cartesian planes of
  *                          @p out.
  * @param   D0,D1,D2        1D differentiation matrices.
@@ -1490,100 +1525,13 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  *                          macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TPhysSizeParameter3D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, typename TPhysSizeParameter3D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const size_t outoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
-{
-    static_assert(
-        IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
-        "Template argument must be either of type "
-        "NonTemplatedPhysSizeParameter3D or TemplatedPhysSizeParameter3D.");
-
-    FETCH_SHARED_MEMORY(shmemptr);
-
-    const unsigned int nq0   = sizeParam3D.nq0();
-    const unsigned int nq1   = sizeParam3D.nq1();
-    const unsigned int nq2   = sizeParam3D.nq2();
-    const unsigned int nqTot = sizeParam3D.nqTot();
-
-    constexpr unsigned int ndf = 9u;
-    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
-
-    TData *s_wsp0 = (TData *)shmemptr;
-
-    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
-    const unsigned int m     = getBlockIdx<1>(threadBlock);
-    const unsigned int c     = getBlockIdx<2>(threadBlock);
-    const unsigned int nmode = getBlockRange<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * nelmt * (nmode * c + m) + nqTot * e;
-        TData *outptr = out + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
-
-        // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
-        localBarrier(threadBlock);
-
-        PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            nq0, nq1, nq2, outoffset, D0, D1, D2, f0, f1, f1m, f2, dfptr,
-            s_wsp0, outptr, threadBlock);
-
-        e += getBlockRange<0>(threadBlock);
-    }
-}
-
-/**
- * @brief SumFacTOP launch entry point for one Cartesian component of a
- * block of three-dimensional elements: claims the dynamic shared
- * memory, unpacks the size parameter, then strides the thread block
- * over the block's elements, staging each element's input values in
- * shared memory before calling the per-direction per-element kernel so
- * that only Cartesian component DIR is written.
- *
- * The only per-direction launcher of the three whose argument list
- * matches its per-element kernel; it is nevertheless not instantiated
- * anywhere, the Divergence family launching its own kernels and
- * calling the per-element PhysDeriv kernels from inside them.
- *
- * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
- *                              NodalPyr.
- * @tparam Implementation       Constrained to MultiRegions::SumFacTOP.
- * @tparam APPEND               Accumulate onto @p out.
- * @tparam DEFORMED             Derivative factors vary point by point.
- * @tparam DIR                  Cartesian component to produce.
- * @tparam TPhysSizeParameter3D 3D physical size-parameter type.
- * @tparam TthreadBlock         Thread-block handle type.
- * @tparam TData                Floating-point type of the field data.
- *
- * @param   sizeParam3D     Point counts of the element.
- * @param   nelmt           Elements in the block, including padding.
- * @param   D0,D1,D2        1D differentiation matrices.
- * @param   f0,f1,f1m,f2    Collapsed-coordinate factor tables.
- * @param   df              Derivative factors of the block.
- * @param   in              Input values of the block.
- * @param   out             Cartesian component DIR of the block.
- * @param   shmemptr        Dynamic shared memory of this thread block.
- * @param   threadBlock     Thread-block handle supplied by the launch
- *                          macro.
- */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool APPEND, bool DEFORMED, unsigned int DIR,
-          typename TPhysSizeParameter3D, typename TthreadBlock, typename TData,
-          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
-              Enable = true>
-NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
-    const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
+    const TElmtsPerBlock elmtsPerBlock, const size_t outoffset,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
@@ -1606,25 +1554,125 @@ NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
     constexpr unsigned int ndf = 9u;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0 = (TData *)shmemptr;
-
-    size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
-    const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+    TData *s_wsp0            = (TData *)shmemptr + nqTot * wspIdx;
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e     = elmtBlock.elmtIdx;
+        const TData *dfptr = df + ndf * dfsize * e;
+        const TData *inptr = in + nqTot * nelmt * (nmode * c + m) + nqTot * e;
+        TData *outptr = out + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
+
+        // Copy to shared memory.
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
+        localBarrier(elmtBlock);
+
+        PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+            nq0, nq1, nq2, outoffset, D0, D1, D2, f0, f1, f1m, f2, dfptr,
+            s_wsp0, outptr, elmtBlock);
+    }
+}
+
+/**
+ * @brief SumFacTOP launch entry point for one Cartesian component of a
+ * block of three-dimensional elements: claims the dynamic shared
+ * memory, unpacks the size parameter, then strides the thread block
+ * over the block's element groups (GetDeviceElmtBlock()), staging each
+ * element's input values in shared memory before calling the per-direction
+ * per-element kernel so that only Cartesian component DIR is written.
+ *
+ * The only per-direction launcher of the three whose argument list
+ * matches its per-element kernel; it is nevertheless not instantiated
+ * anywhere, the Divergence family launching its own kernels and
+ * calling the per-element PhysDeriv kernels from inside them.
+ *
+ * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                              NodalPyr.
+ * @tparam Implementation       Constrained to MultiRegions::SumFacTOP.
+ * @tparam APPEND               Accumulate onto @p out.
+ * @tparam DEFORMED             Derivative factors vary point by point.
+ * @tparam DIR                  Cartesian component to produce.
+ * @tparam TPhysSizeParameter3D 3D physical size-parameter type.
+ * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
+ * @tparam TthreadBlock         Thread-block handle type.
+ * @tparam TData                Floating-point type of the field data.
+ *
+ * @param   sizeParam3D     Point counts of the element.
+ * @param   nelmt           Elements in the block, including padding.
+ * @param   elmtsPerBlock   Elements per thread block, from
+ *                          GetDeviceKernelParameters().
+ * @param   D0,D1,D2        1D differentiation matrices.
+ * @param   f0,f1,f1m,f2    Collapsed-coordinate factor tables.
+ * @param   df              Derivative factors of the block.
+ * @param   in              Input values of the block.
+ * @param   out             Cartesian component DIR of the block.
+ * @param   shmemptr        Dynamic shared memory of this thread block.
+ * @param   threadBlock     Thread-block handle supplied by the launch
+ *                          macro.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool APPEND, bool DEFORMED, unsigned int DIR,
+          typename TPhysSizeParameter3D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
+    const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
+    const TElmtsPerBlock elmtsPerBlock, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
+{
+    static_assert(
+        IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter3D or TemplatedPhysSizeParameter3D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = sizeParam3D.nqTot();
+
+    constexpr unsigned int ndf = 9u;
+    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
+
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+    TData *s_wsp0        = (TData *)shmemptr + nqTot * wspIdx;
+    const unsigned int c = getBlockIdx<1>(threadBlock);
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
+    {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e     = elmtBlock.elmtIdx;
         const TData *dfptr = df + ndf * dfsize * e;
         const TData *inptr = in + nqTot * nelmt * c + nqTot * e;
         TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
         // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
-        localBarrier(threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
+        localBarrier(elmtBlock);
 
         PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
             nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, outptr,
-            threadBlock);
-
-        e += getBlockRange<0>(threadBlock);
+            elmtBlock);
     }
 }
 

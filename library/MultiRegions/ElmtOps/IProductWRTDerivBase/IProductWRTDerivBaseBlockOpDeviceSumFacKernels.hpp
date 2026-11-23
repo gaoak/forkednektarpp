@@ -773,6 +773,7 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
  * @param   ncoord      Coordinate dimension: number of input components
  *                      read.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   inoffset    Stride between the input's coordinate components.
  * @param   isModified  First-direction basis is eModified_A; unused in 1D.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
@@ -805,10 +806,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     IProductWRTDerivBaseKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, const size_t inoffset,
-        [[maybe_unused]] const bool isModified, const bool useSharedMemoryWsp,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
-        const TData *NEK_RESTRICT w0,
+        const size_t nelmt, [[maybe_unused]] const unsigned int elmtsPerBlock,
+        const size_t inoffset, [[maybe_unused]] const bool isModified,
+        const bool useSharedMemoryWsp, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
@@ -896,6 +897,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   sizeParam1D Sizes of the expansion.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   inoffset    Stride between the input's coordinate components.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr rather than
  * in
@@ -922,6 +924,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter1D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         const size_t inoffset, const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT w0,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
@@ -1012,6 +1015,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   sizeParam2D     Sizes per direction.
  * @param   ncoord          Coordinate dimension (2 or 3).
  * @param   nelmt           Elements in the block, padding included.
+ * @param   elmtsPerBlock   Elements per thread block, one per thread; unused.
  * @param   inoffset        Stride between the input's coordinate
  *                          components.
  * @param   isModified      First-direction basis is eModified_A.
@@ -1044,7 +1048,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     IProductWRTDerivBaseKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
-        const size_t nelmt, const size_t inoffset, const bool isModified,
+        const size_t nelmt, [[maybe_unused]] const unsigned int elmtsPerBlock,
+        const size_t inoffset, const bool isModified,
         const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
@@ -1180,6 +1185,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   sizeParam2D Sizes per direction.
  * @param   nelmt       Elements in the block, padding included.
+ * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   inoffset    Stride between the input's coordinate components.
  * @param   useSharedMemoryWsp   Stage intermediates in @p shmemptr, after the
  *                      factor tables, rather than in @p wsp.
@@ -1206,6 +1212,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter2D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         const size_t inoffset, const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
@@ -1332,6 +1339,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   ncoord                  Coordinate dimension; unused.
  * @param   nelmt                   Elements in the block, padding
  *                                  included.
+ * @param   elmtsPerBlock           Elements per thread block, one per thread;
+ *                                  unused.
  * @param   inoffset                Stride between the input's coordinate
  *                                  components.
  * @param   isModified              First-direction basis is eModified_A.
@@ -1368,6 +1377,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTDerivBaseKernelLauncher(
         const TSizeParameter3D sizeParam3D,
         [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         const size_t inoffset, const bool isModified,
         const bool useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
@@ -1550,6 +1560,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   sizeParam3D     Sizes per direction.
  * @param   nelmt           Elements in the block, padding included.
+ * @param   elmtsPerBlock   Elements per thread block, one per thread; unused.
  * @param   inoffset        Stride between the input's coordinate
  *                          components.
  * @param   useSharedMemoryWsp       Stage intermediates in @p shmemptr, after
@@ -1578,6 +1589,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TPhysSizeParameter3D>()))
     IProductWRTDerivBasePhysKernelLauncher(
         const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
         const size_t inoffset, const bool useSharedMemoryWsp,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
         const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT w0,

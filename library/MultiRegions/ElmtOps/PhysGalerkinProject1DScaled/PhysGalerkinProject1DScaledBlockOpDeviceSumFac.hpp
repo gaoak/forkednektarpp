@@ -267,8 +267,8 @@ protected:
             useSharedMemoryWsp
                 ? 0
                 : BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                      WorkSpaceNumElmts<Implementation>(nelmt,
-                                                        kernelParams.gridSize),
+                      WorkSpaceNumElmts<Implementation>(
+                          nelmt, kernelParams.gridSize, elmtsPerBlock),
                       sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -299,12 +299,17 @@ protected:
             constexpr bool APPEND = decltype(append)::value;
 
             // PhysGalerkinProject1DScaled kernel.
-            DEVICE_2DGRID_KERNEL_LAUNCHER(
-                (BwdTransKernelLauncher<SHAPE_TYPE, Implementation, APPEND>),
-                kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-                kernelParams.shmemSize, m_streamID, sizeParam, nelmt, false,
-                useSharedMemoryWsp, m_index[ind1]..., m_B[ind0]..., nodToMod,
-                inptr, outptr, wspptr);
+            DispatchElmtsPerBlock<Implementation>(
+                sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                    DEVICE_2DGRID_KERNEL_LAUNCHER(
+                        (BwdTransKernelLauncher<SHAPE_TYPE, Implementation,
+                                                APPEND>),
+                        kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                        kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                        elmtsPerBlockArg, false, useSharedMemoryWsp,
+                        m_index[ind1]..., m_B[ind0]..., nodToMod, inptr, outptr,
+                        wspptr);
+                });
         });
 
         // Reshape back, if necessary.

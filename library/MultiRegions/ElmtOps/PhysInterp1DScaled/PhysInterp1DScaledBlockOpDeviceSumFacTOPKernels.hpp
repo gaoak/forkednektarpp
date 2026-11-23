@@ -41,10 +41,10 @@
  * The SumFacTOP counterpart of
  * PhysInterp1DScaledBlockOpDeviceSumFacKernels.hpp, and equally a forwarding
  * header: it defines nothing and only includes
- * BwdTransBlockOpDeviceSumFacTOPKernels.hpp, whose kernels -- one element per
- * thread block, tables and intermediates staged in shared memory -- the
- * block implementation launches with the interpolation matrices in place
- * of the basis tables and the input point counts in place of the mode
+ * BwdTransBlockOpDeviceSumFacTOPKernels.hpp, whose kernels -- one element, or a
+ * group of them, per thread block, tables and intermediates staged in shared
+ * memory -- the block implementation launches with the interpolation matrices
+ * in place of the basis tables and the input point counts in place of the mode
  * counts.
  */
 

@@ -496,11 +496,38 @@ struct DeviceKernelParameters
 };
 
 /**
+ * @brief Threads one element takes in a SumFacTOP thread block of several:
+ * @p dofsPerElmt rounded up to a power of two below a warp, to whole warps
+ * otherwise, so that a warp holds whole elements or a part of one.
+ *
+ * @param   dofsPerElmt  Degrees of freedom of one element, a thread each.
+ */
+NEK_FORCE_INLINE static unsigned int GetElmtThreads(
+    const unsigned int dofsPerElmt)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    if (dofsPerElmt >= warpsize)
+    {
+        return (dofsPerElmt + warpsize - 1u) / warpsize * warpsize;
+    }
+
+    unsigned int nthreads = 1u;
+    while (nthreads < dofsPerElmt)
+    {
+        nthreads *= 2u;
+    }
+    return nthreads;
+}
+
+/**
  * @brief Elements each thread block takes per pass.
  *
  * For SumFac one warp, a lane per element. For SumFacTOP as many whole
- * elements as fit in @p threadsPerBlock threads, one at least; one where
- * @p threadsPerBlock is zero.
+ * elements, of GetElmtThreads() threads each, as fit in @p threadsPerBlock
+ * threads, one at least, where an element takes less than a warp; one
+ * otherwise, as more would leave as many threads idle and couple the
+ * elements' barriers, and one where @p threadsPerBlock is zero.
  *
  * @param   dofsPerElmt      Degrees of freedom of one element, a thread
  *                           each (SumFacTOP).
@@ -510,7 +537,7 @@ struct DeviceKernelParameters
 template <typename Implementation>
 NEK_FORCE_INLINE static unsigned int GetElmtsPerBlock(
     [[maybe_unused]] const unsigned int dofsPerElmt,
-    [[maybe_unused]] const unsigned int threadsPerBlock = 0u)
+    [[maybe_unused]] const unsigned int threadsPerBlock = 128u)
 {
     static_assert(std::is_same_v<Implementation, MultiRegions::SumFac> ||
                       std::is_same_v<Implementation, MultiRegions::SumFacTOP>,
@@ -522,9 +549,10 @@ NEK_FORCE_INLINE static unsigned int GetElmtsPerBlock(
     }
     else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
     {
-        return (threadsPerBlock == 0u)
-                   ? 1u
-                   : std::max(1u, threadsPerBlock / std::max(1u, dofsPerElmt));
+        const unsigned int elmtThreads = GetElmtThreads(dofsPerElmt);
+        return (elmtThreads < NektarSpaces::Device::warpSize)
+                   ? std::max(1u, threadsPerBlock / elmtThreads)
+                   : 1u;
     }
 }
 
@@ -534,8 +562,9 @@ NEK_FORCE_INLINE static unsigned int GetElmtsPerBlock(
  * For SumFac a block is one warp of @p elmtsPerBlock lanes, one element
  * each, and the grid covers the elements in @p passesPerBlock passes, the
  * kernels striding over the grid. For SumFacTOP the block is the
- * elements' threads rounded up to whole warps, at most the device's
- * default block size, and the grid
+ * elements' threads, GetElmtThreads() each where it takes several,
+ * rounded up to whole warps, at most the device's default block size, and
+ * the grid
  * follows a persistent-blocks heuristic bounded by thread and
  * shared-memory occupancy, at most one block per group of
  * @p elmtsPerBlock elements.
@@ -576,6 +605,8 @@ NEK_FORCE_INLINE static DeviceKernelParameters GetDeviceKernelParameters(
         // GetElmtsPerBlock() gives.
         kernelParams.elmtsPerBlock =
             elmtsPerBlock ? elmtsPerBlock : NektarSpaces::Device::warpSize;
+        ASSERTL0(kernelParams.elmtsPerBlock == NektarSpaces::Device::warpSize,
+                 "SumFac kernels take one warp of elements per block.");
 
         // Each block processes elmtsPerBlock elements per pass.
         const size_t ngroups = (nelmt + kernelParams.elmtsPerBlock - 1u) /
@@ -604,11 +635,13 @@ NEK_FORCE_INLINE static DeviceKernelParameters GetDeviceKernelParameters(
         const unsigned int passes =
             passesPerBlock ? passesPerBlock : defaultPassesPerBlock;
 
-        // The elements' threads rounded up to whole warps, at most the
-        // default block size.
+        // The elements' threads, GetElmtThreads() each where the block takes
+        // several, rounded up to whole warps, at most the default block size.
         constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
         const unsigned int threadsPerBlock =
-            kernelParams.elmtsPerBlock * dofsPerElmt;
+            (kernelParams.elmtsPerBlock == 1u)
+                ? dofsPerElmt
+                : kernelParams.elmtsPerBlock * GetElmtThreads(dofsPerElmt);
         kernelParams.blockSize =
             std::min((threadsPerBlock + warpsize - 1u) / warpsize * warpsize,
                      NektarSpaces::Device::defaultBlockSize);
@@ -705,19 +738,23 @@ NEK_FORCE_INLINE static bool UseSharedWorkSpace(const size_t shmemsize)
  * @brief Elements whose workspace the global-memory workspace holds at
  * once.
  *
- * Every element of the block for SumFac. For SumFacTOP one per thread
- * block, each block reusing its slice for the elements it takes.
+ * Every element of the block for SumFac. For SumFacTOP the elements of
+ * one group per thread block, each block reusing its slice for the groups
+ * it takes.
  *
  * @tparam Implementation   Implementation tag.
  *
- * @param   nelmt       Elements in the block, padding included.
- * @param   gridsize    Thread blocks in the grid's first dimension.
+ * @param   nelmt          Elements in the block, padding included.
+ * @param   gridsize       Thread blocks in the grid's first dimension.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                         GetDeviceKernelParameters().
  *
  * @return Number of per-element workspaces to allocate per component.
  */
 template <typename Implementation>
-NEK_FORCE_INLINE static size_t WorkSpaceNumElmts(const size_t nelmt,
-                                                 const unsigned int gridsize)
+NEK_FORCE_INLINE static size_t WorkSpaceNumElmts(
+    const size_t nelmt, const unsigned int gridsize,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
     {
@@ -725,7 +762,7 @@ NEK_FORCE_INLINE static size_t WorkSpaceNumElmts(const size_t nelmt,
     }
     else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
     {
-        return gridsize;
+        return gridsize * elmtsPerBlock;
     }
 }
 #endif
