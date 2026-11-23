@@ -172,6 +172,8 @@ protected:
         m_pressureBCRhsHistories;
 
     // Initialise operators
+    std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
+    std::shared_ptr<FwdTransOp<double>> m_fwdTransOp;
     std::shared_ptr<BwdTransOp<double>> m_bwdTransPressureOp;
     std::shared_ptr<AdvectionOp<double>> m_advectionOp;
     std::shared_ptr<AdvectionDealiasOp<double>> m_advectionDealiasOp;
@@ -207,6 +209,10 @@ protected:
         const SpatialDomains::MeshGraphSharedPtr &pGraph);
 
     ~VelocityCorrectionScheme() override = default;
+
+    void DoProjection(LibUtilities::Field<double, FieldState::Phys> &in,
+                      LibUtilities::Field<double, FieldState::Phys> &out,
+                      const double &time);
 
     void SolveUnsteadyStokesSystem(
         LibUtilities::Field<double, FieldState::Phys> &in,
@@ -284,11 +290,9 @@ protected:
 
     void v_InitialiseOperators() override;
 
-    CoefficientFieldViews v_GetOutputFieldViews() override;
-
     void SetDiffusionCoeff();
 
-    void InitialiseParameters();
+    void LoadSessionParameters();
 
     FieldRegistry v_GetFieldRegistry() override;
 

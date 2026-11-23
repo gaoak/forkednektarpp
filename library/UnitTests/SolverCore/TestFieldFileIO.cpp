@@ -115,11 +115,21 @@ public:
         return m_expansionLists[0];
     }
 
-    // Sets the physical solution from the coefficients, which WriteFld()
-    // projects back to coefficients before writing them.
+    // Sets the physical solution from the coefficients.
     void SetPhysFromCoeffs()
     {
         m_bwdTransOp->Apply(m_coeff[0], m_phys[0]);
+    }
+
+protected:
+    std::shared_ptr<MultiRegions::BwdTransOp<double>> m_bwdTransOp;
+
+    void v_InitObject(bool declareExpansionLists = true) override
+    {
+        EquationSystem::v_InitObject(declareExpansionLists);
+        v_InitialiseFields();
+        m_bwdTransOp = MultiRegions::BwdTransOp<double>::Create(
+            m_expansionLists[0], m_variables[0]);
     }
 };
 
@@ -262,8 +272,6 @@ void CheckEqual(const std::vector<double> &result,
     auto graph   = SpatialDomains::MeshGraphIO::Read(session);
     auto system  = std::make_shared<FieldFileSystem>(session, graph);
     system->InitObject();
-    system->InitialiseFields();
-    system->InitialiseOperators();
 
     const auto &explist  = system->Expansion();
     const auto variables = session->GetVariables();
@@ -310,9 +318,8 @@ void CheckEqual(const std::vector<double> &result,
         CheckInterleaveWidth(coeffs, interleaveWidths);
     }
 
-    // Write. The file must hold the coefficients WriteFld() projected the
-    // solution to, and the field must keep its interleave width.
-    system->SetPhysFromCoeffs();
+    // Write. The file must hold the coefficients of the solver fields, and
+    // the field must keep its interleave width.
     system->WriteFld(outputFile);
     CheckInterleaveWidth(coeffs, interleaveWidths);
     BOOST_TEST_CONTEXT("write")

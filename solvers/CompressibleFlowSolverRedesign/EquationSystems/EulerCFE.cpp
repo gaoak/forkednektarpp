@@ -33,7 +33,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyPressureCFE/BndCondEnforceEntropyPressureCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyTotalEnthalpyCFE/BndCondEnforceEntropyTotalEnthalpyCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyVelocityCFE/BndCondEnforceEntropyVelocityCFEOp.hpp>
@@ -44,6 +43,7 @@
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondStagnationInflowCFE/BndCondStagnationInflowCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/EquationSystems/EulerCFE.h>
 #include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <iomanip>
 
@@ -78,13 +78,14 @@ void EulerCFE::v_InitObject(bool declareExpansionLists)
              "No UPWINDTYPE defined in session.");
 
     /// Create Fields for solution m_phys, m_coeff and others
-    InitialiseFields();
+    v_InitialiseFields();
 
     // Create and initialise all operators
-    InitialiseOperators();
+    v_InitialiseOperators();
 
     // Configure Time-integration
-    InitialiseTimeOp();
+    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
+    m_timeOp->DefineProjection(&EulerCFE::DoProjection, this);
     m_timeOp->DefineExplicitRhs(&EulerCFE::DoAdvection, this);
 }
 
@@ -138,16 +139,34 @@ void EulerCFE::DoAdvection(LibUtilities::Field<double, FieldState::Phys> &in,
     m_advectionWeakDGOp->Apply(in, out);
 }
 
+/**
+ * @brief Project onto the solution space, which for DG is a copy.
+ */
+void EulerCFE::DoProjection(LibUtilities::Field<double, FieldState::Phys> &in,
+                            LibUtilities::Field<double, FieldState::Phys> &out,
+                            [[maybe_unused]] const double &time)
+{
+    if (&in != &out)
+    {
+        m_math.copy(in, out);
+    }
+}
+
 /*
  *  Create and initialise all operators for this solver
  */
 void EulerCFE::v_InitialiseOperators()
 {
-    EquationSystem::v_InitialiseOperators();
+    // Element-local projection of the solution to coefficients for output.
+    m_iProductWRTBaseOp =
+        IProductWRTBaseOp<double>::Create(m_expansionLists[0], m_variables[0]);
+    m_multiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<double>::Create(
+        m_expansionLists[0], m_variables[0]);
 
     // Create operators
     m_advectionWeakDGOp =
         AdvectionWeakDGOp<double>::Create(m_expansionLists[0], m_variables[0]);
+
     std::string execName =
         MultiRegions::Operator<double>::GetOpExecSpace(m_session);
     std::string riemannMethod = m_session->GetSolverInfo("UpwindType");
@@ -167,6 +186,17 @@ void EulerCFE::v_InitialiseOperators()
     m_advectionWeakDGOp->SetTraceFlux(traceFluxOp);
 
     SetUpBoundaryConditions();
+}
+
+CoefficientFieldViews EulerCFE::v_GetOutputFieldViews()
+{
+    // The solution is advanced in physical space, so project back to
+    // coefficients before exposing it to output filters, through the
+    // element-local L2 projection required by the restart path.
+    m_iProductWRTBaseOp->Apply(m_phys[0], m_wsp_coeff[0]);
+    m_multiplyByElmtInvMassOp->Apply(m_wsp_coeff[0], m_coeff[0]);
+
+    return UnsteadySystem::v_GetOutputFieldViews();
 }
 
 /**

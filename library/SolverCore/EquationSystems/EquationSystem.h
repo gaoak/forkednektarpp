@@ -48,8 +48,6 @@
 #include <vector>
 
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
-#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
-#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 
 namespace Nektar::SolverCore
@@ -70,8 +68,6 @@ SOLVER_CORE_EXPORT EquationSystemFactory &GetEquationSystemFactory();
 class EquationSystem : public std::enable_shared_from_this<EquationSystem>
 {
 public:
-    SOLVER_CORE_EXPORT virtual ~EquationSystem() = default;
-
     void InitObject(bool declareExpansionLists = true)
     {
         v_InitObject(declareExpansionLists);
@@ -95,27 +91,6 @@ public:
     void WriteFld(const std::string &outname)
     {
         v_WriteFld(outname);
-    }
-
-    /*
-     * Create m_phys and m_coeff, one Field per expansion list, to hold the
-     * solution.
-     */
-    void InitialiseFields()
-    {
-        v_InitialiseFields();
-    }
-
-    void InitialiseOperators()
-    {
-        v_InitialiseOperators();
-    }
-
-    void DoProjection(LibUtilities::Field<double, FieldState::Phys> &in,
-                      LibUtilities::Field<double, FieldState::Phys> &out,
-                      [[maybe_unused]] const double time = 0.0)
-    {
-        v_DoProjection(in, out, time);
     }
 
     LibUtilities::SessionReaderSharedPtr GetSession() const
@@ -171,8 +146,6 @@ public:
         out << std::string(70, '=') << std::endl;
     }
 
-    void DeclareExpansionLists();
-
     /// Print the L2 and Linf errors of each variable. The regression tests
     /// parse this output, so its format must not change.
     void PrintNorms(std::ostream &out);
@@ -189,7 +162,8 @@ protected:
     std::string m_sessionName;
 
     /// Session variables grouped by expansion list: group i holds the
-    /// variables of m_expansionLists[i], set by v_SetExpansionVariables().
+    /// variables of m_expansionLists[i], which share its expansion, set by
+    /// v_SetExpansionVariables().
     std::vector<std::vector<std::string>> m_variables;
     /// Whether each variable's system is singular, grouped as m_variables.
     /// The expansion list of a group takes the check of its first variable.
@@ -223,21 +197,11 @@ protected:
     std::vector<LibUtilities::Field<double, FieldState::Phys>> m_wsp_phys;
     std::vector<LibUtilities::Field<double, FieldState::Coeff>> m_wsp_coeff;
 
-    std::shared_ptr<MultiRegions::BwdTransOp<double>> m_bwdTransOp = nullptr;
-    std::shared_ptr<FwdTransOp<double>> m_fwdTransOp               = nullptr;
-
-    /// Phys to coeff projection for a discontinuous field, which is element
-    /// local and so cannot use m_fwdTransOp: that is a global mass matrix
-    /// solve carrying boundary conditions. Only built for eDiscontinuous.
-    std::shared_ptr<MultiRegions::IProductWRTBaseOp<double>>
-        m_iProductWRTBaseOp = nullptr;
-    std::shared_ptr<MultiRegions::MultiplyByElmtInvMassOp<double>>
-        m_multiplyByElmtInvMassOp = nullptr;
-
-    /// Singular system only, built by the solver that has one: balances the
-    /// forcing against the Neumann values of the system and removes the mean
-    /// of the reported error in PrintNorms().
-    std::shared_ptr<MeanRemovalOp<double>> m_meanRemovalOp;
+    /// One per expansion list, set for a singular system only: balances the
+    /// forcing against the Neumann values of the system, if the solver builds
+    /// it, and removes the mean of the reported error in PrintNorms(), which
+    /// builds it otherwise.
+    std::vector<std::shared_ptr<MeanRemovalOp<double>>> m_meanRemovalOp;
 
     /// HOMOGENEOUS setup
     /// Parameter for homogeneous expansions
@@ -275,9 +239,11 @@ protected:
     SOLVER_CORE_EXPORT EquationSystem(
         const LibUtilities::SessionReaderSharedPtr &session,
         const SpatialDomains::MeshGraphSharedPtr &graph);
+    SOLVER_CORE_EXPORT virtual ~EquationSystem() = default;
 
     SOLVER_CORE_EXPORT virtual void v_InitObject(
         bool declareExpansionLists = true);
+    void DeclareExpansionLists();
     /// Group the session variables by expansion list into m_variables and
     /// m_checkIfSystemSingular. The default is a single group of them all.
     SOLVER_CORE_EXPORT virtual void v_SetExpansionVariables();
@@ -290,15 +256,11 @@ protected:
     SOLVER_CORE_EXPORT virtual void v_InitialiseFields();
     SOLVER_CORE_EXPORT virtual void v_InitialiseOperators();
     SOLVER_CORE_EXPORT virtual std::vector<bool> v_GetSystemSingularChecks();
-    SOLVER_CORE_EXPORT virtual void v_DoProjection(
-        LibUtilities::Field<double, FieldState::Phys> &in,
-        LibUtilities::Field<double, FieldState::Phys> &out,
-        [[maybe_unused]] const double time);
 
     /// Publish the fields of the system to the filters.
     SOLVER_CORE_EXPORT virtual FieldRegistry v_GetFieldRegistry();
 
-    /// Bring the output coefficients up to date and return views of them.
+    /// Return views of the output coefficients.
     SOLVER_CORE_EXPORT virtual CoefficientFieldViews v_GetOutputFieldViews();
 
     /// Write coefficient fields, scaled by @p scale, to a field file.

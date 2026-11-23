@@ -76,10 +76,11 @@ protected:
     SessionFunctionSharedPtr m_varDiffCoeffFunction;
 
     // Setup workspaces
-    LibUtilities::Field<double, FieldState::Phys> m_wsp_fce;
+    LibUtilities::Field<double, FieldState::Phys> m_fce;
     LibUtilities::Field<double, FieldState::Phys> m_advectionVel;
 
     // Initialise operators
+    std::shared_ptr<BwdTransOp<double>> m_bwdTransOp;
     std::shared_ptr<LinearSystemOp<double>> m_linearSystemOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
     std::shared_ptr<PreconOp<double>> m_preconOp;
@@ -96,15 +97,15 @@ protected:
 
     void v_GenerateSummary(SummaryList &s) override;
 
-    void InitialiseParameters();
+    void LoadSessionParameters();
 
     void v_InitialiseFields() override;
 
-    void v_InitialiseOperators() override;
+    void SetAdvectionVel();
 
     void SetDiffusionCoeff();
 
-    void SetAdvectionVel();
+    void v_InitialiseOperators() override;
 };
 
 } // namespace Nektar

@@ -430,7 +430,7 @@ up to a factor of two with HOutflow regions. In \path{HOutflowKovasznay2D}
 the weak form with $\incnsv u^*$ also keeps the error of the steady solution
 only up to a time step of $0.12$ ($J=2$) and $0.15$ ($J=3$), and stays
 bounded but inaccurate above it, where with $\incnsv u^n$ it kept that error
-up to its stability limit. \code{VelocityCorrectionScheme::InitialiseParameters()}
+up to its stability limit. \code{VelocityCorrectionScheme::LoadSessionParameters()}
 warns (on the root rank) when \code{FORMULATION=LinearImplicit} is used with
 a time integration scheme of order three or higher, whose order it cannot
 reach: the weak form is the more stable, with a lower-order pressure near
@@ -1261,7 +1261,7 @@ forcing, refresh of the extrapolation histories \\
 form (Section~\ref{sec:incns-weak}) \\
 \quad\code{GetStartupDivergenceWeight} & $\beta$ of remedy B1
 (Section~\ref{sec:incns-kick}) \\
-\quad\code{InitialiseParameters}, \code{v\_InitialiseOperators} &
+\quad\code{LoadSessionParameters}, \code{v\_InitialiseOperators} &
 \code{FORMULATION}, \code{PressureFormulation}, start-up stages,
 dealiasing; operator and solver set-up, BC registration \\
 \quad\code{v\_SetInitialConditions} & velocity and pressure ICs

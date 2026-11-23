@@ -166,11 +166,13 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
     MultiRegions::MultiplyByElmtInvMassOp<double>::Create(m_expansionLists[0],
                                                           m_variables[0])
         ->Apply(iprod, m_coeff[0]);
+    auto bwdTransOp = MultiRegions::BwdTransOp<double>::Create(
+        m_expansionLists[0], m_variables[0]);
     if (m_projectionType == MultiRegions::eGalerkin)
     {
         SetContinuousInitialConditions(m_expansionLists[0], m_variables[0],
-                                       m_phys[0], m_coeff[0], m_bwdTransOp,
-                                       m_fwdTransOp);
+                                       m_phys[0], m_coeff[0], bwdTransOp,
+                                       nullptr);
     }
     else if (initialConditions.GetType() ==
              LibUtilities::eFunctionTypeExpression)
@@ -194,7 +196,7 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
         if (m_initialConditionProjection ==
             InitialConditionProjection::Galerkin)
         {
-            m_bwdTransOp->Apply(m_coeff[0], m_phys[0]);
+            bwdTransOp->Apply(m_coeff[0], m_phys[0]);
         }
         else
         {
@@ -303,15 +305,6 @@ void UnsteadySystem::SetContinuousInitialConditions(
         dirBndCondOp->Apply(coeffs);
     }
     bwdTransOp->Apply(coeffs, phys);
-}
-
-/**
- * @brief Initialise time-integration operator.
- */
-void UnsteadySystem::v_InitialiseTimeOp()
-{
-    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
-    m_timeOp->DefineProjection(&EquationSystem::DoProjection, this);
 }
 
 /**
