@@ -36,8 +36,8 @@
 
 #include <MultiRegions/DisContField.h>
 
-#include "BndCondSlipWallCFEKernels.hpp"
-#include "BndCondSlipWallCFEOp.hpp"
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondSlipWallCFE/BndCondSlipWallCFEKernels.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondSlipWallCFE/BndCondSlipWallCFEOp.hpp>
 
 namespace Nektar::detail
 {

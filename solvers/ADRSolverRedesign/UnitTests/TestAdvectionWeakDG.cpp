@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestAdvectionWeakDG
 
-#include "TestAdvectionWeakDG.hpp"
+#include <ADRSolverRedesign/UnitTests/TestAdvectionWeakDG.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

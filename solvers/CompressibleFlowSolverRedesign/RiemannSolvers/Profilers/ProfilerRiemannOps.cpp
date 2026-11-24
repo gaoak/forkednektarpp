@@ -32,12 +32,12 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "ProfilerRiemannOps.hpp"
+#include <CompressibleFlowSolverRedesign/RiemannSolvers/Profilers/ProfilerRiemannOps.hpp>
 
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #if defined(NEKTAR_USE_MAGMA)
-#include "magma_v2.h"
+#include <magma_v2.h>
 #endif
 
 /**

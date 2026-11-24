@@ -36,5 +36,5 @@
 #pragma once
 
 // add any additional new equations of state structs to this list
-#include "EquationOfState/IdealGasEoSParams.hpp"
-#include "EquationOfState/VanDerWaalsEoSParams.hpp"
+#include <CompressibleFlowSolverRedesign/EquationOfState/IdealGasEoSParams.hpp>
+#include <CompressibleFlowSolverRedesign/EquationOfState/VanDerWaalsEoSParams.hpp>

@@ -35,7 +35,7 @@
 
 #define BOOST_TEST_MODULE TestDiffusionIP
 
-#include "TestDiffusionIP.hpp"
+#include <ADRSolverRedesign/UnitTests/TestDiffusionIP.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "../EnforceEntropyCommon/EnforceEntropyOpImplBase.hpp"
-#include "BndCondEnforceEntropyVelocityCFEOp.hpp"
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyVelocityCFE/BndCondEnforceEntropyVelocityCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/EnforceEntropyCommon/EnforceEntropyOpImplBase.hpp>
 
 namespace Nektar::detail
 {

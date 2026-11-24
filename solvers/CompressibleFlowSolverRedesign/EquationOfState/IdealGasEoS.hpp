@@ -35,9 +35,9 @@
 #pragma once
 
 // definition of standard conversions
-#include "EquationOfState/VariableConverters.hpp"
+#include <CompressibleFlowSolverRedesign/EquationOfState/VariableConverters.hpp>
 // definition of parameters held in struct
-#include "EquationOfState/IdealGasEoSParams.hpp"
+#include <CompressibleFlowSolverRedesign/EquationOfState/IdealGasEoSParams.hpp>
 
 namespace Nektar::detail
 {

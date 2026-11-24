@@ -41,7 +41,7 @@
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
-#include "CompressibleFlowSolverRedesign/AdvTraceFluxCFE/AdvTraceFluxCFEOp.hpp"
+#include <CompressibleFlowSolverRedesign/AdvTraceFluxCFE/AdvTraceFluxCFEOp.hpp>
 #include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 #include <UnitTests/TestBoostSetup.hpp>

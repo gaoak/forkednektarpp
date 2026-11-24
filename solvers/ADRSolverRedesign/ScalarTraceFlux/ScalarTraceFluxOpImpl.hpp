@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "ADRSolverRedesign/ScalarTraceFlux/ScalarTraceFluxOp.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOpImpl.hpp"
+#include <ADRSolverRedesign/ScalarTraceFlux/ScalarTraceFluxOp.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOpImpl.hpp>
 
-#include "ADRSolverRedesign/TraceFluxSolver/TraceFluxSolverKernels.hpp"
+#include <ADRSolverRedesign/TraceFluxSolver/TraceFluxSolverKernels.hpp>
 
 namespace Nektar::detail
 {

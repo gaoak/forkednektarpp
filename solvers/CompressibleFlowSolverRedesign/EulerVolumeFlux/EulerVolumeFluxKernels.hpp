@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
 // header should appear after loop execution.hpp
-#include "EquationOfState/VariableConverters.hpp"
+#include <CompressibleFlowSolverRedesign/EquationOfState/VariableConverters.hpp>
 #include <LibUtilities/BasicUtils/SafeDivide.hpp>
 
 namespace Nektar::detail

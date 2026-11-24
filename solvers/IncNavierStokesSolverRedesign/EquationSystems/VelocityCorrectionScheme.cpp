@@ -42,10 +42,9 @@
 #include <MultiRegions/ElmtOps/Divergence/DivergenceOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
-#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
-#include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
@@ -107,7 +106,9 @@ void VelocityCorrectionScheme::v_InitObject(bool declareExpansionLists)
 
     // Configure Time-integration
     // Note we exclude pressure from time integration
-    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
+    m_timeIntegrationIndex = m_velocityIndex;
+    m_timeOp = TimeOp<double>::Create(m_expansionLists[m_timeIntegrationIndex],
+                                      m_variables[m_timeIntegrationIndex]);
     m_timeOp->DefineProjection(&VelocityCorrectionScheme::DoProjection, this);
     // The linear-implicit advection and the higher-order pressure boundary
     // data keep histories that are combined with the coefficients of the
@@ -1327,49 +1328,14 @@ void VelocityCorrectionScheme::v_InitialiseFields()
 }
 
 /*
- *  Set initial condition manually because of the
- *  auxiliary pressure field for incompressible Navier-Stokes.
+ * The pressure is evaluated on the velocity expansion, whose quadrature points
+ * it shares, so a file written at the velocity order is read at that order,
+ * and projected element by element onto its own expansion.
  */
-void VelocityCorrectionScheme::v_SetInitialConditions(double initialTime)
+MultiRegions::ExpListSharedPtr VelocityCorrectionScheme::
+    v_GetInitialConditionExpList(const size_t i)
 {
-    /// Do initial conditions for velocity and additional scalar fields
-    UnsteadySystem::v_SetInitialConditions(initialTime);
-
-    /// Do initial conditions for auxiliary pressure field
-    // Set time to initial time
-    m_time = initialTime;
-
-    // Initialise pressure fields
-    m_math.zero(m_phys[m_pressureIndex]);
-    m_math.zero(m_coeff[m_pressureIndex]);
-
-    // The pressure is evaluated on the velocity expansion, whose quadrature
-    // points it shares, so a file written at the velocity order is read at
-    // that order, and projected element by element onto its own expansion.
-    SessionFunction pressureConditions(
-        m_session, m_expansionLists[m_velocityIndex],
-        m_variables[m_pressureIndex], "InitialConditions");
-    pressureConditions.Evaluate(m_phys[m_pressureIndex], m_time);
-    auto iprod = LibUtilities::Field<double, FieldState::Coeff>(
-        "pressure inner product",
-        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            m_expansionLists[m_pressureIndex]),
-        m_variables[m_pressureIndex].size(), m_npointsZ);
-    IProductWRTBaseOp<double>::Create(m_expansionLists[m_pressureIndex],
-                                      m_variables[m_pressureIndex])
-        ->Apply(m_phys[m_pressureIndex], iprod);
-    MultiplyByElmtInvMassOp<double>::Create(m_expansionLists[m_pressureIndex],
-                                            m_variables[m_pressureIndex])
-        ->Apply(iprod, m_coeff[m_pressureIndex]);
-
-    // The pressure is then made continuous as the other fields are, its
-    // Dirichlet values included; its mass matrix projection is built only
-    // for Galerkin.
-    SetContinuousInitialConditions(
-        m_expansionLists[m_pressureIndex], m_variables[m_pressureIndex],
-        m_phys[m_pressureIndex], m_coeff[m_pressureIndex], m_bwdTransPressureOp,
-        nullptr);
-    PrintInitialConditions(pressureConditions);
+    return m_expansionLists[i == m_pressureIndex ? m_velocityIndex : i];
 }
 
 /**
@@ -1548,10 +1514,10 @@ std::vector<bool> VelocityCorrectionScheme::v_GetSystemSingularChecks()
  * The velocity is read from the solution, whose leading components are the
  * velocity. m_advVel exists only for the linear-implicit formulation.
  */
-LibUtilities::Field<double, FieldState::Phys> &VelocityCorrectionScheme::
-    v_GetCFLVelocityField()
+UnsteadySystem::CFLVelocity VelocityCorrectionScheme::v_GetCFLVelocity()
 {
-    return m_phys[m_velocityIndex];
+    return {&m_phys[m_velocityIndex], m_velocityIndex,
+            m_variables[m_velocityIndex]};
 }
 
 } // namespace Nektar

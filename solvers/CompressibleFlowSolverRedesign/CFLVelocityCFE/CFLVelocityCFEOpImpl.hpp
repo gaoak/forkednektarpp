@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "CFLVelocityCFE/CFLVelocityCFEKernels.hpp"
-#include "CFLVelocityCFE/CFLVelocityCFEOp.hpp"
+#include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEKernels.hpp>
+#include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEOp.hpp>
 
-#include "EquationOfState/SupportedEoS.hpp"
+#include <CompressibleFlowSolverRedesign/EquationOfState/SupportedEoS.hpp>
 
 namespace Nektar::detail
 {

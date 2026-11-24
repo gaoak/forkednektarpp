@@ -34,12 +34,24 @@
 
 #include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp>
 #include <ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxOp.hpp>
+#include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
 #include <ADRSolverRedesign/ScalarTraceFlux/ScalarTraceFluxOp.hpp>
+#include <MultiRegions/ElmtOps/Advection/AdvectionOp.hpp>
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
+#include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
+#include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
+#include <SolverCore/PreconOps/PreconOp.hpp>
+#include <SolverCore/TimeOps/TimeOp.hpp>
 #include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 #include <ADRSolverRedesign/EquationSystems/UnsteadyADR.h>
@@ -336,13 +348,14 @@ void UnsteadyADR::DoExplicitRhs(
  * @brief Offer the advection velocity to the Courant estimate.
  *
  * Without advection this field is never constructed, and
- * GetCFLTimeStep() skips the estimate when the returned field is not
+ * ComputeCFLInvTimeScale() skips the estimate when the returned field is not
  * instantiated.
  */
-LibUtilities::Field<double, FieldState::Phys> &UnsteadyADR::
-    v_GetCFLVelocityField()
+UnsteadySystem::CFLVelocity UnsteadyADR::v_GetCFLVelocity()
 {
-    return m_advectionVel;
+    std::vector<std::string> vel = {"Vx", "Vy", "Vz"};
+    vel.resize(m_coordim);
+    return {&m_advectionVel, 0, vel};
 }
 
 void UnsteadyADR::LoadSessionParameters()

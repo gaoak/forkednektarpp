@@ -34,11 +34,11 @@
 
 #pragma once
 
-#include "ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxKernels.hpp"
-#include "ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp"
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
-#include "MultiRegions/DataWarehouse/TraceDataWarehouse.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOpImpl.hpp"
+#include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxKernels.hpp>
+#include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp>
+#include <LibUtilities/BasicUtils/Math/MathKernels.hpp>
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOpImpl.hpp>
 
 namespace Nektar::detail
 {

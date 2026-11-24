@@ -39,13 +39,19 @@
 #include <iostream>
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
+#include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/AvgAssmbScatr/AvgAssmbScatrOp.hpp>
 #include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
 #include <MultiRegions/Common/Operator.hpp>
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 #include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
+#include <SolverCore/CFL/MaxStdVelocity/MaxStdVelocityOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
+#include <SolverCore/NormOps/NormL2/NormL2Op.hpp>
+#include <SolverCore/TimeOps/TimeOp.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -137,13 +143,10 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
 }
 
 /*
- * Set initial conditions in m_phys[0] and m_coeff[0] using m_variables[0].
+ * Set initial conditions in m_phys and m_coeff for every expansion list.
  */
 void UnsteadySystem::v_SetInitialConditions(double initialTime)
 {
-    SessionFunction initialConditions(m_session, m_expansionLists[0],
-                                      m_variables[0], "InitialConditions");
-
     m_time = initialTime;
 
     // Print to log/console
@@ -153,74 +156,83 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
         std::cout << "Initial Conditions:" << std::endl;
     }
 
-    // The function at the quadrature points, projected element by element.
-    initialConditions.Evaluate(m_phys[0], m_time);
-    auto iprod = LibUtilities::Field<double, FieldState::Coeff>(
-        "initial conditions inner product",
-        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            m_expansionLists[0]),
-        m_variables[0].size(), m_npointsZ);
-    MultiRegions::IProductWRTBaseOp<double>::Create(m_expansionLists[0],
-                                                    m_variables[0])
-        ->Apply(m_phys[0], iprod);
-    MultiRegions::MultiplyByElmtInvMassOp<double>::Create(m_expansionLists[0],
-                                                          m_variables[0])
-        ->Apply(iprod, m_coeff[0]);
-    auto bwdTransOp = MultiRegions::BwdTransOp<double>::Create(
-        m_expansionLists[0], m_variables[0]);
-    if (m_projectionType == MultiRegions::eGalerkin)
+    for (size_t i = 0; i < m_expansionLists.size(); ++i)
     {
-        SetContinuousInitialConditions(m_expansionLists[0], m_variables[0],
-                                       m_phys[0], m_coeff[0], bwdTransOp,
-                                       nullptr);
-    }
-    else if (initialConditions.GetType() ==
-             LibUtilities::eFunctionTypeExpression)
-    {
-        // The expression was sampled at the quadrature points, which carries
-        // more information than the expansion can hold - there are more
-        // quadrature points than modes - so the sampled field is not in the
-        // polynomial space. DoProjection() is a copy for a discontinuous
-        // field and so leaves it that way, and every later update adds only
-        // in-space increments, so the surplus survives the whole run. It has
-        // no representation in the modal coefficients a field file stores,
-        // which is why a discontinuous restart cannot reproduce the run it
-        // resumed. Projecting once here confines the state to the space, and
-        // a restart is then exact to every digit.
-        //
-        // Projecting unconditionally would change every discontinuous
-        // answer, so it is opt-in: `ProjectInitialConditions` set to
-        // Galerkin.
-        // DoProjection() itself is left alone: the time integrator calls it
-        // every step, where this would be a costly no-op.
-        if (m_initialConditionProjection ==
-            InitialConditionProjection::Galerkin)
+        SessionFunction initialConditions(m_session,
+                                          v_GetInitialConditionExpList(i),
+                                          m_variables[i], "InitialConditions");
+
+        // The function at the quadrature points, projected element by element.
+        initialConditions.Evaluate(m_phys[i], m_time);
+        auto iprod = LibUtilities::Field<double, FieldState::Coeff>(
+            "initial conditions inner product",
+            MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+                m_expansionLists[i]),
+            m_variables[i].size(), m_npointsZ);
+        MultiRegions::IProductWRTBaseOp<double>::Create(m_expansionLists[i],
+                                                        m_variables[i])
+            ->Apply(m_phys[i], iprod);
+        MultiRegions::MultiplyByElmtInvMassOp<double>::Create(
+            m_expansionLists[i], m_variables[i])
+            ->Apply(iprod, m_coeff[i]);
+        auto bwdTransOp = MultiRegions::BwdTransOp<double>::Create(
+            m_expansionLists[i], m_variables[i]);
+        if (m_projectionType == MultiRegions::eGalerkin)
         {
-            bwdTransOp->Apply(m_coeff[0], m_phys[0]);
+            SetContinuousInitialConditions(m_expansionLists[i], m_variables[i],
+                                           m_phys[i], m_coeff[i], bwdTransOp,
+                                           nullptr);
         }
-        else
+        else if (initialConditions.GetType() ==
+                 LibUtilities::eFunctionTypeExpression)
         {
-            // Warn here rather than on the restart that suffers for it. This
-            // is the run whose state stops being representable: what a later
-            // restart loses was already lost when this run's field file was
-            // written. By then nothing can tell - a state read back from a
-            // file is in the polynomial space whatever produced it.
-            NEKERROR(ErrorUtil::ewarning,
-                     "This discontinuous state is sampled at the quadrature "
-                     "points and so is not confined to the polynomial space. "
-                     "The modal coefficients in a field file cannot represent "
-                     "it, so a run restarted from one written here will not "
-                     "reproduce this one. Set ProjectInitialConditions to "
-                     "Galerkin to confine the state and make a restart "
-                     "exact.");
+            // The expression was sampled at the quadrature points, which
+            // carries more information than the expansion can hold - there are
+            // more quadrature points than modes - so the sampled field is not
+            // in the polynomial space. DoProjection() is a copy for a
+            // discontinuous field and so leaves it that way, and every later
+            // update adds only in-space increments, so the surplus survives the
+            // whole run. It has no representation in the modal coefficients a
+            // field file stores, which is why a discontinuous restart cannot
+            // reproduce the run it resumed. Projecting once here confines the
+            // state to the space, and a restart is then exact to every digit.
+            //
+            // Projecting unconditionally would change every discontinuous
+            // answer, so it is opt-in: `ProjectInitialConditions` set to
+            // Galerkin.
+            // DoProjection() itself is left alone: the time integrator calls it
+            // every step, where this would be a costly no-op.
+            if (m_initialConditionProjection ==
+                InitialConditionProjection::Galerkin)
+            {
+                bwdTransOp->Apply(m_coeff[i], m_phys[i]);
+            }
+            else
+            {
+                // Warn here rather than on the restart that suffers for it.
+                // This is the run whose state stops being representable: what a
+                // later restart loses was already lost when this run's field
+                // file was written. By then nothing can tell - a state read
+                // back from a file is in the polynomial space whatever produced
+                // it.
+                NEKERROR(
+                    ErrorUtil::ewarning,
+                    "This discontinuous state is sampled at the quadrature "
+                    "points and so is not confined to the polynomial space. "
+                    "The modal coefficients in a field file cannot represent "
+                    "it, so a run restarted from one written here will not "
+                    "reproduce this one. Set ProjectInitialConditions to "
+                    "Galerkin to confine the state and make a restart "
+                    "exact.");
+            }
         }
+        // Nothing to warn about for a discontinuous file: whatever wrote it,
+        // the state coming back is the backward transform of a set of modal
+        // coefficients and so is in the polynomial space by construction.
+        // Whether it is the state the earlier run actually held was decided
+        // when that run was set up, which is where the warning lives.
+        PrintInitialConditions(initialConditions);
     }
-    // Nothing to warn about for a discontinuous file: whatever wrote it, the
-    // state coming back is the backward transform of a set of modal
-    // coefficients and so is in the polynomial space by construction. Whether
-    // it is the state the earlier run actually held was decided when that run
-    // was set up, which is where the warning lives.
-    PrintInitialConditions(initialConditions);
 }
 
 /**
@@ -329,7 +341,7 @@ void UnsteadySystem::v_DoSolve()
         }
 
         // Do time integration
-        m_timeOp->Apply(m_phys[0]);
+        m_timeOp->Apply(m_phys[m_timeIntegrationIndex]);
         timer.Stop();
         elapsed = timer.TimePerTest(1);
         intTime += elapsed;
@@ -439,8 +451,8 @@ double UnsteadySystem::GetCFLNumber()
  */
 double UnsteadySystem::ComputeCFLInvTimeScale()
 {
-    auto &velocity = v_GetCFLVelocityField();
-    if (!velocity)
+    const auto velocity = v_GetCFLVelocity();
+    if (!velocity.field || !*velocity.field)
     {
         return 0.0;
     }
@@ -448,43 +460,27 @@ double UnsteadySystem::ComputeCFLInvTimeScale()
     if (!m_maxStdVelocityOp)
     {
         m_maxStdVelocityOp = MaxStdVelocityOp<double>::Create(
-            m_expansionLists[0], m_variables[0]);
+            m_expansionLists[velocity.expList], velocity.components);
     }
 
-    m_maxStdVelocityOp->SetSoundSpeedFactor(v_GetSoundSpeedFactor());
-    m_cflInvTimeScale = m_maxStdVelocityOp->Apply(velocity);
+    m_maxStdVelocityOp->SetSoundSpeedFactor(velocity.soundSpeedFactor);
+    m_cflInvTimeScale = m_maxStdVelocityOp->Apply(*velocity.field);
 
     return m_cflInvTimeScale;
 }
 
 /**
- * @brief The field the Courant estimate reads.
+ * @brief The velocity the Courant estimate reads.
  *
  * A solver holds its velocity in its own way: as a field of its own for
  * scalar advection and the incompressible equations, or reconstructed from
  * conserved variables for a compressible one, where the speed of sound
- * follows it as an extra component. The leading components are the velocity
- * and, when v_GetSoundSpeedFactor() is non-zero, the one after them is a
- * wave speed. A solver with no velocity to offer - this default - returns a
- * field that was never instantiated, and GetCFLTimeStep() skips the
- * estimate.
+ * follows it as an extra component. A solver with no velocity to offer -
+ * this default - returns no field, and the estimate is skipped.
  */
-LibUtilities::Field<double, FieldState::Phys> &UnsteadySystem::
-    v_GetCFLVelocityField()
+UnsteadySystem::CFLVelocity UnsteadySystem::v_GetCFLVelocity()
 {
-    // Never instantiated, which GetCFLTimeStep() reads as "this solver
-    // offers no velocity" and skips the estimate.
-    static LibUtilities::Field<double, FieldState::Phys> noVelocity;
-    return noVelocity;
-}
-
-/**
- * @brief Weight on the wave-speed component of the CFL velocity field:
- * zero, this default, when the flow carries no acoustic wave.
- */
-double UnsteadySystem::v_GetSoundSpeedFactor()
-{
-    return 0.0;
+    return {};
 }
 
 void UnsteadySystem::v_PrintStatusInformation()

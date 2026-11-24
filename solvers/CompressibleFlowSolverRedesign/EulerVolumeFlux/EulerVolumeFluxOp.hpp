@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
+#include <SolverCore/Advection/AdvectionVolumeFluxOp.hpp>
 
-#include "EquationOfState/SupportedEoS.hpp"
+#include <CompressibleFlowSolverRedesign/EquationOfState/SupportedEoS.hpp>
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar

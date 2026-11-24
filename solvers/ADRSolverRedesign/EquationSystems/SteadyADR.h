@@ -38,10 +38,21 @@
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <SolverCore/EquationSystems/EquationSystem.h>
 #include <SolverCore/Forcing/Forcing.h>
-#include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 
 namespace Nektar
 {
+namespace MultiRegions
+{
+template <typename TData> class BwdTransOp;
+} // namespace MultiRegions
+
+namespace SolverCore
+{
+template <typename TData> class LinearSolverOp;
+template <typename TData> class LinearSystemOp;
+template <typename TData> class PreconOp;
+} // namespace SolverCore
+
 using namespace SolverCore;
 using namespace MultiRegions;
 

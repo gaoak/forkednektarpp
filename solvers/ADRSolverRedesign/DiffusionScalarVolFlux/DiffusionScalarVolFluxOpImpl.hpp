@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxKernels.hpp"
-#include "ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxOp.hpp"
+#include <ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxKernels.hpp>
+#include <ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxOp.hpp>
 
 namespace Nektar::detail
 {

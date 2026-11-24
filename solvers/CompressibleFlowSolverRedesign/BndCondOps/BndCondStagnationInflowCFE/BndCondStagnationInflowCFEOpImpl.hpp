@@ -43,8 +43,8 @@
 
 #include <LibUtilities/BasicUtils/Field/MemoryRegion.hpp>
 
-#include "BndCondStagnationInflowCFEKernels.hpp"
-#include "BndCondStagnationInflowCFEOp.hpp"
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondStagnationInflowCFE/BndCondStagnationInflowCFEKernels.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondStagnationInflowCFE/BndCondStagnationInflowCFEOp.hpp>
 
 namespace Nektar::detail
 {

@@ -38,8 +38,8 @@
 
 #include <LibUtilities/BasicUtils/Field/MemoryRegion.hpp>
 
-#include "BndCondPressureOutflowCFEKernels.hpp"
-#include "BndCondPressureOutflowCFEOp.hpp"
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondPressureOutflowCFE/BndCondPressureOutflowCFEKernels.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondPressureOutflowCFE/BndCondPressureOutflowCFEOp.hpp>
 
 using namespace Nektar;
 

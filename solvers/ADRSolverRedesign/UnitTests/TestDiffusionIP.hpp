@@ -33,14 +33,14 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxOp.hpp"
-#include "SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
+#include <ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxOp.hpp>
+#include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 #include <SolverUtils/Diffusion/Diffusion.h>
 #include <SolverUtils/Diffusion/DiffusionIP.h>
 
-#include "UnitTests/MultiRegions/TestOp.hpp"
+#include <UnitTests/MultiRegions/TestOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
