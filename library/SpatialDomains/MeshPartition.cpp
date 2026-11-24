@@ -306,23 +306,44 @@ void MeshPartition::ReadExpansions()
     }
 }
 
+namespace
+{
+// Count how many elements of each shape type are in a partition.
+std::map<int, int> countPartitionShapes(const std::vector<int> &partition)
+{
+    std::map<int, int> shapeCounts;
+    for (int shape : partition)
+    {
+        shapeCounts[shape]++;
+    }
+    return shapeCounts;
+}
+
+void displayShapeBreakdown(const std::map<int, int> &shapeCounts,
+                           std::ostream &out)
+{
+    for (const auto &[shape, count] : shapeCounts)
+    {
+        out << LibUtilities::ShapeTypeMap[shape] << ": " << count << ", ";
+    }
+}
+} // namespace
+
+// Display number of elements, number of partitions, and how the elements,
+// local degrees of freedom and BndDof are spread across each partition.
 void MeshPartition::PrintPartInfo(std::ostream &out)
 {
-    int nElmt = boost::num_vertices(m_graph);
-    int nPart = m_localPartition.size();
+    int nPart{static_cast<int>(m_localPartition.size())};
 
-    out << "# Partition information:" << std::endl;
-    out << "# No. elements  : " << nElmt << std::endl;
-    out << "# No. partitions: " << nPart << std::endl;
-    out << "# ID  nElmt  nLocDof  nBndDof" << std::endl;
-
-    BoostVertexIterator vertit, vertit_end;
     std::vector<int> partElmtCount(nPart, 0);
     std::vector<int> partLocCount(nPart, 0);
     std::vector<int> partBndCount(nPart, 0);
 
     std::map<int, int> elmtSizes;
     std::map<int, int> elmtBndSizes;
+    std::vector<std::vector<int>> shapeCount(
+        nPart);                         // Storing shapes per partition
+    std::map<int, int> totalShapeCount; // Storing total shapes
 
     for (std::map<int, NummodesPerField>::iterator expIt = m_expansions.begin();
          expIt != m_expansions.end(); ++expIt)
@@ -357,20 +378,84 @@ void MeshPartition::PrintPartInfo(std::ostream &out)
         }
     }
 
-    for (std::tie(vertit, vertit_end) = boost::vertices(m_graph);
-         vertit != vertit_end; ++vertit)
+    // Counting elements, locDof, BndDof and shapes per partition
+    for (int part{0}; part < nPart; ++part)
     {
-        int partId = m_graph[*vertit].partition;
-        partElmtCount[partId]++;
-        partLocCount[partId] += elmtSizes[m_graph[*vertit].id];
-        partBndCount[partId] += elmtBndSizes[m_graph[*vertit].id];
+        partElmtCount[part] = m_localPartition[part].size();
+        for (unsigned int elID : m_localPartition[part])
+        {
+            partLocCount[part] += elmtSizes[elID];
+            partBndCount[part] += elmtBndSizes[elID];
+            shapeCount[part].push_back(m_shape[elID]);
+            totalShapeCount[m_shape[elID]]++;
+        }
     }
 
+    // Statistical measures
+    int elMin{partElmtCount[0]}, dofMin{partLocCount[0]};
+    int elMax{0}, dofMax{0};
+    double dofTotal{};
+    double elTotal{static_cast<double>(elmtSizes.size())};
+
+    // Display Mesh Metrics
+    out << "=====================================\n";
+    out << "MESH PARTITION INFO" << '\n';
+    out << "No. elements  : " << elTotal << '\n';
+    out << "No. partitions: " << nPart << '\n';
+    out << '\n';
+    out << "No  PID       nElmt  nLocDof  nBndDof\n";
+
+    // If the code is serial
+    if (m_pids.empty())
+    {
+        m_pids.assign(nPart, 0);
+    }
+
+    // Display per-partition metrics
     for (int i = 0; i < nPart; ++i)
     {
-        out << i << " " << partElmtCount[i] << " " << partLocCount[i] << " "
-            << partBndCount[i] << std::endl;
+        std::map<int, int> partShapeInfo{countPartitionShapes(shapeCount[i])};
+        out << i << "   " << m_pids[i] << "   " << partElmtCount[i] << "   "
+            << partLocCount[i] << "   " << partBndCount[i] << "   ";
+        displayShapeBreakdown(partShapeInfo, out);
+        out << '\n';
+
+        if (partElmtCount[i] > elMax)
+        {
+            elMax = partElmtCount[i];
+        }
+        if (partLocCount[i] > dofMax)
+        {
+            dofMax = partLocCount[i];
+        }
+        if (partElmtCount[i] < elMin)
+        {
+            elMin = partElmtCount[i];
+        }
+        if (partLocCount[i] < dofMin)
+        {
+            dofMin = partLocCount[i];
+        }
+        dofTotal += partLocCount[i];
     }
+
+    // Summary Mesh Shape Metrics
+    out << '\n';
+    for (const auto &[shape, count] : totalShapeCount)
+    {
+        out << "Total " << LibUtilities::ShapeTypeMap[shape] << "s" << ": "
+            << count << "\n";
+    }
+    // clang-format off
+    out << "nElmt   (min, max, mean, max/mean): " << elMin << " " << elMax << " "
+                                                  << elTotal / nPart << " "
+                                                  << elMax / (elTotal / nPart) << '\n';
+    out << "nLocDof (min, max, mean, max/mean): " << dofMin << " " << dofMax << " "
+                                                  << dofTotal / nPart << " " 
+                                                  << (dofMax / (dofTotal / nPart)) << '\n';
+    out << "=====================================\n";
+    out << '\n';
+    // clang-format on
 }
 
 void MeshPartition::ReadConditions()
@@ -503,7 +588,7 @@ void MeshPartition::WeightElements()
             m_edgeWeights[elid][m_fieldNameToId[it->first]] =
                 CalculateEdgeWeight(m_shape[elid], na, nb, nc);
         }
-    } // for i
+    }
 }
 
 void MeshPartition::CreateGraph()

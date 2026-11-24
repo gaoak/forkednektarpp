@@ -75,6 +75,11 @@ public:
     SPATIAL_DOMAINS_EXPORT void GetElementIDs(const int procid,
                                               std::vector<unsigned int> &tmp);
 
+    SPATIAL_DOMAINS_EXPORT void SetPids(const std::vector<int> &pids)
+    {
+        m_pids = pids;
+    }
+
 protected:
     typedef std::vector<unsigned int> MultiWeight;
 
@@ -140,6 +145,7 @@ protected:
 
     BoostGraph m_graph;
     std::map<int, std::vector<unsigned int>> m_localPartition;
+    std::vector<int> m_pids;
 
     bool m_weightingRequired;
     bool m_weightBnd;
