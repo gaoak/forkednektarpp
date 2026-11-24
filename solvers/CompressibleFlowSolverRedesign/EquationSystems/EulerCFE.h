@@ -35,15 +35,24 @@
 
 #pragma once
 
-#include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEOp.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
-#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
-#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
-#include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
 namespace Nektar
 {
+template <typename TData> class CFLVelocityCFEOp;
+
+namespace MultiRegions
+{
+template <typename TData> class IProductWRTBaseOp;
+template <typename TData> class MultiplyByElmtInvMassOp;
+} // namespace MultiRegions
+
+namespace SolverCore
+{
+template <typename TData> class AdvectionWeakDGOp;
+} // namespace SolverCore
+
 using namespace SolverCore;
 using namespace MultiRegions;
 
@@ -103,10 +112,7 @@ protected:
     /// Project the solution to coefficients and return views of them.
     CoefficientFieldViews v_GetOutputFieldViews() override;
 
-    LibUtilities::Field<double, FieldState::Phys> &v_GetCFLVelocityField()
-        override;
-
-    double v_GetSoundSpeedFactor() override;
+    CFLVelocity v_GetCFLVelocity() override;
 };
 
 } // namespace Nektar

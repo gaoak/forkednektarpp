@@ -36,7 +36,7 @@
 
 #include <MultiRegions/DisContField.h>
 
-#include "BndCondExtrapOrder0CFEOp.hpp"
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondExtrapOrder0CFE/BndCondExtrapOrder0CFEOp.hpp>
 
 namespace Nektar::detail
 {

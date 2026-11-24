@@ -32,20 +32,22 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/Field/Block.hpp>
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
-
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/DisContField.h>
 #include <SolverCore/EquationSystems/EquationSystem.h>
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <SolverCore/MeanRemoval/MeanRemovalOp.hpp>
 #include <SolverCore/NormOps/NormL2/NormL2Op.hpp>
 #include <SolverCore/NormOps/NormLinf/NormLinfOp.hpp>
+#include <SolverCore/PreconOps/PreconOp.hpp>
+
 #include <algorithm>
 #include <iterator>
 #include <utility>
 #include <vector>
-
-#include <LibUtilities/BasicUtils/Field/Block.hpp>
 
 namespace Nektar::SolverCore
 {

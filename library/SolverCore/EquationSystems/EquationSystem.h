@@ -47,12 +47,10 @@
 #include <iosfwd>
 #include <vector>
 
-#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
-#include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
-
 namespace Nektar::SolverCore
 {
 
+template <typename TData> class FwdTransOp;
 template <typename TData> class MeanRemovalOp;
 
 class EquationSystem;
@@ -153,6 +151,24 @@ public:
     void CheckHomogeneousDimensions();
 
 protected:
+    /// How the initial condition is brought into the polynomial space
+    enum class InitialConditionProjection
+    {
+        None,     ///< Discontinuous: keep the quadrature point samples.
+        Average,  ///< Continuous: average element coefficients, Dirichlet.
+        Galerkin, ///< Continuous: mass matrix solve with the Dirichlet
+                  ///< values. Discontinuous: element-local L2 projection.
+    };
+
+    /// Parameter for homogeneous expansions
+    enum HomogeneousType
+    {
+        eHomogeneous1D,
+        eHomogeneous2D,
+        eHomogeneous3D,
+        eNotHomogeneous
+    };
+
     LibUtilities::CommSharedPtr m_comm;
     LibUtilities::SessionReaderSharedPtr m_session;
     SpatialDomains::MeshGraphSharedPtr m_graph;
@@ -172,16 +188,6 @@ protected:
     unsigned int m_expdim                         = 0;
     double m_time                                 = 0.0;
     MultiRegions::ProjectionType m_projectionType = MultiRegions::eGalerkin;
-
-    /// How the initial condition is brought into the polynomial space; see
-    /// UnsteadySystem::v_SetInitialConditions().
-    enum class InitialConditionProjection
-    {
-        None,     ///< Discontinuous: keep the quadrature point samples.
-        Average,  ///< Continuous: average element coefficients, Dirichlet.
-        Galerkin, ///< Continuous: mass matrix solve with the Dirichlet
-                  ///< values. Discontinuous: element-local L2 projection.
-    };
 
     /// Session SOLVERINFO ProjectInitialConditions; default Average for a
     /// continuous projection, None otherwise.
@@ -204,15 +210,6 @@ protected:
     std::vector<std::shared_ptr<MeanRemovalOp<double>>> m_meanRemovalOp;
 
     /// HOMOGENEOUS setup
-    /// Parameter for homogeneous expansions
-    enum HomogeneousType
-    {
-        eHomogeneous1D,
-        eHomogeneous2D,
-        eHomogeneous3D,
-        eNotHomogeneous
-    };
-
     HomogeneousType m_HomogeneousType;
 
     double m_LhomX; ///< physical length in X direction (if homogeneous)

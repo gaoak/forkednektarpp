@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
+#include <SolverCore/Advection/AdvectionVolumeFluxOp.hpp>
 
 namespace Nektar
 {

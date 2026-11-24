@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the

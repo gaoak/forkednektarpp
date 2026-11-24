@@ -35,7 +35,7 @@
 #ifndef NEKTAR_SOLVERS_ADRSOLVERREDESIGN_SCALARTRACEFLUXOP_HPP
 #define NEKTAR_SOLVERS_ADRSOLVERREDESIGN_SCALARTRACEFLUXOP_HPP
 
-#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 namespace Nektar
 {

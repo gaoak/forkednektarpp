@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 namespace Nektar
 {

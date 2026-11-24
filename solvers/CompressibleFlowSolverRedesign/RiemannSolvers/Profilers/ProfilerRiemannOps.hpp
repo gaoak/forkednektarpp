@@ -50,7 +50,7 @@
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-#include "CompressibleFlowSolverRedesign/AdvTraceFluxCFE/AdvTraceFluxCFEOp.hpp"
+#include <CompressibleFlowSolverRedesign/AdvTraceFluxCFE/AdvTraceFluxCFEOp.hpp>
 
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 

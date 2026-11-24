@@ -32,15 +32,15 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp"
-#include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
+#include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
+#include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 #include <ADRSolver/EquationSystems/UnsteadyAdvection.h>
 #include <SolverUtils/RiemannSolvers/UpwindSolver.h>
 
-#include "UnitTests/MultiRegions/TestOp.hpp"
+#include <UnitTests/MultiRegions/TestOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;

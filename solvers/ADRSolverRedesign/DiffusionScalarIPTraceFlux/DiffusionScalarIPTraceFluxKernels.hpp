@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
 namespace Nektar::detail
 {

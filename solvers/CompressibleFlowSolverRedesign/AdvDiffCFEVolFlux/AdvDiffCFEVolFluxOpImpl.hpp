@@ -35,9 +35,9 @@
 
 #pragma once
 
-#include "AdvDiffCFEVolFlux/AdvDiffCFEVolFluxOp.hpp"
-#include "DiffusionCFEVolFlux/CFEViscosityParams.hpp"
-#include "DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp"
+#include <CompressibleFlowSolverRedesign/AdvDiffCFEVolFlux/AdvDiffCFEVolFluxOp.hpp>
+#include <CompressibleFlowSolverRedesign/DiffusionCFEVolFlux/CFEViscosityParams.hpp>
+#include <CompressibleFlowSolverRedesign/DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp>
 
 namespace Nektar::detail
 {

@@ -34,21 +34,24 @@
 
 #pragma once
 
-#include <SolverCore/CFL/MaxStdVelocity/MaxStdVelocityOp.hpp>
 #include <SolverCore/EquationSystems/EquationSystem.h>
 #include <SolverCore/Filters/Filter.h>
-#include <SolverCore/NormOps/NormL2/NormL2Op.hpp>
-#include <SolverCore/TimeOps/TimeOp.hpp>
+
+namespace Nektar::MultiRegions
+{
+template <typename TData> class BwdTransOp;
+} // namespace Nektar::MultiRegions
 
 namespace Nektar::SolverCore
 {
+template <typename TData> class MaxStdVelocityOp;
+template <typename TData> class NormL2Op;
+template <typename TData> class TimeOp;
+
 /// Base class for unsteady solvers.
 class UnsteadySystem : public EquationSystem
 {
 public:
-    /// Destructor
-    SOLVER_CORE_EXPORT ~UnsteadySystem() override = default;
-
     void SetInitialConditions(double initialTime = 0.0)
     {
         v_SetInitialConditions(initialTime);
@@ -68,11 +71,36 @@ public:
     static std::string cmdSetStartChkNum;
 
 protected:
+    /// The velocity the Courant estimate reads.
+    struct CFLVelocity
+    {
+        /// Leading components the velocity and, when soundSpeedFactor is
+        /// non-zero, the one after them a wave speed; null when the solver
+        /// offers no velocity.
+        LibUtilities::Field<double, FieldState::Phys> *field = nullptr;
+        /// Expansion list the field lives on.
+        size_t expList = 0;
+        /// Names of the field components.
+        std::vector<std::string> components;
+        /// Weight on the wave-speed component.
+        double soundSpeedFactor = 0.0;
+    };
+
+    /// The point in a solve at which RunFilters() is called.
+    enum class FilterPhase
+    {
+        Initial,
+        Step,
+        Final
+    };
+
     double m_fintime         = 0.0;
     double m_timestep        = 0.0;
     unsigned int m_steps     = 0;
     unsigned int m_infosteps = 0;
     std::shared_ptr<TimeOp<double>> m_timeOp;
+    /// Expansion list whose solution m_timeOp advances.
+    unsigned int m_timeIntegrationIndex = 0;
 
     /// Safety factor on the timestep the Courant condition permits
     /// (GetCFLTimeStep()); optional, default one.
@@ -94,6 +122,18 @@ protected:
     std::string m_abortFile = "abort";
     std::vector<std::shared_ptr<NormL2Op<double>>> m_abortNormOp;
 
+    std::vector<std::pair<std::string, FilterSharedPtr>> m_filters;
+    /// Data derived from the solution that the filters of a phase share.
+    DerivedDataCache m_filterDerivedData;
+
+    /// Initialises UnsteadySystem class members.
+    SOLVER_CORE_EXPORT UnsteadySystem(
+        const LibUtilities::SessionReaderSharedPtr &pSession,
+        const SpatialDomains::MeshGraphSharedPtr &pGraph);
+
+    /// Destructor
+    SOLVER_CORE_EXPORT ~UnsteadySystem() override = default;
+
     /// Test the two conditions under which a run should stop early.
     SOLVER_CORE_EXPORT bool CheckAbortConditions();
 
@@ -107,23 +147,8 @@ protected:
     /// solver offers no velocity.
     SOLVER_CORE_EXPORT double ComputeCFLInvTimeScale();
 
-    /// The field the Courant estimate reads.
-    SOLVER_CORE_EXPORT virtual LibUtilities::Field<double, FieldState::Phys> &
-    v_GetCFLVelocityField();
-
-    /// Weight on the wave-speed component of the field above.
-    SOLVER_CORE_EXPORT virtual double v_GetSoundSpeedFactor();
-    std::vector<std::pair<std::string, FilterSharedPtr>> m_filters;
-    /// Data derived from the solution that the filters of a phase share.
-    DerivedDataCache m_filterDerivedData;
-
-    /// The point in a solve at which RunFilters() is called.
-    enum class FilterPhase
-    {
-        Initial,
-        Step,
-        Final
-    };
+    /// The velocity the Courant estimate reads.
+    SOLVER_CORE_EXPORT virtual CFLVelocity v_GetCFLVelocity();
 
     /// Build the output callbacks a FilterContext gives the filters.
     SOLVER_CORE_EXPORT FilterOutputServices BuildFilterOutputServices();
@@ -132,11 +157,6 @@ protected:
     SOLVER_CORE_EXPORT void RunFilters(FilterPhase phase, double time,
                                        unsigned int step);
 
-    /// Initialises UnsteadySystem class members.
-    SOLVER_CORE_EXPORT UnsteadySystem(
-        const LibUtilities::SessionReaderSharedPtr &pSession,
-        const SpatialDomains::MeshGraphSharedPtr &pGraph);
-
     /// Init object for UnsteadySystem class.
     SOLVER_CORE_EXPORT void v_InitObject(
         bool declareExpansionLists = true) override;
@@ -144,6 +164,14 @@ protected:
     // Parse initial conditions
     SOLVER_CORE_EXPORT virtual void v_SetInitialConditions(
         double initialTime = 0.0);
+
+    /// Expansion list on which the initial conditions of expansion list @p i
+    /// are evaluated; its own by default.
+    SOLVER_CORE_EXPORT virtual MultiRegions::ExpListSharedPtr
+    v_GetInitialConditionExpList(const size_t i)
+    {
+        return m_expansionLists[i];
+    }
 
     /// Solves an unsteady problem.
     SOLVER_CORE_EXPORT void v_DoSolve() override;

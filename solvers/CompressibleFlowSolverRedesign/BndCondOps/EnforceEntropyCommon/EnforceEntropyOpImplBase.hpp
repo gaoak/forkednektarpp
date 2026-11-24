@@ -42,7 +42,7 @@
 
 #include <LibUtilities/BasicUtils/Field/MemoryRegion.hpp>
 
-#include "EnforceEntropyKernels.hpp"
+#include <CompressibleFlowSolverRedesign/BndCondOps/EnforceEntropyCommon/EnforceEntropyKernels.hpp>
 
 namespace Nektar::detail
 {

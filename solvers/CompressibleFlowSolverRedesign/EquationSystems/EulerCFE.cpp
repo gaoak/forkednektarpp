@@ -41,10 +41,15 @@
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondRiemannInvariantCFE/BndCondRiemannInvariantCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondSlipWallCFE/BndCondSlipWallCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondStagnationInflowCFE/BndCondStagnationInflowCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/EquationSystems/EulerCFE.h>
 #include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
+#include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
+#include <SolverCore/TimeOps/TimeOp.hpp>
 #include <iomanip>
 
 namespace Nektar
@@ -267,8 +272,15 @@ void EulerCFE::SetUpBoundaryConditions()
  * so a run that asks for no Courant estimate builds neither the operator
  * nor the field it writes into.
  */
-LibUtilities::Field<double, FieldState::Phys> &EulerCFE::v_GetCFLVelocityField()
+UnsteadySystem::CFLVelocity EulerCFE::v_GetCFLVelocity()
 {
+    std::vector<std::string> components;
+    for (unsigned int i = 0; i < m_coordim; ++i)
+    {
+        components.push_back("u" + std::to_string(i));
+    }
+    components.push_back("c");
+
     if (!m_cflVelocityOp)
     {
         // The kernel works in the shape dimension while the reduction reads
@@ -278,13 +290,6 @@ LibUtilities::Field<double, FieldState::Phys> &EulerCFE::v_GetCFLVelocityField()
                      m_coordim,
                  "The Courant estimate expects the shape and coordinate "
                  "dimensions to agree.");
-
-        std::vector<std::string> components;
-        for (unsigned int i = 0; i < m_coordim; ++i)
-        {
-            components.push_back("u" + std::to_string(i));
-        }
-        components.push_back("c");
 
         m_cflVelocityOp =
             CFLVelocityCFEOp<double>::Create(m_expansionLists[0], components);
@@ -299,13 +304,8 @@ LibUtilities::Field<double, FieldState::Phys> &EulerCFE::v_GetCFLVelocityField()
 
     m_cflVelocityOp->Apply(m_phys[0], m_cflVelocity);
 
-    return m_cflVelocity;
-}
-
-double EulerCFE::v_GetSoundSpeedFactor()
-{
     // The last component is a sound speed, so it counts in full.
-    return 1.0;
+    return {&m_cflVelocity, 0, components, 1.0};
 }
 
 } // namespace Nektar

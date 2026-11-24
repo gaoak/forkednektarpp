@@ -38,7 +38,7 @@
 
 #include <MultiRegions/Common/Operator.hpp>
 
-#include "EquationOfState/SupportedEoS.hpp"
+#include <CompressibleFlowSolverRedesign/EquationOfState/SupportedEoS.hpp>
 
 namespace Nektar
 {

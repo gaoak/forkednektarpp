@@ -35,8 +35,8 @@
 
 #pragma once
 
-#include "SolverCore/AdvDiffusion/AdvDiffVolumeFluxOp.hpp"
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
+#include <SolverCore/AdvDiffusion/AdvDiffVolumeFluxOp.hpp>
 
 namespace Nektar
 {

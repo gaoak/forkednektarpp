@@ -35,6 +35,7 @@
 #include <SolverCore/Driver/DriverStandard.h>
 
 #include <LibUtilities/Backends/Backends.hpp>
+#include <LibUtilities/BasicUtils/Timer.h>
 
 namespace Nektar::SolverCore
 {

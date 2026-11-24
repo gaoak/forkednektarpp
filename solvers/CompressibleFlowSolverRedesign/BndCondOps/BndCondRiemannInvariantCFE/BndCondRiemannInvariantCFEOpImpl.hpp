@@ -42,8 +42,8 @@
 
 #include <LibUtilities/BasicUtils/Field/MemoryRegion.hpp>
 
-#include "BndCondRiemannInvariantCFEKernels.hpp"
-#include "BndCondRiemannInvariantCFEOp.hpp"
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondRiemannInvariantCFE/BndCondRiemannInvariantCFEKernels.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondRiemannInvariantCFE/BndCondRiemannInvariantCFEOp.hpp>
 
 namespace Nektar::detail
 {

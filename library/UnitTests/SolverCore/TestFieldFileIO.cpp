@@ -37,6 +37,7 @@
 
 #include <LibUtilities/BasicUtils/FieldIO.h>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 

@@ -277,14 +277,14 @@ protected:
     void v_SetExpansionVariables() override;
 
     /// Offer the advection velocity to the Courant estimate.
-    LibUtilities::Field<double, FieldState::Phys> &v_GetCFLVelocityField()
-        override;
+    CFLVelocity v_GetCFLVelocity() override;
 
     void v_GenerateSummary(SummaryList &s) override;
 
     std::vector<bool> v_GetSystemSingularChecks() override;
 
-    void v_SetInitialConditions([[maybe_unused]] double initialTime) override;
+    MultiRegions::ExpListSharedPtr v_GetInitialConditionExpList(
+        const size_t i) override;
 
     void v_InitialiseFields() override;
 

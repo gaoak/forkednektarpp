@@ -37,16 +37,16 @@
 #include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "EquationOfState/IdealGasEoS.hpp"
-#include "RiemannSolvers/AUSM0SolverKernels.hpp"
-#include "RiemannSolvers/AUSM1SolverKernels.hpp"
-#include "RiemannSolvers/AUSM2SolverKernels.hpp"
-#include "RiemannSolvers/AUSM3SolverKernels.hpp"
-#include "RiemannSolvers/AverageSolverKernels.hpp"
-#include "RiemannSolvers/HLLCSolverKernels.hpp"
-#include "RiemannSolvers/HLLSolverKernels.hpp"
-#include "RiemannSolvers/LaxFriedrichsSolverKernels.hpp"
-#include "RiemannSolvers/RoeSolverKernels.hpp"
+#include <CompressibleFlowSolverRedesign/EquationOfState/IdealGasEoS.hpp>
+#include <CompressibleFlowSolverRedesign/RiemannSolvers/AUSM0SolverKernels.hpp>
+#include <CompressibleFlowSolverRedesign/RiemannSolvers/AUSM1SolverKernels.hpp>
+#include <CompressibleFlowSolverRedesign/RiemannSolvers/AUSM2SolverKernels.hpp>
+#include <CompressibleFlowSolverRedesign/RiemannSolvers/AUSM3SolverKernels.hpp>
+#include <CompressibleFlowSolverRedesign/RiemannSolvers/AverageSolverKernels.hpp>
+#include <CompressibleFlowSolverRedesign/RiemannSolvers/HLLCSolverKernels.hpp>
+#include <CompressibleFlowSolverRedesign/RiemannSolvers/HLLSolverKernels.hpp>
+#include <CompressibleFlowSolverRedesign/RiemannSolvers/LaxFriedrichsSolverKernels.hpp>
+#include <CompressibleFlowSolverRedesign/RiemannSolvers/RoeSolverKernels.hpp>
 
 #include <boost/test/unit_test.hpp>
 

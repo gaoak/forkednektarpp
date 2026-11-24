@@ -35,20 +35,36 @@
 
 #pragma once
 
-#include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
-#include <MultiRegions/ElmtOps/Advection/AdvectionOp.hpp>
-#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
-#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
-#include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
-#include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
-#include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 
+#include <map>
+
 namespace Nektar
 {
+template <typename TData> class LinearAdvVolumeFluxOp;
+
+namespace MultiRegions
+{
+template <typename TData> class AdvectionOp;
+template <typename TData> class BwdTransOp;
+template <typename TData> class IProductWRTBaseOp;
+template <typename TData> class MultiplyByElmtInvMassOp;
+} // namespace MultiRegions
+
+namespace SolverCore
+{
+template <typename TData> class AdvectionWeakDGOp;
+template <typename TData> class DiffusionIPOp;
+template <typename TData> class FwdTransOp;
+template <typename TData> class LinearSolverOp;
+template <typename TData> class LinearSystemOp;
+template <typename TData> class PreconOp;
+template <typename TData> class TraceFluxOp;
+} // namespace SolverCore
+
 using namespace SolverCore;
 using namespace MultiRegions;
 
@@ -135,8 +151,7 @@ protected:
     void v_InitObject(bool declareExpansionLists = true) override;
 
     /// Offer the advection velocity to the Courant estimate.
-    LibUtilities::Field<double, FieldState::Phys> &v_GetCFLVelocityField()
-        override;
+    CFLVelocity v_GetCFLVelocity() override;
 
     void v_GenerateSummary(SummaryList &s) override;
 

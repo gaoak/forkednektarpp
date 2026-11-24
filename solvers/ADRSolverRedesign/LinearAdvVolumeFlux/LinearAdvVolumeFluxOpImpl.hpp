@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxKernels.hpp"
-#include "ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp"
+#include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxKernels.hpp>
+#include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
 
 namespace Nektar::detail
 {
