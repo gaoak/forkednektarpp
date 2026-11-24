@@ -164,6 +164,7 @@ v5.11.0
 - Fix `BlockAccessor::ReshapeStorage()` ignoring its stream (!2918)
 - Add scale and append options to Mass and an append option to IProductWRTBase, and use them to fuse the 3DH1 z-terms of Helmholtz, Laplacian, LinAdvDiffReaction and IProductWRTDerivBase (!2920)
 - Fix point location in curved elements, which could leave FieldConvert interpolation points unfound or evaluate them at the wrong local coordinates: accept a point only where the Newton iteration converged, start the 2D iteration from the nearest quadrature point, and let points just outside a straight edge of the domain boundary fall back to the nearest element (!2894)
+- Extend the `--part-info` output with the process ID of the MPI rank holding each partition, a per-partition and total breakdown of element shapes, and the min, max, mean and max/mean imbalance of the element and local DOF counts per partition (!2921)
 - Add 3DH1 support to the NormL2 and NormLinf operators, and tidy them up (!2922)
 - Tidy the SolverCore SessionFunction: variables fixed at construction, a single `Evaluate()` at the quadrature points for expressions and files, with an optional scale, and `IsTimeDependent()`; use it for the ADR advection velocity and diffusion coefficient, and move the mixed-order pressure treatment to the incompressible solver (!2923)
 - Use the two-stage device reduction for NormL2 and Mean, and sum the 3DH1 planes of a component in one reduction, fixing NormL2, Mean and MeanRemoval with one local plane per rank (!2926)

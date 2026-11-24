@@ -50,6 +50,14 @@
 
 #include <tinyxml.h>
 
+#ifdef _WIN32
+#include <process.h>
+#define NEKTAR_GETPID _getpid
+#else
+#include <unistd.h>
+#define NEKTAR_GETPID getpid
+#endif
+
 namespace Nektar::SpatialDomains
 {
 
@@ -204,7 +212,14 @@ void MeshGraphIOXml::v_PartitionMesh(
             if (session->GetSharedFilesystem())
             {
                 std::vector<unsigned int> keys, vals;
-                int i;
+                std::vector<int> allPids{};
+                int i{};
+
+                if (session->DefinesCmdLineArgument("part-info"))
+                {
+                    std::vector<int> myPid{static_cast<int>(NEKTAR_GETPID())};
+                    allPids = comm->Gather(0, myPid);
+                }
 
                 if (isRoot)
                 {
@@ -301,6 +316,7 @@ void MeshGraphIOXml::v_PartitionMesh(
 
                     if (session->DefinesCmdLineArgument("part-info"))
                     {
+                        partitioner->SetPids(allPids);
                         partitioner->PrintPartInfo(std::cout);
                     }
                 }
