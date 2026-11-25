@@ -36,7 +36,7 @@
 
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
-#include "TestOp.hpp"
+#include <UnitTests/MultiRegions/TestOp.hpp>
 
 #include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
 

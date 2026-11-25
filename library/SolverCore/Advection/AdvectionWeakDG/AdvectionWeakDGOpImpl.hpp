@@ -36,8 +36,8 @@
 
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 
 #include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectOp.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>

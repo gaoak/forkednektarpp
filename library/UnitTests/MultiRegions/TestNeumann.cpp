@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestNeumann
 
-#include "TestNeumann.hpp"
+#include <UnitTests/MultiRegions/TestNeumann.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

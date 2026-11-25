@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <ADRSolverRedesign/EquationSystems/UnsteadyADR.h>
+
 #include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp>
 #include <ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxOp.hpp>
 #include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
@@ -53,8 +55,6 @@
 #include <SolverCore/PreconOps/PreconOp.hpp>
 #include <SolverCore/TimeOps/TimeOp.hpp>
 #include <SolverCore/TraceFlux/TraceFluxOp.hpp>
-
-#include <ADRSolverRedesign/EquationSystems/UnsteadyADR.h>
 
 namespace Nektar
 {
@@ -98,12 +98,6 @@ void UnsteadyADR::v_InitObject(bool declareExpansionLists)
 
     // Create and initialise all operators
     v_InitialiseOperators();
-
-    // Configure Time-integration
-    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
-    m_timeOp->DefineProjection(&UnsteadyADR::DoProjection, this);
-    m_timeOp->DefineImplicit(&UnsteadyADR::DoImplicit, this);
-    m_timeOp->DefineExplicitRhs(&UnsteadyADR::DoExplicitRhs, this);
 }
 
 void UnsteadyADR::v_GenerateSummary(SummaryList &s)
@@ -533,6 +527,12 @@ void UnsteadyADR::v_InitialiseOperators()
         m_multiplyByElmtInvMassOp = MultiplyByElmtInvMassOp<double>::Create(
             m_expansionLists[0], m_variables[0]);
     }
+
+    // Configure Time-integration
+    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
+    m_timeOp->DefineProjection(&UnsteadyADR::DoProjection, this);
+    m_timeOp->DefineImplicit(&UnsteadyADR::DoImplicit, this);
+    m_timeOp->DefineExplicitRhs(&UnsteadyADR::DoExplicitRhs, this);
 
     // Switch on the projection type (Discontinuous or Continuous).
     switch (m_projectionType)

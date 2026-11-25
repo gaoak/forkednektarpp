@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestExplicitSDC
 
-#include "TestTimeOps.hpp"
+#include <UnitTests/SolverCore/TestTimeOps.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

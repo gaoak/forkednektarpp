@@ -34,7 +34,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 
 #include <LibUtilities/LinearAlgebra/Blas.hpp>
 

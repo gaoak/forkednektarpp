@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestLinAdvDiffReaction
 
-#include "TestLinAdvDiffReaction.hpp"
+#include <UnitTests/MultiRegions/TestLinAdvDiffReaction.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestDiagPrecon
 
-#include "TestPreconOps.hpp"
+#include <UnitTests/SolverCore/TestPreconOps.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

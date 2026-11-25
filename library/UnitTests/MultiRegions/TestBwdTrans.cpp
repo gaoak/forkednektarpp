@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestBwdTrans
 
-#include "TestBwdTrans.hpp"
+#include <UnitTests/MultiRegions/TestBwdTrans.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

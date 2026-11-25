@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestPhysTraceExtractBndCond
 
-#include "TestPhysTraceExtractBndCond.hpp"
+#include <UnitTests/MultiRegions/TestPhysTraceExtractBndCond.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

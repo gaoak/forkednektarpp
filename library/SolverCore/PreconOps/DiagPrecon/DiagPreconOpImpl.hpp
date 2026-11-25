@@ -34,13 +34,13 @@
 
 #pragma once
 
-#include "SolverCore/PreconOps/DiagPrecon/DiagPreconOp.hpp"
+#include <SolverCore/PreconOps/DiagPrecon/DiagPreconOp.hpp>
 
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
+#include <LibUtilities/BasicUtils/Math/MathKernels.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
 
-#include "SolverCore/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
+#include <SolverCore/PreconOps/DiagPrecon/DiagPreconKernels.hpp>
 
 using namespace Nektar;
 

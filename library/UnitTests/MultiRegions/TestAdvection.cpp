@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestAdvection
 
-#include "TestAdvection.hpp"
+#include <UnitTests/MultiRegions/TestAdvection.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

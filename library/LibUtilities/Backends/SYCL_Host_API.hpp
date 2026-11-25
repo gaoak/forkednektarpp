@@ -35,7 +35,7 @@
 #pragma once
 
 #if defined(NEKTAR_ENABLE_SYCL)
-#include "LibUtilities/Backends/SYCLQueue.hpp"
+#include <LibUtilities/Backends/SYCLQueue.hpp>
 
 #include <vector>
 

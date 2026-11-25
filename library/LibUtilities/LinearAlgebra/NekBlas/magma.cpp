@@ -33,7 +33,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 
 #include <cstdlib>
 #include <iostream>
@@ -45,7 +45,7 @@
 #if defined(NEKTAR_ENABLE_CUDA)
 #include <LibUtilities/Backends/CUDAStream.hpp>
 
-#include "LibUtilities/LinearAlgebra/NekBlas/CuBlasLt.hpp"
+#include <LibUtilities/LinearAlgebra/NekBlas/CuBlasLt.hpp>
 #elif defined(NEKTAR_ENABLE_HIP)
 #include <LibUtilities/Backends/HIPStream.hpp>
 

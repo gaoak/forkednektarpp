@@ -55,9 +55,9 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LocalRegions/Expansion.h>
 
-#include "LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp"
-#include "LibUtilities/BasicUtils/Field/Block.hpp"
-#include "LibUtilities/BasicUtils/Field/Field.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
+#include <LibUtilities/BasicUtils/Field/Block.hpp>
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
 
 namespace Nektar::MultiRegions
 {

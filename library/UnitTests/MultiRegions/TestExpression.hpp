@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "TestOp.hpp"
+#include <UnitTests/MultiRegions/TestOp.hpp>
 
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>

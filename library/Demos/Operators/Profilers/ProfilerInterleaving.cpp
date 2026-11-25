@@ -33,10 +33,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #if defined(NEKTAR_USE_MAGMA)
-#include "magma_v2.h"
+#include <magma_v2.h>
 #endif
 
-#include "ProfilerInterleaving.hpp"
+#include <Demos/Operators/Profilers/ProfilerInterleaving.hpp>
 
 /**
  * @brief main program of the profiler

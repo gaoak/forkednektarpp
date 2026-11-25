@@ -50,9 +50,9 @@
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 
 #if defined(NEKTAR_ENABLE_ONEMATH)
-#include "oneapi/math.hpp"
+#include <oneapi/math.hpp>
 #elif defined(NEKTAR_ENABLE_ONEMKL)
-#include "oneapi/mkl.hpp"
+#include <oneapi/mkl.hpp>
 #endif
 
 namespace Nektar::LibUtilities

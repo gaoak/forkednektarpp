@@ -39,7 +39,7 @@
 
 #include <MultiRegions/BndCondOps/RobBndCond/RobBndCondOp.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/BndCondOps/RobBndCond/RobBndCondDeviceKernels.hpp>
 #include <MultiRegions/BndCondOps/RobBndCond/RobBndCondSerialAVXKernels.hpp>
 

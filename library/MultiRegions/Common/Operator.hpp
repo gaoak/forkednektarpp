@@ -61,7 +61,7 @@
 #include <MultiRegions/ExpList.h>
 #include <MultiRegions/MultiRegionsDeclspec.h>
 
-#include "LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
 
 #include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/Backends/DeviceProperties.hpp>

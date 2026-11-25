@@ -34,12 +34,12 @@
 
 #pragma once
 
-#include "SolverCore/AdvDiffusion/AdvDiffVolumeFluxOp.hpp"
-#include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
-#include "SolverCore/BndCond/BndCondUpdateOp.hpp"
-#include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
 #include <MultiRegions/Common/Operator.hpp>
+#include <SolverCore/AdvDiffusion/AdvDiffVolumeFluxOp.hpp>
+#include <SolverCore/Advection/AdvectionVolumeFluxOp.hpp>
+#include <SolverCore/BndCond/BndCondUpdateOp.hpp>
+#include <SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 namespace Nektar::SolverCore
 {

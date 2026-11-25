@@ -53,8 +53,8 @@
 #include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
 #include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCOp.hpp>
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 
 using namespace Nektar;

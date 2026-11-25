@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestIProductWRTDerivBase
 
-#include "TestIProductWRTDerivBase.hpp"
+#include <UnitTests/MultiRegions/TestIProductWRTDerivBase.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

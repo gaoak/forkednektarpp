@@ -36,8 +36,8 @@
 
 #include <SolverCore/SolverCore.hpp>
 
-#include "SolverCore/Diffusion/DiffusionOp.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
+#include <SolverCore/Diffusion/DiffusionOp.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 namespace Nektar::SolverCore
 {

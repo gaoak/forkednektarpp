@@ -33,8 +33,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "LibUtilities/LinearAlgebra/NekBlas/CuBlasLt.hpp"
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/LinearAlgebra/NekBlas/CuBlasLt.hpp>
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 
 #include <LibUtilities/Backends/CUDAStream.hpp>
 

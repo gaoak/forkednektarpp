@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestMaxStdVelocity
 
-#include "TestMaxStdVelocity.hpp"
+#include <UnitTests/SolverCore/TestMaxStdVelocity.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

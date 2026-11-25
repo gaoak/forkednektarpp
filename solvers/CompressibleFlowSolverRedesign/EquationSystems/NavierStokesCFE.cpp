@@ -33,6 +33,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <CompressibleFlowSolverRedesign/EquationSystems/NavierStokesCFE.h>
+
 #include <CompressibleFlowSolverRedesign/AdvDiffCFEVolFlux/AdvDiffCFEVolFluxOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyPressureCFE/BndCondEnforceEntropyPressureCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyTotalEnthalpyCFE/BndCondEnforceEntropyTotalEnthalpyCFEOp.hpp>
@@ -45,7 +47,6 @@
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondWallCFE/BndCondWallCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/DiffusionCFEVolFlux/DiffusionCFEVolFluxOp.hpp>
-#include <CompressibleFlowSolverRedesign/EquationSystems/NavierStokesCFE.h>
 #include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
@@ -90,11 +91,6 @@ void NavierStokesCFE::v_InitObject(bool declareExpansionLists)
 
     // Create and initialise all operators
     v_InitialiseOperators();
-
-    // Configure Time-integration
-    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
-    m_timeOp->DefineProjection(&NavierStokesCFE::DoProjection, this);
-    m_timeOp->DefineExplicitRhs(&NavierStokesCFE::DoOdeRhs, this);
 }
 
 void NavierStokesCFE::v_GenerateSummary(SummaryList &s)
@@ -208,6 +204,11 @@ void NavierStokesCFE::v_InitialiseOperators()
         m_advDiffusionOp->SetAdvDiffVolFlux(AdvDiffCFEVolFluxOp<double>::Create(
             m_expansionLists[0], m_variables[0]));
     }
+
+    // Configure Time-integration
+    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
+    m_timeOp->DefineProjection(&NavierStokesCFE::DoProjection, this);
+    m_timeOp->DefineExplicitRhs(&NavierStokesCFE::DoOdeRhs, this);
 
     SetUpBoundaryConditions();
 }

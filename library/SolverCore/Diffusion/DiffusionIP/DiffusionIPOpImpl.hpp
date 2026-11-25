@@ -34,11 +34,11 @@
 
 #pragma once
 
-#include "SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp"
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectOp.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
+#include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 
 namespace Nektar::SolverCore::detail
 {

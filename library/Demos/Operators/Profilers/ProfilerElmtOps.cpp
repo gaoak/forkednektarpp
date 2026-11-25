@@ -32,12 +32,12 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "ProfilerElmtOps.hpp"
+#include <Demos/Operators/Profilers/ProfilerElmtOps.hpp>
 
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #if defined(NEKTAR_USE_MAGMA)
-#include "magma_v2.h"
+#include <magma_v2.h>
 #endif
 
 /**

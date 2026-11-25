@@ -39,9 +39,9 @@
 #include <array>
 #include <vector>
 
-#include "LibUtilities/BasicUtils/Field/Field.hpp"
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
-#include "MultiRegions/ExpList.h"
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <MultiRegions/ExpList.h>
 
 namespace Nektar::MultiRegions::detail
 {

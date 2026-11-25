@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp>
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransBlockOpDeviceSumFacTOPKernels.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseBlockOpDeviceSumFacTOPKernels.hpp>
 

@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestMultiplyByElmtInvMass
 
-#include "TestMultiplyByElmtInvMass.hpp"
+#include <UnitTests/MultiRegions/TestMultiplyByElmtInvMass.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

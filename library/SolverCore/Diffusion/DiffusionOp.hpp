@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
-#include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <MultiRegions/Common/Operator.hpp>
+#include <SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 namespace Nektar::SolverCore
 {

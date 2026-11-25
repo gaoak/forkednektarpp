@@ -39,7 +39,7 @@
 #include <boost/preprocessor/repetition/for.hpp>
 #include <boost/preprocessor/tuple/elem.hpp>
 
-#include "Operators/SwitchLimits.h"
+#include <Operators/SwitchLimits.h>
 
 /* Switch macros for two level switch over modes and then quadrature
    orders wrapped around a Deformed check */

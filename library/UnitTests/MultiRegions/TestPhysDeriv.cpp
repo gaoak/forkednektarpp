@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestPhysDeriv
 
-#include "TestPhysDeriv.hpp"
+#include <UnitTests/MultiRegions/TestPhysDeriv.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

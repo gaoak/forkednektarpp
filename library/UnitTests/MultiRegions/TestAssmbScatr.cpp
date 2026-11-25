@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestAssmbScatr
 
-#include "TestAssmbScatr.hpp"
+#include <UnitTests/MultiRegions/TestAssmbScatr.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

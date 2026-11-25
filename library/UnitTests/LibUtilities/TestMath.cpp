@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestMath
 
-#include "TestMath.hpp"
+#include <UnitTests/LibUtilities/TestMath.hpp>
 
 #include <LibUtilities/BasicUtils/Math/RandomGenerator.hpp>
 

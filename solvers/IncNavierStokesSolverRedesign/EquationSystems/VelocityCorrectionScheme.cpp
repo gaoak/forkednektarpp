@@ -103,49 +103,6 @@ void VelocityCorrectionScheme::v_InitObject(bool declareExpansionLists)
 
     // Create and initialise all operators
     v_InitialiseOperators();
-
-    // Configure Time-integration
-    // Note we exclude pressure from time integration
-    m_timeIntegrationIndex = m_velocityIndex;
-    m_timeOp = TimeOp<double>::Create(m_expansionLists[m_timeIntegrationIndex],
-                                      m_variables[m_timeIntegrationIndex]);
-    m_timeOp->DefineProjection(&VelocityCorrectionScheme::DoProjection, this);
-    // The linear-implicit advection and the higher-order pressure boundary
-    // data keep histories that are combined with the coefficients of the
-    // explicit contributions of every implicit solve.
-    if (m_implicitAdvection || m_hasHighOrderPressureBCs)
-    {
-        auto timeOp = std::dynamic_pointer_cast<IMEXBaseOp<double>>(m_timeOp);
-        ASSERTL0(timeOp,
-                 "The linear-implicit formulation and the higher-order "
-                 "pressure and outflow boundary conditions require a time "
-                 "integration scheme whose implicit solves combine explicit "
-                 "contributions, such as IMEX or IMEXdirk.");
-        timeOp->DefineImplicitWithWeights(
-            &VelocityCorrectionScheme::SolveUnsteadyStokesSystem, this);
-        timeOp->DefineExplicitRhsWithWeights(
-            &VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs, this);
-    }
-    else
-    {
-        m_timeOp->DefineImplicit(
-            &VelocityCorrectionScheme::SolveUnsteadyStokesSystemWithoutHistory,
-            this);
-        m_timeOp->DefineExplicitRhs(
-            &VelocityCorrectionScheme::
-                EvaluateAdvection_SetPressureBCsWithoutHistory,
-            this);
-    }
-    // The implicit coefficient of a multistep IMEX scheme is the sum of its
-    // explicit contribution coefficients.
-    if (m_hasMultistepStartup)
-    {
-        const auto coeffs =
-            std::dynamic_pointer_cast<IMEXBaseOp<double>>(m_timeOp)
-                ->GetExplicitCoefficients();
-        m_startupImplicitCoefficient =
-            std::accumulate(coeffs.begin(), coeffs.end(), 0.0);
-    }
 }
 
 void VelocityCorrectionScheme::v_SetExpansionVariables()
@@ -1277,6 +1234,49 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
     // passive scalar fields.
     m_forcing = Forcing::Load(m_session, m_expansionLists[m_velocityIndex],
                               m_variables[m_velocityIndex]);
+
+    // Configure Time-integration
+    // Note we exclude pressure from time integration
+    m_timeIntegrationIndex = m_velocityIndex;
+    m_timeOp = TimeOp<double>::Create(m_expansionLists[m_timeIntegrationIndex],
+                                      m_variables[m_timeIntegrationIndex]);
+    m_timeOp->DefineProjection(&VelocityCorrectionScheme::DoProjection, this);
+    // The linear-implicit advection and the higher-order pressure boundary
+    // data keep histories that are combined with the coefficients of the
+    // explicit contributions of every implicit solve.
+    if (m_implicitAdvection || m_hasHighOrderPressureBCs)
+    {
+        auto timeOp = std::dynamic_pointer_cast<IMEXBaseOp<double>>(m_timeOp);
+        ASSERTL0(timeOp,
+                 "The linear-implicit formulation and the higher-order "
+                 "pressure and outflow boundary conditions require a time "
+                 "integration scheme whose implicit solves combine explicit "
+                 "contributions, such as IMEX or IMEXdirk.");
+        timeOp->DefineImplicitWithWeights(
+            &VelocityCorrectionScheme::SolveUnsteadyStokesSystem, this);
+        timeOp->DefineExplicitRhsWithWeights(
+            &VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs, this);
+    }
+    else
+    {
+        m_timeOp->DefineImplicit(
+            &VelocityCorrectionScheme::SolveUnsteadyStokesSystemWithoutHistory,
+            this);
+        m_timeOp->DefineExplicitRhs(
+            &VelocityCorrectionScheme::
+                EvaluateAdvection_SetPressureBCsWithoutHistory,
+            this);
+    }
+    // The implicit coefficient of a multistep IMEX scheme is the sum of its
+    // explicit contribution coefficients.
+    if (m_hasMultistepStartup)
+    {
+        const auto coeffs =
+            std::dynamic_pointer_cast<IMEXBaseOp<double>>(m_timeOp)
+                ->GetExplicitCoefficients();
+        m_startupImplicitCoefficient =
+            std::accumulate(coeffs.begin(), coeffs.end(), 0.0);
+    }
 }
 
 /*

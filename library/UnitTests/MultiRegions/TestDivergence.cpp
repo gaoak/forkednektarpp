@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestDivergence
 
-#include "TestDivergence.hpp"
+#include <UnitTests/MultiRegions/TestDivergence.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

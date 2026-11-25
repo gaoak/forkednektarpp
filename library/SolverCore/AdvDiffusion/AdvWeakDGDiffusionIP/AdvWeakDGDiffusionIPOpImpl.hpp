@@ -34,12 +34,12 @@
 
 #pragma once
 
-#include "SolverCore/AdvDiffusion/AdvDiffVolumeFluxOp.hpp"
-#include "SolverCore/AdvDiffusion/AdvWeakDGDiffusionIP/AdvWeakDGDiffusionIPOp.hpp"
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectOp.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
+#include <SolverCore/AdvDiffusion/AdvDiffVolumeFluxOp.hpp>
+#include <SolverCore/AdvDiffusion/AdvWeakDGDiffusionIP/AdvWeakDGDiffusionIPOp.hpp>
 
 #include <vector>
 

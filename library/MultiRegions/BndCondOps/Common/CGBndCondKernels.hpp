@@ -39,7 +39,7 @@
 #include <cmath>
 #include <type_traits>
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
 namespace Nektar::MultiRegions::detail
 {

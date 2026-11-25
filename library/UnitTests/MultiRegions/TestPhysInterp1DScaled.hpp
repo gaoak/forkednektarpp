@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "TestOp.hpp"
+#include <UnitTests/MultiRegions/TestOp.hpp>
 
 #include <MultiRegions/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp>
 

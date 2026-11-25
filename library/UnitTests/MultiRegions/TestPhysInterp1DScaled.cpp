@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestPhysInterp1DScaled
 
-#include "TestPhysInterp1DScaled.hpp"
+#include <UnitTests/MultiRegions/TestPhysInterp1DScaled.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

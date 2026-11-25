@@ -37,8 +37,8 @@
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-#include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 
 #include <UnitTests/TestBoostSetup.hpp>
 #include <UnitTests/TestGlobalConfiguration.hpp>

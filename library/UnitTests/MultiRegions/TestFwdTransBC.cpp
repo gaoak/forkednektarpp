@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestFwdTransBC
 
-#include "TestFwdTransBC.hpp"
+#include <UnitTests/MultiRegions/TestFwdTransBC.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

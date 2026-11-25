@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/PreconOps/NullPrecon/NullPreconOp.hpp"
+#include <SolverCore/PreconOps/NullPrecon/NullPreconOp.hpp>
 
 using namespace Nektar;
 
