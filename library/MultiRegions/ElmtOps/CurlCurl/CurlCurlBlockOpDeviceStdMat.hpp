@@ -325,7 +325,7 @@ protected:
                     m_dfptr, derivptr, omegaptr);
             });
         }
-        else
+        else if (m_dimension == 3u)
         {
             this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
                 constexpr bool DEFORMED = decltype(deformed)::value;
@@ -357,7 +357,7 @@ protected:
                     outoffset, m_dfptr, derivptr, outptr);
             });
         }
-        else
+        else if (m_dimension == 3u)
         {
             this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
                 constexpr bool DEFORMED = decltype(deformed)::value;

@@ -331,7 +331,7 @@ protected:
                         reinterpret_cast<simd_t *>(omegaptr));
                 });
             }
-            else
+            else if (m_dimension == 3u)
             {
                 this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
                     constexpr bool DEFORMED = decltype(deformed)::value;
@@ -367,7 +367,7 @@ protected:
                         reinterpret_cast<simd_t *>(outptr + outoffset));
                 });
             }
-            else
+            else if (m_dimension == 3u)
             {
                 this->DispatchDeformedFlag(m_isDeformed, [&](auto deformed) {
                     constexpr bool DEFORMED = decltype(deformed)::value;

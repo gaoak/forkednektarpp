@@ -45,12 +45,15 @@
 #include <MultiRegions/ElmtOps/Helmholtz/HelmholtzOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceOp.hpp>
 #include <MultiRegions/ElmtOps/Laplacian/LaplacianOp.hpp>
 #include <MultiRegions/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp>
 #include <MultiRegions/ElmtOps/Mass/MassOp.hpp>
 #include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <MultiRegions/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp>
+#include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
@@ -496,6 +499,13 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
 
     auto session = expList->GetSession();
 
+    // Trace operators read or write the local trace rather than the volume.
+    static constexpr bool traceIn =
+        std::is_same_v<Op<TData>, IProductWRTPhysTraceOp<TData>> ||
+        std::is_same_v<Op<TData>, IProductWRTPhysNormalDerivTraceOp<TData>>;
+    static constexpr bool traceOut =
+        std::is_same_v<Op<TData>, PhysTraceExtractOp<TData>>;
+
     // Get communicator.
     auto comm = expList->GetComm();
 
@@ -506,6 +516,12 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     std::string execName = Op<TData>::GetOpExecSpace(session);
     std::string implName =
         Op<TData>::GetOpImpl(Op<TData>::name, execName, session);
+    // Trace operators have no StdMat implementation and serve such a request
+    // with SumFac on the host and SumFacTOP on the device.
+    if ((traceIn || traceOut) && implName == "StdMat")
+    {
+        implName = (execName == "Device") ? "SumFacTOP" : "SumFac";
+    }
     std::string opName   = oper->name;
     std::string dataType = (std::is_same_v<TData, double>) ? "Double" : "Float";
     auto tag             = opName + execName + implName + dataType;
@@ -574,8 +590,26 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     }
 
     // Create block attributes.
-    auto inblockAttr  = GetBlockAttributes<TData, TStateIn>(expList);
-    auto outblockAttr = GetBlockAttributes<TData, TStateOut>(expList);
+    auto inblockAttr = [&]() {
+        if constexpr (traceIn)
+        {
+            return GetLocTraceBlockAttributes<TData, TStateIn>(expList);
+        }
+        else
+        {
+            return GetBlockAttributes<TData, TStateIn>(expList);
+        }
+    }();
+    auto outblockAttr = [&]() {
+        if constexpr (traceOut)
+        {
+            return GetLocTraceBlockAttributes<TData, TStateOut>(expList);
+        }
+        else
+        {
+            return GetBlockAttributes<TData, TStateOut>(expList);
+        }
+    }();
 
     // Create fields.
     auto in = Field<TData, TStateIn>("f_in", inblockAttr, nIn * nComp, nHomo);
@@ -669,7 +703,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
     Array<OneD, double> tmpArr = out.template ToArray<double>();
     for (size_t i = 0, cnt = 0; i < tmpArr.size(); ++i)
     {
-        if (opName == "LinAdvDiffReaction")
+        // No legacy reference for these operators.
+        if (opName == "LinAdvDiffReaction" || traceIn || traceOut)
         {
             break;
         }

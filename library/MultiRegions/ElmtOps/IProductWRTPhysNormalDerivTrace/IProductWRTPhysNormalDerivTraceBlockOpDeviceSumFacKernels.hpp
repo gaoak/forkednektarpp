@@ -55,6 +55,8 @@
  *
  * @see IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFac.hpp for the block
  * operator that launches these kernels.
+ * @see IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFacTOPKernels.hpp for
+ * the one-block-per-element counterpart.
  */
 
 #pragma once
@@ -72,10 +74,11 @@ namespace Nektar::MultiRegions::detail
 
 /// @brief Workspace of a whole block, per component: none, a segment's
 /// traces being points.
-template <
-    typename TTraceSizeParameter1D,
-    std::enable_if_t<IsTraceSizeParameter1D_v<TTraceSizeParameter1D>, bool>
-        Enable = true>
+template <typename Implementation, typename TTraceSizeParameter1D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
     [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
@@ -86,10 +89,11 @@ inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
 /// @brief Workspace of a whole block, per component: an edge pair's
 /// trace-mode buffer followed by a volume-sized buffer for the collapsed
 /// factor scaling, one of each per element.
-template <
-    typename TTraceSizeParameter2D,
-    std::enable_if_t<IsTraceSizeParameter2D_v<TTraceSizeParameter2D>, bool>
-        Enable = true>
+template <typename Implementation, typename TTraceSizeParameter2D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
     const size_t nelmt, const TTraceSizeParameter2D sizeParam2D)
 {
@@ -106,10 +110,11 @@ inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
 /// mode block per face covered, so the block is sized for the two faces a
 /// direction can hold; the scratch is refilled per face and takes one. The
 /// two-dimensional size above does the same for an edge pair.
-template <
-    typename TTraceSizeParameter3D,
-    std::enable_if_t<IsTraceSizeParameter3D_v<TTraceSizeParameter3D>, bool>
-        Enable = true>
+template <typename Implementation, typename TTraceSizeParameter3D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
     const size_t nelmt, const TTraceSizeParameter3D sizeParam3D)
 {
@@ -121,24 +126,30 @@ inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
 
 /// @brief Dynamic shared memory one block needs, in elements: none, a
 /// segment having no collapsed direction.
-template <
-    LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter1D,
-    std::enable_if_t<IsTraceSizeParameter1D_v<TTraceSizeParameter1D>, bool>
-        Enable = true>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter1D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
-    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
+    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     return 0;
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: the
 /// \f$2/(1 - \eta_1)\f$ table of a collapsed shape, staged once per block.
-template <
-    LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter2D,
-    std::enable_if_t<IsTraceSizeParameter2D_v<TTraceSizeParameter2D>, bool>
-        Enable = true>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter2D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
-    [[maybe_unused]] const TTraceSizeParameter2D sizeParam2D)
+    [[maybe_unused]] const TTraceSizeParameter2D sizeParam2D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
@@ -156,12 +167,15 @@ inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
 /// @brief Dynamic shared memory one block needs, in elements: the
 /// \f$2/(1 - \eta)\f$ tables of the shape's collapsed directions, staged
 /// once per block.
-template <
-    LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter3D,
-    std::enable_if_t<IsTraceSizeParameter3D_v<TTraceSizeParameter3D>, bool>
-        Enable = true>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter3D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
+                           bool>
+              Enable = true>
 inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
-    const TTraceSizeParameter3D sizeParam3D)
+    const TTraceSizeParameter3D sizeParam3D,
+    [[maybe_unused]] const unsigned int elmtsPerBlock)
 {
     const unsigned int nm1 = sizeParam3D.nm1();
     const unsigned int nm2 = sizeParam3D.nm2();
@@ -197,11 +211,15 @@ inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
  * segment carries one factor per vertex whether or not it is deformed.
  *
  * @tparam SHAPE_TYPE   Seg; unread.
+ * @tparam Implementation   SumFac.
  * @tparam DEFORMED     Unread: a segment carries one factor per vertex
  *                      whatever its geometry.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TTraceSizeParameter1D, typename TData, typename TthreadBlock>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TTraceSizeParameter1D, typename TData,
+          typename TthreadBlock,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
 NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const TTraceSizeParameter1D sizeParam1D,
     [[maybe_unused]] const TData *NEK_RESTRICT nbasis0,
@@ -349,8 +367,11 @@ NEK_DEVICE_INLINE void ScaleAddCollapsedFacKernel(
  * @param   threadBlock     Thread-block handle supplied by the launch
  *                          macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TTraceSizeParameter2D, typename TData, typename TthreadBlock>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TTraceSizeParameter2D, typename TData,
+          typename TthreadBlock,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
 NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const TTraceSizeParameter2D sizeParam2D, const TData *NEK_RESTRICT nbasis0,
     const TData *NEK_RESTRICT nbasis1, const TData *NEK_RESTRICT dnbasis0,
@@ -569,8 +590,11 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
  * @param   threadBlock     Thread-block handle supplied by the launch
  *                          macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TTraceSizeParameter3D, typename TData, typename TthreadBlock>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TTraceSizeParameter3D, typename TData,
+          typename TthreadBlock,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
 NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const TTraceSizeParameter3D sizeParam3D, const TData *NEK_RESTRICT nbasis0,
     const TData *NEK_RESTRICT nbasis1, const TData *NEK_RESTRICT nbasis2,
