@@ -47,8 +47,9 @@
  * factors and the trace derivative factors out of the data warehouse;
  * each application then sizes the workspace and the launch configuration,
  * normalises the storage interleave and dispatches per shape into
- * IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFacKernels.hpp. No arithmetic
- * on the field happens here.
+ * IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFacKernels.hpp or
+ * IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFacTOPKernels.hpp. No
+ * arithmetic on the field happens here.
  *
  * CMake serves MultiRegions::SumFac and MultiRegions::SumFacTOP from this one
  * header (the Device SumFac branch of library/MultiRegions/CMakeLists.txt)
@@ -58,14 +59,14 @@
  * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in,
  * this operator's switch template.
  *
- * This operator has a single algorithm, registered under
- * MultiRegions::SumFac and, from this same header, under SumFacTOP. The
- * class reads neither tag:
- * IProductWRTPhysNormalDerivTraceBlockOpImpl::m_implInterleaveWidth is
- * unconditionally NektarSpaces::Device::warpSize, the interleave the
- * kernels index with, and the launch geometry is one element per warp,
- * which is the shape GetDeviceKernelParameters() computes for
- * MultiRegions::SumFac, so that is what it is queried with.
+ * @note Two implementations are registered from this header:
+ * MultiRegions::SumFac, one element per warp lane at the warp-size
+ * interleave, and MultiRegions::SumFacTOP, one element per thread block
+ * at width one. Implementation selects the kernel family, the launch
+ * geometry GetDeviceKernelParameters() computes and
+ * IProductWRTPhysNormalDerivTraceBlockOpImpl::m_implInterleaveWidth. A
+ * StdMat request reaches the SumFacTOP class through
+ * IProductWRTPhysNormalDerivTraceBlockOp::Create(), which maps it.
  *
  * @see IProductWRTPhysNormalDerivTraceOp.hpp for what the operator
  * computes and how the family is laid out.
@@ -88,6 +89,7 @@
 #include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFacKernels.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFacTOPKernels.hpp>
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -98,16 +100,17 @@ namespace Nektar::MultiRegions::detail
 
 /**
  * @brief Device block implementation of the normal-derivative trace lift,
- * one element per warp lane.
+ * one element per warp lane (MultiRegions::SumFac) or per thread block
+ * (MultiRegions::SumFacTOP).
  *
  * @details
- * Field, trace and factor data are warp interleaved: element
- * \f$e = (i_{warp}, i_{lane})\f$ holds its entry @em n at
- * `buf[warpsize * n + ilane]` inside its warp block, and warp blocks stride
- * by `numData * warpsize`. #m_B holds the eInterp tables, normal-direction
- * tables first and tangential tables after, and #m_DB their derivatives;
- * the kernels choose, term by term, which of the
- * two a slot reads.
+ * Under MultiRegions::SumFac field, trace and factor data are warp
+ * interleaved: element \f$e = (i_{warp}, i_{lane})\f$ holds its entry @em n
+ * at `buf[warpsize * n + ilane]` inside its warp block, and warp blocks
+ * stride by `numData * warpsize`; under MultiRegions::SumFacTOP an element's
+ * entries are contiguous at width one. #m_B holds the eInterp tables,
+ * normal-direction tables first and tangential tables after, and #m_DB their
+ * derivatives; the kernels choose, term by term, which of the two a slot reads.
  *
  * Streams. This implementation takes its own
  * stream from the block index, #m_streamID, and issues every pointer
@@ -115,7 +118,8 @@ namespace Nektar::MultiRegions::detail
  * workspace is BlockOperator's shared static buffer, kept per stream.
  *
  * @tparam Implementation  MultiRegions::SumFac or MultiRegions::SumFacTOP,
- *                         neither of which the class reads.
+ *                         selecting the kernel family; see the file-level
+ *                         note.
  * @tparam TData           Floating-point type of the field data.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
@@ -295,11 +299,15 @@ public:
     }
 
 protected:
-    /// Interleave width the kernels expect: a full warp, one element per
-    /// lane. OperatorNDImpl() reshapes the block storage to this width
-    /// around every launch.
+    /// Interleave width the kernels expect: the warp size for
+    /// MultiRegions::SumFac, one element per lane, and one for
+    /// MultiRegions::SumFacTOP, one element per thread block.
+    /// OperatorNDImpl() reshapes the block storage to this width around
+    /// every launch.
     static constexpr unsigned int m_implInterleaveWidth =
-        NektarSpaces::Device::warpSize;
+        std::is_same_v<Implementation, MultiRegions::SumFac>
+            ? NektarSpaces::Device::warpSize
+            : 1u;
 
     unsigned int m_streamID;
 
@@ -336,7 +344,8 @@ protected:
     /// direction is not collapsed.
     std::vector<const TData *> m_twoOverOneMinusZ;
     /// Trace Jacobian times normal times geometric factors of the block in
-    /// device memory, one component after the other, warp interleaved.
+    /// device memory, one component after the other, interleaved at
+    /// #m_implInterleaveWidth.
     const TData *m_jacNormGeomFacPtr = nullptr;
     /// The factor set the next apply consumes: the contracted set above by
     /// default, or one Cartesian direction's uncontracted set when a
@@ -461,11 +470,13 @@ protected:
      * when pointwise, one per trace otherwise. @c jacCompStride is the
      * distance between the components of the factor array, a whole block
      * of those entries. The workspace is BlockOperator's shared static
-     * buffer, sized by IProductWRTPhysNormalDerivTraceWorkSpaceSize() and
-     * partitioned per warp by the kernels through the same helpers.
+     * buffer, sized by IProductWRTPhysNormalDerivTraceWorkSpaceSize(), which
+     * the SumFac kernels partition per warp through the same helpers; the
+     * SumFacTOP kernels take theirs from the dynamic shared memory
+     * IProductWRTPhysNormalDerivTraceSharedMemorySize() sizes instead.
      *
      * The output is always reshaped on the way in: the kernels accumulate
-     * the later terms onto the first inside the warp layout.
+     * the later terms onto the first inside the implementation layout.
      *
      * @tparam ind0   Normal directions, `0` to `dim - 1`. Selects the
      *                normal-direction tables at the front of #m_B and
@@ -497,19 +508,22 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Set Kernel parameters.
+        const unsigned int elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
         const unsigned int shmemsize =
             sizeof(TData) *
-            IProductWRTPhysNormalDerivTraceSharedMemorySize<SHAPE_TYPE>(
-                sizeParam);
-        const auto kernelParams =
-            GetDeviceKernelParameters<MultiRegions::SumFac>(
-                sizeParam.nmMax(), nelmtPad, shmemsize);
+            IProductWRTPhysNormalDerivTraceSharedMemorySize<SHAPE_TYPE,
+                                                            Implementation>(
+                sizeParam, elmtsPerBlock);
+        const auto kernelParams = GetDeviceKernelParameters<Implementation>(
+            sizeParam.nmTot(), nelmtPad, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            IProductWRTPhysNormalDerivTraceWorkSpaceSize(nelmtPad, sizeParam);
+            IProductWRTPhysNormalDerivTraceWorkSpaceSize<Implementation>(
+                nelmtPad, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -541,8 +555,8 @@ protected:
 
         // IProductWRTPhysNormalDerivTrace kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (IProductWRTPhysNormalDerivTraceKernelLauncher<SHAPE_TYPE,
-                                                           DEFORMED>),
+            (IProductWRTPhysNormalDerivTraceKernelLauncher<
+                SHAPE_TYPE, Implementation, DEFORMED>),
             kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
             kernelParams.shmemSize, m_streamID, sizeParam, m_B[ind0]...,
             m_DB[ind0]..., nelmtPad, numDataIn, numDataOut, numDataJac,

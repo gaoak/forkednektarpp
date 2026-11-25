@@ -86,7 +86,9 @@
  *   IProductWRTPhysNormalDerivTraceBlockOpSerialAVXSumFac.hpp (serving both
  *   the Serial and the AVX space) and
  *   IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFac.hpp (Device);
- * - the kernels in the matching *SumFacKernels.hpp headers.
+ * - the kernels in the matching *SumFacKernels.hpp headers and, for the
+ *   Device SumFacTOP implementation,
+ *   IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFacTOPKernels.hpp.
  *
  * The per-shape entry points, the ShapeBlock() specialisations, come from the
  * generated translation-unit template

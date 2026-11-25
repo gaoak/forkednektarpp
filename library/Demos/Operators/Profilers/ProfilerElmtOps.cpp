@@ -165,11 +165,22 @@ int main(int argc, char *argv[])
     if (Operators.empty())
     {
         Operators0 = {
-            "BwdTrans",           "IProductWRTBase", "IProductWRTDerivBase",
-            "PhysInterp1DScaled", "Advection",       "AdvectionDealias",
-            "PhysDeriv",          "Divergence",      "Mass",
-            "CurlCurl",           "Laplacian",       "Helmholtz",
+            "BwdTrans",
+            "IProductWRTBase",
+            "IProductWRTDerivBase",
+            "PhysInterp1DScaled",
+            "Advection",
+            "AdvectionDealias",
+            "PhysDeriv",
+            "Divergence",
+            "Mass",
+            "CurlCurl",
+            "Laplacian",
+            "Helmholtz",
             "LinAdvDiffReaction",
+            "PhysTraceExtract",
+            "IProductWRTPhysTrace",
+            "IProductWRTPhysNormalDerivTrace",
         };
     }
     else
@@ -269,6 +280,24 @@ int main(int argc, char *argv[])
                            FieldState::Coeff, double>(explist, Ntest, 1, 1,
                                                       Ncomp);
         }
+        else if (Operator == "PhysTraceExtract")
+        {
+            LaunchProfiler<PhysTraceExtractOp, FieldState::Phys,
+                           FieldState::Phys, double>(explist, Ntest, 1, 1,
+                                                     Ncomp);
+        }
+        else if (Operator == "IProductWRTPhysTrace")
+        {
+            LaunchProfiler<IProductWRTPhysTraceOp, FieldState::Phys,
+                           FieldState::Phys, double>(explist, Ntest, 1, 1,
+                                                     Ncomp);
+        }
+        else if (Operator == "IProductWRTPhysNormalDerivTrace")
+        {
+            LaunchProfiler<IProductWRTPhysNormalDerivTraceOp, FieldState::Phys,
+                           FieldState::Phys, double>(explist, Ntest, 1, 1,
+                                                     Ncomp);
+        }
     }
 #endif
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
@@ -353,6 +382,24 @@ int main(int argc, char *argv[])
             LaunchProfiler<LinAdvDiffReactionOp, FieldState::Coeff,
                            FieldState::Coeff, float>(explist, Ntest, 1, 1,
                                                      Ncomp);
+        }
+        else if (Operator == "PhysTraceExtract")
+        {
+            LaunchProfiler<PhysTraceExtractOp, FieldState::Phys,
+                           FieldState::Phys, float>(explist, Ntest, 1, 1,
+                                                    Ncomp);
+        }
+        else if (Operator == "IProductWRTPhysTrace")
+        {
+            LaunchProfiler<IProductWRTPhysTraceOp, FieldState::Phys,
+                           FieldState::Phys, float>(explist, Ntest, 1, 1,
+                                                    Ncomp);
+        }
+        else if (Operator == "IProductWRTPhysNormalDerivTrace")
+        {
+            LaunchProfiler<IProductWRTPhysNormalDerivTraceOp, FieldState::Phys,
+                           FieldState::Phys, float>(explist, Ntest, 1, 1,
+                                                    Ncomp);
         }
     }
 #endif
