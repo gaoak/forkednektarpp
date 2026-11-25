@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestPhysGalerkinProject1DScaled
 
-#include "TestPhysGalerkinProject1DScaled.hpp"
+#include <UnitTests/MultiRegions/TestPhysGalerkinProject1DScaled.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

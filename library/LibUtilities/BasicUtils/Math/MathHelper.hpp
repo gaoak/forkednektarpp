@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Math/MathDeclspec.h"
+#include <LibUtilities/BasicUtils/Math/MathDeclspec.h>
 
 #include <array>
 #include <string>

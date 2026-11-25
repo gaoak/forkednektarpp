@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestHelmSolve
 
-#include "TestHelmSolve.hpp"
+#include <UnitTests/SolverCore/TestHelmSolve.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

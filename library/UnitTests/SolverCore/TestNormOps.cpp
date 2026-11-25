@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestNormOps
 
-#include "TestNormOps.hpp"
+#include <UnitTests/SolverCore/TestNormOps.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "HIPStream.hpp"
+#include <LibUtilities/Backends/HIPStream.hpp>
 
 namespace Nektar
 {

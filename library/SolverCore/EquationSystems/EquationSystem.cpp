@@ -144,7 +144,7 @@ EquationSystem::EquationSystem(
 void EquationSystem::v_InitObject(bool declareExpansionLists)
 {
     m_sessionName = m_session->GetSessionName();
-    m_fieldIo     = LibUtilities::FieldIO::CreateDefault(m_session);
+    m_fieldIO     = LibUtilities::FieldIO::CreateDefault(m_session);
 
     // How the initial condition is brought into the polynomial space; see
     // UnsteadySystem::v_SetInitialConditions(). A continuous run must be
@@ -330,144 +330,6 @@ std::shared_ptr<FwdTransOp<double>> EquationSystem::CreateFwdTransOp(
     fwdTransOp->SetPrecon(preconOp);
     fwdTransOp->UpdatePrecon();
     return fwdTransOp;
-}
-
-void EquationSystem::v_WriteFld(const std::string &outname)
-{
-    m_fieldMetaDataMap["Time"] = std::to_string(m_time);
-    WriteOutputFields(outname, v_GetOutputFieldViews(), m_fieldMetaDataMap);
-}
-
-/**
- * @brief Write coefficient fields to a field file.
- *
- * A view whose expansion embeds losslessly in that of the first view
- * (ExpList::EmbedsLosslessly()), such as a pressure one order below the
- * velocity, is written through the first view's expansion, its missing
- * modes zero. Every variable then shares one set of definitions, which every
- * Nektar++ reader accepts. Any other view is written with the field
- * definitions of its own expansion, so that fields of different orders can
- * share a file. A view on the same element layout as the previous one adds
- * its variables to the previous definitions instead of starting a new block.
- *
- * @param   outname   Path of the file.
- * @param   fields    Coefficient views to write, in order.
- * @param   metadata  Metadata of the file.
- * @param   scale     Factor applied to every coefficient as it is written.
- */
-void EquationSystem::WriteOutputFields(
-    const std::string &outname, const CoefficientFieldViews &fields,
-    const LibUtilities::FieldMetaDataMap &metadata, const double scale)
-{
-    ASSERTL0(!fields.empty(),
-             "EquationSystem::WriteOutputFields requires at least one field.");
-
-    std::vector<LibUtilities::FieldDefinitionsSharedPtr> fieldDef;
-    std::vector<std::vector<double>> fieldData;
-
-    // First definition and number of definitions of the previous view.
-    size_t blockStart = 0;
-    size_t blockSize  = 0;
-
-    for (const auto &view : fields)
-    {
-        auto &field          = view.field.get();
-        const auto variables = ComponentNames(view.components);
-        const auto ncomp     = field.GetNumComponents();
-
-        ASSERTL0(ncomp == variables.size(),
-                 "Output field component and variable count mismatch.");
-
-        // ToVector performs the only device-to-host transfer in this output
-        // path, removes block padding and returns the coefficients element by
-        // element whatever the interleave width. Apply the average scale while
-        // separating components so the device accumulator remains unchanged.
-        std::vector<double> allCoeffs = field.ToVector<double>();
-        ASSERTL0(allCoeffs.size() % ncomp == 0,
-                 "Output field has inconsistent component storage.");
-        const auto ncoeffsComp = allCoeffs.size() / ncomp;
-
-        // Whether the view embeds is decided on the local elements, so the
-        // ranks agree on it before writing: otherwise one file would hold the
-        // view in the first view's definitions on some ranks and in its own
-        // on others.
-        const auto &firstExpansion = fields.front().expansion;
-        int embedOnAllRanks        = view.expansion != firstExpansion &&
-                              view.expansion->EmbedsLosslessly(firstExpansion);
-        m_comm->AllReduce(embedOnAllRanks, LibUtilities::ReduceMin);
-        const bool embed      = embedOnAllRanks == 1;
-        const auto &expansion = embed ? firstExpansion : view.expansion;
-
-        auto viewFieldDef = expansion->GetFieldDefinitions();
-        std::vector<std::vector<double>> viewFieldData(viewFieldDef.size());
-
-        for (unsigned int nc = 0; nc < ncomp; ++nc)
-        {
-            const auto first = allCoeffs.begin() + nc * ncoeffsComp;
-            std::vector<double> component(ncoeffsComp);
-            std::transform(
-                first, first + ncoeffsComp, component.begin(),
-                [scale](const double value) { return scale * value; });
-
-            if (embed)
-            {
-                // TODO replace with a redesign operator, together with the
-                // rest of the field-file input and output, which goes
-                // through the legacy ExpList interface. The Arrays only wrap
-                // the vectors for it.
-                std::vector<double> embedded(expansion->GetNcoeffs(), 0.0);
-                Array<OneD, double> componentArray(
-                    component.size(), component.data(), eArrayWrapper);
-                Array<OneD, double> embeddedArray(
-                    embedded.size(), embedded.data(), eArrayWrapper);
-                expansion->ExtractCoeffsToCoeffs(view.expansion, componentArray,
-                                                 embeddedArray);
-                component = std::move(embedded);
-            }
-
-            for (size_t i = 0; i < viewFieldDef.size(); ++i)
-            {
-                viewFieldDef[i]->m_fields.push_back(variables[nc]);
-                expansion->AppendFieldData(viewFieldDef[i], viewFieldData[i],
-                                           component);
-            }
-        }
-
-        // A view on the same element layout as the previous one adds its
-        // variables to the previous view's definitions, so that every block
-        // of the file lists all of these variables, as FieldConvert expects.
-        bool sameLayout = blockSize == viewFieldDef.size();
-        for (size_t i = 0; sameLayout && i < viewFieldDef.size(); ++i)
-        {
-            sameLayout =
-                SameFieldLayout(fieldDef[blockStart + i], viewFieldDef[i]);
-        }
-
-        if (sameLayout)
-        {
-            for (size_t i = 0; i < viewFieldDef.size(); ++i)
-            {
-                auto &names = fieldDef[blockStart + i]->m_fields;
-                names.insert(names.end(), viewFieldDef[i]->m_fields.begin(),
-                             viewFieldDef[i]->m_fields.end());
-                auto &data = fieldData[blockStart + i];
-                data.insert(data.end(), viewFieldData[i].begin(),
-                            viewFieldData[i].end());
-            }
-            continue;
-        }
-
-        blockStart = fieldDef.size();
-        blockSize  = viewFieldDef.size();
-        fieldDef.insert(fieldDef.end(), viewFieldDef.begin(),
-                        viewFieldDef.end());
-        fieldData.insert(fieldData.end(),
-                         std::make_move_iterator(viewFieldData.begin()),
-                         std::make_move_iterator(viewFieldData.end()));
-    }
-
-    m_fieldIo->Write(outname, fieldDef, fieldData, metadata,
-                     m_session->GetBackups());
 }
 
 std::vector<bool> EquationSystem::v_GetSystemSingularChecks()
@@ -765,6 +627,144 @@ CoefficientFieldViews EquationSystem::v_GetOutputFieldViews()
                          MakeFieldComponents(m_variables[i])});
     }
     return views;
+}
+
+void EquationSystem::v_WriteFld(const std::string &outname)
+{
+    m_fieldMetaDataMap["Time"] = std::to_string(m_time);
+    WriteOutputFields(outname, v_GetOutputFieldViews(), m_fieldMetaDataMap);
+}
+
+/**
+ * @brief Write coefficient fields to a field file.
+ *
+ * A view whose expansion embeds losslessly in that of the first view
+ * (ExpList::EmbedsLosslessly()), such as a pressure one order below the
+ * velocity, is written through the first view's expansion, its missing
+ * modes zero. Every variable then shares one set of definitions, which every
+ * Nektar++ reader accepts. Any other view is written with the field
+ * definitions of its own expansion, so that fields of different orders can
+ * share a file. A view on the same element layout as the previous one adds
+ * its variables to the previous definitions instead of starting a new block.
+ *
+ * @param   outname   Path of the file.
+ * @param   fields    Coefficient views to write, in order.
+ * @param   metadata  Metadata of the file.
+ * @param   scale     Factor applied to every coefficient as it is written.
+ */
+void EquationSystem::WriteOutputFields(
+    const std::string &outname, const CoefficientFieldViews &fields,
+    const LibUtilities::FieldMetaDataMap &metadata, const double scale)
+{
+    ASSERTL0(!fields.empty(),
+             "EquationSystem::WriteOutputFields requires at least one field.");
+
+    std::vector<LibUtilities::FieldDefinitionsSharedPtr> fieldDef;
+    std::vector<std::vector<double>> fieldData;
+
+    // First definition and number of definitions of the previous view.
+    size_t blockStart = 0;
+    size_t blockSize  = 0;
+
+    for (const auto &view : fields)
+    {
+        auto &field          = view.field.get();
+        const auto variables = ComponentNames(view.components);
+        const auto ncomp     = field.GetNumComponents();
+
+        ASSERTL0(ncomp == variables.size(),
+                 "Output field component and variable count mismatch.");
+
+        // ToVector performs the only device-to-host transfer in this output
+        // path, removes block padding and returns the coefficients element by
+        // element whatever the interleave width. Apply the average scale while
+        // separating components so the device accumulator remains unchanged.
+        std::vector<double> allCoeffs = field.ToVector<double>();
+        ASSERTL0(allCoeffs.size() % ncomp == 0,
+                 "Output field has inconsistent component storage.");
+        const auto ncoeffsComp = allCoeffs.size() / ncomp;
+
+        // Whether the view embeds is decided on the local elements, so the
+        // ranks agree on it before writing: otherwise one file would hold the
+        // view in the first view's definitions on some ranks and in its own
+        // on others.
+        const auto &firstExpansion = fields.front().expansion;
+        int embedOnAllRanks        = view.expansion != firstExpansion &&
+                              view.expansion->EmbedsLosslessly(firstExpansion);
+        m_comm->AllReduce(embedOnAllRanks, LibUtilities::ReduceMin);
+        const bool embed      = embedOnAllRanks == 1;
+        const auto &expansion = embed ? firstExpansion : view.expansion;
+
+        auto viewFieldDef = expansion->GetFieldDefinitions();
+        std::vector<std::vector<double>> viewFieldData(viewFieldDef.size());
+
+        for (unsigned int nc = 0; nc < ncomp; ++nc)
+        {
+            const auto first = allCoeffs.begin() + nc * ncoeffsComp;
+            std::vector<double> component(ncoeffsComp);
+            std::transform(
+                first, first + ncoeffsComp, component.begin(),
+                [scale](const double value) { return scale * value; });
+
+            if (embed)
+            {
+                // TODO replace with a redesign operator, together with the
+                // rest of the field-file input and output, which goes
+                // through the legacy ExpList interface. The Arrays only wrap
+                // the vectors for it.
+                std::vector<double> embedded(expansion->GetNcoeffs(), 0.0);
+                Array<OneD, double> componentArray(
+                    component.size(), component.data(), eArrayWrapper);
+                Array<OneD, double> embeddedArray(
+                    embedded.size(), embedded.data(), eArrayWrapper);
+                expansion->ExtractCoeffsToCoeffs(view.expansion, componentArray,
+                                                 embeddedArray);
+                component = std::move(embedded);
+            }
+
+            for (size_t i = 0; i < viewFieldDef.size(); ++i)
+            {
+                viewFieldDef[i]->m_fields.push_back(variables[nc]);
+                expansion->AppendFieldData(viewFieldDef[i], viewFieldData[i],
+                                           component);
+            }
+        }
+
+        // A view on the same element layout as the previous one adds its
+        // variables to the previous view's definitions, so that every block
+        // of the file lists all of these variables, as FieldConvert expects.
+        bool sameLayout = blockSize == viewFieldDef.size();
+        for (size_t i = 0; sameLayout && i < viewFieldDef.size(); ++i)
+        {
+            sameLayout =
+                SameFieldLayout(fieldDef[blockStart + i], viewFieldDef[i]);
+        }
+
+        if (sameLayout)
+        {
+            for (size_t i = 0; i < viewFieldDef.size(); ++i)
+            {
+                auto &names = fieldDef[blockStart + i]->m_fields;
+                names.insert(names.end(), viewFieldDef[i]->m_fields.begin(),
+                             viewFieldDef[i]->m_fields.end());
+                auto &data = fieldData[blockStart + i];
+                data.insert(data.end(), viewFieldData[i].begin(),
+                            viewFieldData[i].end());
+            }
+            continue;
+        }
+
+        blockStart = fieldDef.size();
+        blockSize  = viewFieldDef.size();
+        fieldDef.insert(fieldDef.end(), viewFieldDef.begin(),
+                        viewFieldDef.end());
+        fieldData.insert(fieldData.end(),
+                         std::make_move_iterator(viewFieldData.begin()),
+                         std::make_move_iterator(viewFieldData.end()));
+    }
+
+    m_fieldIO->Write(outname, fieldDef, fieldData, metadata,
+                     m_session->GetBackups());
 }
 
 } // namespace Nektar::SolverCore

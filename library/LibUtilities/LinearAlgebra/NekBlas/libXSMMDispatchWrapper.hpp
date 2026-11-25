@@ -34,12 +34,12 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 
 #if __has_include("libxsmm.h")
-#include "libxsmm.h"
+#include <libxsmm.h>
 #else
-#include "LibUtilities/LinearAlgebra/Blas.hpp"
+#include <LibUtilities/LinearAlgebra/Blas.hpp>
 #define LIBXSMM_PREFETCH_NONE 0
 template <typename TData> class libxsmm_mmfunction
 {

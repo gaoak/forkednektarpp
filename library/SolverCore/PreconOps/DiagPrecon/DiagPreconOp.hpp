@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/PreconOps/PreconOp.hpp"
+#include <SolverCore/PreconOps/PreconOp.hpp>
 
 namespace Nektar::SolverCore
 {

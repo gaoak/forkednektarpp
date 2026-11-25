@@ -36,9 +36,9 @@
 #include <iomanip>
 #include <iostream>
 
-#include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
 
 using namespace Nektar;

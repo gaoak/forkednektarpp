@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestIProductWRTPhysTrace
 
-#include "TestIProductWRTPhysTrace.hpp"
+#include <UnitTests/MultiRegions/TestIProductWRTPhysTrace.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

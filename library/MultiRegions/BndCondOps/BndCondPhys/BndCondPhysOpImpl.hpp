@@ -44,8 +44,8 @@
 
 #include <MultiRegions/DisContField.h>
 
-#include "MultiRegions/DataWarehouse/TraceDataWarehouse.hpp"
 #include <MultiRegions/BndCondOps/BndCondPhys/BndCondPhysOp.hpp>
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
 
 #include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 

@@ -31,14 +31,14 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
     FOREACH (name IN LISTS OpList)
 
         SET(dir ${CMAKE_CURRENT_SOURCE_DIR}/${name})
-        SET(dirR ${CMAKE_CURRENT_SOURCE_DIR}/TraceFluxSolver)
+        SET(dirR ${CMAKE_CURRENT_SOURCE_DIR}/RiemannSolvers)
 
         SET(NAME_HEADERS ${name}_HEADERS)
         SET(NAME_SOURCES ${name}_SOURCES)
         SET(OPERATOR ${name})      #Operator parameter for boiler plate code
         
         #boiler plate code for cpp file
-        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/solvers/ADRSolverRedesign/TraceFluxSolver/FluxOperatorFactoryDec.cpp.in)
+        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/solvers/ADRSolverRedesign/RiemannSolvers/FluxOperatorFactoryDec.cpp.in)
 
 	#list of sovler types upwind, average, jump
 	SET(SolverTypes Upwind)

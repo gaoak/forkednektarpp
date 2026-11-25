@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestOptimization
 
-#include "TestOptimization.hpp"
+#include <UnitTests/MultiRegions/TestOptimization.hpp>
 
 #include <StdRegions/StdHexExp.h>
 #include <StdRegions/StdQuadExp.h>

@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestDirichlet
 
-#include "TestDirichlet.hpp"
+#include <UnitTests/MultiRegions/TestDirichlet.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

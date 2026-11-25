@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestPoissonSolveConjGrad
 
-#include "TestPoissonSolve.hpp"
+#include <UnitTests/SolverCore/TestPoissonSolve.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

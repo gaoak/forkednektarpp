@@ -35,10 +35,9 @@
 
 #pragma once
 
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
-
-#include <LibUtilities/BasicUtils/Field/Field.hpp>
 
 #include <map>
 

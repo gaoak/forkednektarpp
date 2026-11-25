@@ -39,9 +39,9 @@
 #include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCBlockOp.hpp>
 #include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCBlockOpSerialAVXKernels.hpp>
 
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/BasicUtils/Math/MathKernels.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 
 namespace Nektar::MultiRegions::detail
 {

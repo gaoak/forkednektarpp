@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestAvgAssmbScatr
 
-#include "TestAvgAssmbScatr.hpp"
+#include <UnitTests/MultiRegions/TestAvgAssmbScatr.hpp>
 
 #include <iostream>
 #include <memory>

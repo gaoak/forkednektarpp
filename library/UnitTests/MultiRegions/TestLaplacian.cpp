@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestLaplacian
 
-#include "TestLaplacian.hpp"
+#include <UnitTests/MultiRegions/TestLaplacian.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

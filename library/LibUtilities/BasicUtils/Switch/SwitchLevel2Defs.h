@@ -97,4 +97,4 @@
 #undef NQ_M1
 #define NQ_M1(i) BOOST_PP_DEC(BOOST_PP_TUPLE_ELEM(1, i))
 
-#include "SwitchLimits.h"
+#include <LibUtilities/BasicUtils/Switch/SwitchLimits.h>

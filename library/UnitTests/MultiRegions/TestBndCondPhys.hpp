@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "TestOp.hpp"
+#include <UnitTests/MultiRegions/TestOp.hpp>
 
 #include <LibUtilities/Memory/MemoryAlloc.hpp>
 #include <MultiRegions/BndCondOps/BndCondPhys/BndCondPhysOp.hpp>

@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/Flux/FluxOp.hpp"
+#include <SolverCore/Flux/FluxOp.hpp>
 
 namespace Nektar::SolverCore
 {

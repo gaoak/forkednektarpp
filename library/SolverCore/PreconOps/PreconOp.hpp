@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSystems/LHSOp.hpp"
-#include "SolverCore/SolverCore.hpp"
 #include <MultiRegions/ElmtOps/ElmtOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/LHSOp.hpp>
+#include <SolverCore/SolverCore.hpp>
 
 namespace Nektar::SolverCore
 {

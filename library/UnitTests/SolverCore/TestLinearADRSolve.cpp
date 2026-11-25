@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestLinearADRSolve
 
-#include "TestLinearADRSolve.hpp"
+#include <UnitTests/SolverCore/TestLinearADRSolve.hpp>
 
 #include <LibUtilities/LinearAlgebra/MatrixOperations.hpp>
 

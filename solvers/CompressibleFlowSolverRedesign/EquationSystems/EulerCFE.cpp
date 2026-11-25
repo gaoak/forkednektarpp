@@ -33,6 +33,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <CompressibleFlowSolverRedesign/EquationSystems/EulerCFE.h>
+
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyPressureCFE/BndCondEnforceEntropyPressureCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyTotalEnthalpyCFE/BndCondEnforceEntropyTotalEnthalpyCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyVelocityCFE/BndCondEnforceEntropyVelocityCFEOp.hpp>
@@ -42,7 +44,6 @@
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondSlipWallCFE/BndCondSlipWallCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondStagnationInflowCFE/BndCondStagnationInflowCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEOp.hpp>
-#include <CompressibleFlowSolverRedesign/EquationSystems/EulerCFE.h>
 #include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
@@ -50,6 +51,7 @@
 #include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/TimeOps/TimeOp.hpp>
+
 #include <iomanip>
 
 namespace Nektar
@@ -87,11 +89,6 @@ void EulerCFE::v_InitObject(bool declareExpansionLists)
 
     // Create and initialise all operators
     v_InitialiseOperators();
-
-    // Configure Time-integration
-    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
-    m_timeOp->DefineProjection(&EulerCFE::DoProjection, this);
-    m_timeOp->DefineExplicitRhs(&EulerCFE::DoAdvection, this);
 }
 
 void EulerCFE::v_GenerateSummary(SummaryList &s)
@@ -189,6 +186,11 @@ void EulerCFE::v_InitialiseOperators()
 
     // Set trace flux and Riemann solver for advection operator
     m_advectionWeakDGOp->SetTraceFlux(traceFluxOp);
+
+    // Configure Time-integration
+    m_timeOp = TimeOp<double>::Create(m_expansionLists[0], m_variables[0]);
+    m_timeOp->DefineProjection(&EulerCFE::DoProjection, this);
+    m_timeOp->DefineExplicitRhs(&EulerCFE::DoAdvection, this);
 
     SetUpBoundaryConditions();
 }

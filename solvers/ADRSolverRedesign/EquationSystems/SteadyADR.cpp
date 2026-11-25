@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <ADRSolverRedesign/EquationSystems/SteadyADR.h>
+
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
@@ -40,8 +42,6 @@
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
 #include <SolverCore/PreconOps/PreconOp.hpp>
-
-#include <ADRSolverRedesign/EquationSystems/SteadyADR.h>
 
 namespace Nektar
 {

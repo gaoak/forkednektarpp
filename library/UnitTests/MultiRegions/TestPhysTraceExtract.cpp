@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestPhysTraceExtract
 
-#include "TestPhysTraceExtract.hpp"
+#include <UnitTests/MultiRegions/TestPhysTraceExtract.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

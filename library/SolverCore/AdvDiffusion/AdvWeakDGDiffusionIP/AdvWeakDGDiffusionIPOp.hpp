@@ -37,7 +37,7 @@
 
 #include <SolverCore/SolverCore.hpp>
 
-#include "SolverCore/AdvDiffusion/AdvDiffusionOp.hpp"
+#include <SolverCore/AdvDiffusion/AdvDiffusionOp.hpp>
 
 namespace Nektar::SolverCore
 {

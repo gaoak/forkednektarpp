@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestExpression
 
-#include "TestExpression.hpp"
+#include <UnitTests/MultiRegions/TestExpression.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

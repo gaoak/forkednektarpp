@@ -36,7 +36,7 @@
 
 #include <SolverCore/SolverCore.hpp>
 
-#include "SolverCore/Advection/AdvectionDGOp.hpp"
+#include <SolverCore/Advection/AdvectionDGOp.hpp>
 
 namespace Nektar::SolverCore
 

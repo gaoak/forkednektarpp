@@ -33,10 +33,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #if defined(NEKTAR_USE_MAGMA)
-#include "magma_v2.h"
+#include <magma_v2.h>
 #endif
 
-#include "ProfilerAssmbScatrOps.hpp"
+#include <Demos/Operators/Profilers/ProfilerAssmbScatrOps.hpp>
 
 /**
  * @brief main program of the profiler

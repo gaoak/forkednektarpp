@@ -38,8 +38,8 @@
 
 #include <MultiRegions/Common/Operator.hpp>
 
-#include "SolverCore/BndCond/BndCondUpdateOp.hpp"
 #include <MultiRegions/BndCondOps/BndCondPhys/BndCondPhysOp.hpp>
+#include <SolverCore/BndCond/BndCondUpdateOp.hpp>
 
 namespace Nektar::SolverCore
 {

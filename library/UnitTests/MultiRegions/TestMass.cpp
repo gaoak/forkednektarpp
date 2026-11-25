@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestMass
 
-#include "TestMass.hpp"
+#include <UnitTests/MultiRegions/TestMass.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
