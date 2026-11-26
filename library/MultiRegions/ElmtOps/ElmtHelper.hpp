@@ -80,6 +80,10 @@
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
+#endif
+
 namespace Nektar::MultiRegions::detail
 {
 
@@ -1423,22 +1427,27 @@ protected:
  * For SumFacTOP with a templated (compile-time) plain or physical-space
  * size parameter the bound is the parameter's total mode count (plain
  * forms) or total point count (physical-space forms) rounded up to whole
- * warps, at most the device's default block size, or the default block size
- * where that count is half a warp or less, as such an element may share its
- * block with others (GetElmtsPerBlock()); with any other size
- * parameter -- the runtime
- * forms and the trace forms -- the device's default block size is
- * used, which is the cap GetDeviceKernelParameters() applies at run time.
+ * warps, at most @p maxBlockSize, or, where that count is half a warp or
+ * less, the default block size, at most @p maxBlockSize, as such an element
+ * may share its block with others (GetElmtsPerBlock(), whose blocks
+ * GetDeviceKernelParameters() keeps to the default block size unless
+ * given a larger cap); with any other size parameter -- the runtime forms
+ * and the trace forms -- it is @p maxBlockSize, the cap
+ * GetDeviceKernelParameters() applies at run time.
  * Other implementations return 0.
  *
  * @tparam Implementation   Implementation tag.
  * @tparam TSizeParameter   Size-parameter type the kernel is
  *                          instantiated with.
+ * @param  maxBlockSize     The cap, the same as the launch's
+ *                          GetDeviceKernelParameters() argument.
  *
  * @return Maximum threads per block for the launch-bounds annotation.
  */
 template <typename Implementation, typename TSizeParameter>
-static constexpr unsigned int GetMaxThreadPerBlock(void)
+static constexpr unsigned int GetMaxThreadPerBlock(
+    [[maybe_unused]] const unsigned int maxBlockSize =
+        NektarSpaces::Device::defaultBlockSize)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -1454,9 +1463,10 @@ static constexpr unsigned int GetMaxThreadPerBlock(void)
         {
             constexpr unsigned int ndofs = TSizeParameter::nmTot();
             return (2u * ndofs <= warpsize)
-                       ? NektarSpaces::Device::defaultBlockSize
+                       ? std::min(NektarSpaces::Device::defaultBlockSize,
+                                  maxBlockSize)
                        : std::min((ndofs + warpsize - 1u) / warpsize * warpsize,
-                                  NektarSpaces::Device::defaultBlockSize);
+                                  maxBlockSize);
         }
         else if constexpr (
             IsTemplatedPhysSizeParameter1D<TSizeParameter>::value ||
@@ -1465,13 +1475,14 @@ static constexpr unsigned int GetMaxThreadPerBlock(void)
         {
             constexpr unsigned int ndofs = TSizeParameter::nqTot();
             return (2u * ndofs <= warpsize)
-                       ? NektarSpaces::Device::defaultBlockSize
+                       ? std::min(NektarSpaces::Device::defaultBlockSize,
+                                  maxBlockSize)
                        : std::min((ndofs + warpsize - 1u) / warpsize * warpsize,
-                                  NektarSpaces::Device::defaultBlockSize);
+                                  maxBlockSize);
         }
         else
         {
-            return NektarSpaces::Device::defaultBlockSize;
+            return maxBlockSize;
         }
     }
     else

@@ -178,6 +178,10 @@
 
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 
+#include <algorithm>
+#include <array>
+#include <vector>
+
 namespace Nektar::MultiRegions::detail
 {
 
@@ -1603,6 +1607,214 @@ NEK_FORCE_INLINE static void PhysTraceFaceExtractKernel(
     else
     {
         NEKERROR(ErrorUtil::efatal, "Shape not recognised");
+    }
+}
+
+// -----------------------------------------------------------------------------
+//  LINE-BLOCKED EXTRACTION OF SEVERAL FIELDS
+// -----------------------------------------------------------------------------
+
+/**
+ * @brief The sizes, in entries of the vector type, of the two workspaces the
+ * extraction of one element group needs, for the largest intermediate any
+ * shape of the dimension can need. In two dimensions the first holds the
+ * values of an edge pair the normal-direction stage extracts, and the second
+ * is unused. In three the first holds the face blocks of a face pair, and
+ * the second the scratch of the general face interpolation: the first
+ * in-trace direction already interpolated while the second is still on the
+ * volume points. A segment needs neither.
+ *
+ * @param   nm  Volume quadrature counts per direction.
+ * @param   nq  Trace quadrature counts, `2 * f + d` in three dimensions.
+ */
+inline std::array<size_t, 2> PhysTraceExtractWorkspaceSizes(
+    const std::vector<unsigned int> &nm, const std::vector<unsigned int> &nq)
+{
+    std::array<size_t, 2> sizes = {0, 0};
+    if (nm.size() == 2)
+    {
+        sizes[0] = 2 * std::max(nm[0], nm[1]);
+    }
+    else if (nm.size() == 3)
+    {
+        sizes[0] = std::max(nm[0] * nm[1] * 2,
+                            std::max(nm[1] * nm[2] * 2, nm[0] * nm[2] * 2));
+        sizes[1] = std::max(nq[4] * nm[1] * 2,
+                            std::max(nq[2] * nm[2] * 2, nq[0] * nm[2] * 2));
+    }
+    return sizes;
+}
+
+/**
+ * @brief The traces of normal direction @p DIR of @p NVAR fields at once,
+ * line by line along the normal direction: each line's values are loaded
+ * once and interpolated to every trace of the direction (`h_p(-1)`,
+ * `h_p(+1)`), or read off the end points when the rule contains them. With
+ * @p CONTRACT the line values are the directional components of a tensor,
+ * contracted with each trace's normal (@p traceNormals, one per trace)
+ * before the interpolation, which forms the outward normal component of the
+ * tensor on the traces in the same pass.
+ *
+ * The trace points are written in the extraction kernels' order (the lower
+ * tangential index fastest; one tangential index in two dimensions, none in
+ * one) at the traces' packed offsets. The result matches
+ * PhysTraceExtractKernelLauncher() when the tangential rules are the volume
+ * rules, the one case this kernel takes; a caller interpolates onto any
+ * other tangential rule afterwards.
+ *
+ * @tparam SHAPE_TYPE Shape tag: sets the number of traces of @p DIR.
+ * @tparam DIR        Normal direction of the traces.
+ * @tparam CONTRACT   Contract @p tensor with the trace normals rather than
+ *                    extract @p in.
+ * @tparam NDIM       Dimension of the element, one to three.
+ * @tparam NVAR       Fields extracted together.
+ * @tparam simd_type  SIMD vector type, one element per lane.
+ *
+ * @param   nq0,nq1,nq2  Volume quadrature points per direction; @p nq1 is
+ *                       1 in one dimension and @p nq2 is 1 below three.
+ * @param   ntbasis      eInterp table \f$h_p(\pm 1)\f$ of direction @p DIR,
+ *                       `ntbasis[p * NF + f]` with NF the traces of the
+ *                       direction.
+ * @param   endPts       The direction's rule contains the end points: the
+ *                       table is a Kronecker delta and the trace values are
+ *                       read off.
+ * @param   traceOffset  Offset of each of the direction's traces in an
+ *                       element's packed trace block.
+ * @param   in           Volume fields per variable (@p CONTRACT false).
+ * @param   tensor       Tensor, component d of variable v at
+ *                       `v * varStride + d * nqTot` (@p CONTRACT true).
+ * @param   varStride    Distance between consecutive variables of
+ *                       @p tensor, at least `NDIM * nqTot`.
+ * @param   traceNormals Normal of each of the direction's traces.
+ * @param   out          Element-local trace block per variable.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, unsigned int DIR, bool CONTRACT,
+          unsigned int NDIM, unsigned int NVAR, typename simd_type>
+NEK_FORCE_INLINE static void PhysTraceExtractDirLinesKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const typename simd_type::scalarType *ntbasis, const bool endPts,
+    const unsigned int *traceOffset,
+    [[maybe_unused]] const simd_type *const in[NVAR],
+    [[maybe_unused]] const simd_type *tensor,
+    [[maybe_unused]] const unsigned int varStride,
+    [[maybe_unused]] const simd_type (*traceNormals)[NDIM],
+    simd_type *const out[NVAR])
+{
+    static_assert(DIR < NDIM, "No such direction");
+    constexpr unsigned int NF =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][DIR];
+    [[maybe_unused]] const unsigned int nqTot = nq0 * nq1 * nq2;
+    // The normal extent and stride, and the tangential extents and strides:
+    // the slowest tangential index runs over one value below three
+    // dimensions, and the fastest over one value in one.
+    unsigned int nqNormal            = DIR == 0 ? nq0 : nq1;
+    unsigned int strideNormal        = DIR == 0 ? 1u : nq0;
+    const unsigned int nqTanFast     = DIR == 0 ? nq1 : nq0;
+    const unsigned int strideTanFast = DIR == 0 ? nq0 : 1u;
+    unsigned int nqTanSlow = 1, strideTanSlow = 0;
+    if constexpr (NDIM == 3)
+    {
+        nqNormal      = DIR == 2 ? nq2 : nqNormal;
+        strideNormal  = DIR == 2 ? nq0 * nq1 : strideNormal;
+        nqTanSlow     = DIR == 2 ? nq1 : nq2;
+        strideTanSlow = DIR == 2 ? nq0 : nq0 * nq1;
+    }
+    simd_type *traceOut[NF][NVAR];
+    for (unsigned int f = 0; f < NF; ++f)
+    {
+        for (unsigned int v = 0; v < NVAR; ++v)
+        {
+            traceOut[f][v] = out[v] + traceOffset[f];
+        }
+    }
+    simd_type traceVal[NF][NVAR];
+    for (unsigned int tb = 0; tb < nqTanSlow; ++tb)
+    {
+        for (unsigned int ta = 0; ta < nqTanFast; ++ta)
+        {
+            const unsigned int lineStart =
+                tb * strideTanSlow + ta * strideTanFast;
+            const unsigned int tracePt = tb * nqTanFast + ta;
+            for (unsigned int f = 0; f < NF; ++f)
+            {
+                for (unsigned int v = 0; v < NVAR; ++v)
+                {
+                    traceVal[f][v] = simd_type(0.0);
+                }
+            }
+            for (unsigned int p = 0; p < nqNormal; ++p)
+            {
+                const unsigned int q = lineStart + p * strideNormal;
+                if constexpr (CONTRACT)
+                {
+                    // The traces of a direction have different normals, so
+                    // the contraction is per trace.
+                    for (unsigned int f = 0; f < NF; ++f)
+                    {
+                        if (endPts && p != f * (nqNormal - 1))
+                        {
+                            continue;
+                        }
+                        for (unsigned int v = 0; v < NVAR; ++v)
+                        {
+                            simd_type normalComp =
+                                traceNormals[f][0] * tensor[v * varStride + q];
+                            for (unsigned int d = 1; d < NDIM; ++d)
+                            {
+                                normalComp.fma(
+                                    traceNormals[f][d],
+                                    tensor[v * varStride + d * nqTot + q]);
+                            }
+                            if (endPts)
+                            {
+                                traceVal[f][v] = normalComp;
+                            }
+                            else
+                            {
+                                traceVal[f][v].fma(
+                                    simd_type(ntbasis[p * NF + f]), normalComp);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    simd_type pointVal[NVAR];
+                    for (unsigned int v = 0; v < NVAR; ++v)
+                    {
+                        pointVal[v] = in[v][q];
+                    }
+                    for (unsigned int f = 0; f < NF; ++f)
+                    {
+                        if (endPts)
+                        {
+                            if (p == f * (nqNormal - 1))
+                            {
+                                for (unsigned int v = 0; v < NVAR; ++v)
+                                {
+                                    traceVal[f][v] = pointVal[v];
+                                }
+                            }
+                        }
+                        else
+                        {
+                            const simd_type interp = ntbasis[p * NF + f];
+                            for (unsigned int v = 0; v < NVAR; ++v)
+                            {
+                                traceVal[f][v].fma(interp, pointVal[v]);
+                            }
+                        }
+                    }
+                }
+            }
+            for (unsigned int f = 0; f < NF; ++f)
+            {
+                for (unsigned int v = 0; v < NVAR; ++v)
+                {
+                    traceOut[f][v][tracePt] = traceVal[f][v];
+                }
+            }
+        }
     }
 }
 

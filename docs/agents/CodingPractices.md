@@ -10,7 +10,9 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
    `Apply()` needs are fixed and cached when the operator is built. No
    `if (GetNumElements() == 0) return;`, no per-apply asserts restating a
    fixed contract, never a silent early return on a mismatch; a guard against
-   genuinely unsupported input may stay.
+   genuinely unsupported input may stay. The mesh, its blocks and any
+   per-element lists are fixed for a solve; a field's interleave width is not,
+   and a layout keyed on it is rebuilt when it changes.
 2. **`Apply()` carries only the fields it acts on.** Runtime parameters reach
    an operator through setters, forwarded to its BlockOps. An operator takes
    no ownership of a `Field` or `MemoryRegion` passed to a setter: it stores a
