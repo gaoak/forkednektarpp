@@ -46,6 +46,13 @@ Lift the trace values $g$ onto the & \texttt{PhysLiftProject} & $u = s\, B M^{-1
 physical-space inner products $f$ and & & products and $L$ the trace lift of \texttt{IProductWRTPhysTrace}; \\
 project onto the expansion & & pointwise $s\,(f + L g)/(wJ)$ where $B$ is square \\
       \hline
+Element-local part of a weak DG & \texttt{AdvectionFusedElmt} & $(\nabla \phi, \mathbf F^a(u))$ and $u$ on the traces, \\
+advection right-hand side, in one pass & & see section \ref{sec:advdifffusedelmt} \\
+      \hline
+Element-local part of a weak DG & \texttt{AdvDiffFusedElmt} & $-(\nabla \phi, \mathbf F^v(u, \nabla u) - \mathbf F^a(u))$, $u$ on the traces and \\
+advection-diffusion right-hand side, & & $\mathbf F^v \cdot \mathbf n$ on the traces, see section \ref{sec:advdifffusedelmt} \\
+in one pass & & \\
+      \hline
     \end{tabular}
     }
     \end{center}
@@ -1404,3 +1411,269 @@ same polynomial evaluated at the region's own coordinates. The cases cover
   \item two-dimensional meshes embedded in three-dimensional space, of
     triangles and of quadrilaterals on a warped surface.
 \end{itemize}
+
+\section{The fused element-local operators}
+\label{sec:advdifffusedelmt}
+
+\texttt{SolverCore::AdvectionFusedElmtOp} and
+\texttt{SolverCore::AdvDiffFusedElmtOp} compute the element-local part of a
+weak discontinuous Galerkin right-hand side,
+\begin{equation}
+  \frac{\partial \mathbf u}{\partial t}
+    + \nabla \cdot \left(\mathbf F^a(\mathbf u)
+    - \mathbf F^v(\mathbf u, \nabla \mathbf u)\right) = 0,
+\end{equation}
+in one pass over the elements of each block: the first for an advective
+flux alone, the second for an advective and a viscous flux. For every
+element they form
+\begin{enumerate}
+  \item the state $\mathbf u$ on the element-local traces, as
+    \texttt{PhysTraceExtract} does;
+  \item for the advection-diffusion operator, the gradient
+    $\nabla \mathbf u$, as \texttt{PhysDeriv} does;
+  \item the fluxes $\mathbf F^a$ and, for the advection-diffusion operator,
+    $\mathbf F^v$, point by point;
+  \item the negated derivative inner products of the flux vector,
+    $-(\nabla \phi, \mathbf F^v - \mathbf F^a)$ for every variable
+    ($(\nabla \phi, \mathbf F^a)$ for the advection operator), at the
+    quadrature points, as \texttt{IProductWRTDerivBase} does before its
+    basis transpose;
+  \item for the advection-diffusion operator, the element's own outward
+    normal viscous flux $\mathbf F^v \cdot \mathbf n$ on its traces and, on
+    the elements a caller lists, the gradient on the traces.
+\end{enumerate}
+The gradient and the fluxes are held in workspace rather than in fields, so
+the separate chain's volume-sized intermediate fields, and its passes over
+them, are gone. The right-hand side closes, as it does after the separate
+operators, with the trace flux and \texttt{PhysLiftProject}, whose
+physical-space inner products $f$ are the operators' output.
+
+The stages the two passes share, the state on the traces and the derivative
+inner product, are the kernels of the advection operator, in
+\path{library/SolverCore/Advection/AdvectionFusedElmt}. The
+advection-diffusion operator, in
+\path{library/SolverCore/AdvDiffusion/AdvDiffFusedElmt}, calls them between
+its viscous stages; its block operators derive from the advection ones,
+whose shape, sizes and trace packing they share, and its implementations
+from the classes that hold what both implementations of an execution space
+share (\texttt{AdvectionFusedElmtHostBlock} and
+\texttt{AdvectionFusedElmtDeviceBlock}).
+
+The viscous trace data are those of the average-of-normal-fluxes form of the
+interior-penalty flux, \texttt{ViscousTraceFlux=AverageOfNormalFluxes} in
+the redesign compressible flow solver, in which each interface averages the
+two elements' own normal viscous fluxes. The gradient trace serves the
+traces that need the flux of averages instead, such as boundary traces: its
+elements are listed with
+\begin{lstlisting}[style=C++Style]
+void SetGradientTrace(
+    LibUtilities::Field<TData, FieldState::Phys> *gradTrace,
+    const std::vector<std::vector<unsigned int>> *elements);
+\end{lstlisting}
+which takes, for every block, the sorted indices of its listed elements;
+\texttt{gradTrace} holds those elements only, in list order, with
+$\mathrm{NDIM} \times \mathrm{NVAR}$ components.
+
+\subsection{The flux policies}
+
+The operators are generic over a flux policy, a trivially copyable type
+that supplies the dimension, the number of variables and of auxiliary
+fields, a name, and the fluxes at one point. A policy of the advection
+operator supplies the advective flux:
+\begin{lstlisting}[style=C++Style]
+template <unsigned int DIM> struct EulerModel
+{
+    static constexpr unsigned int NDIM = DIM;
+    static constexpr unsigned int NVAR = DIM + 2;
+    static constexpr unsigned int NAUX = 0;
+    static constexpr const char *name  = "EulerModel2D"; // per DIM
+
+    EulerModel() = default;
+    explicit EulerModel(
+        const LibUtilities::SessionReaderSharedPtr &session);
+
+    template <typename TValue>
+    NEK_HOSTDEVICE_INLINE void AdvFlux(
+        const TValue (&state)[NVAR], const TValue *aux,
+        TValue (&advFlux)[NDIM][NVAR]) const;
+};
+\end{lstlisting}
+and a policy of the advection-diffusion operator the viscous flux as well:
+\begin{lstlisting}[style=C++Style]
+    template <typename TValue>
+    NEK_HOSTDEVICE_INLINE void ViscFlux(
+        const TValue (&state)[NVAR], const TValue (&grad)[NDIM][NVAR],
+        const TValue *aux, TValue (&viscFlux)[NDIM][NVAR]) const;
+\end{lstlisting}
+Fluxes and gradients are direction-major: \texttt{advFlux[d][n]} is the
+flux of variable $n$ in direction $d$. \texttt{aux} holds the policy's
+\texttt{NAUX} auxiliary values at the point, such as a scaling of the
+viscosity, and is null when it has none. The entry points are templates on
+the value type, called with the SIMD type on Serial and AVX and with the
+scalar on the device, so one policy serves every execution space. The
+constructor from the session reads the policy's parameters; the operator
+calls it once per block. The unit tests' Euler and Navier--Stokes policies,
+in \texttt{TestFusedElmtPolicies.hpp}, are examples of each.
+
+\subsection{Registration and selection}
+
+Each operator follows the element-operator layout in its directory, with
+every file name prefixed by \texttt{AdvectionFusedElmt} or
+\texttt{AdvDiffFusedElmt}:
+\begin{itemize}
+  \item \texttt{Op.hpp}, the interface;
+  \item \texttt{OpImpl.hpp}, the whole-field implementation;
+  \item \texttt{BlockOp.hpp}, the per-block interface;
+  \item \texttt{BlockOpSerialAVXSumFac.hpp}, the per-block implementation
+    for Serial and AVX, with its kernels;
+  \item \texttt{BlockOpDeviceSumFacTOP.hpp}, the per-block implementation
+    for Device, with its kernels;
+  \item \texttt{Kernels.hpp}, the pointwise flux shared by both
+    (\texttt{AdvectionFusedElmtFlux()}, \texttt{AdvDiffFusedElmtFlux()}).
+\end{itemize}
+
+The block implementations are templated on the policy as well as on the
+execution space, implementation and data type. The policy belongs to the
+code that uses the operator, a solver or a unit test, so SolverCore cannot
+generate their registrations: the code supplying a policy registers the
+block operators for it, one call per policy,
+\begin{lstlisting}
+ADD_POLICY_ELMT_BLOCK_OPERATOR(
+    ${CMAKE_SOURCE_DIR}/library/SolverCore/Advection/AdvectionFusedElmt
+    EulerModel2D
+    "Nektar::UnitTests::EulerModel<2>"
+    UnitTests/SolverCore/TestFusedElmtPolicies.hpp 2
+    TestAdvectionFusedElmtSources)
+\end{lstlisting}
+with the operator's directory, the policy's name in the generated file
+names, its C++ type, the header declaring it, its dimension and the list
+the generated sources are appended to. The generated sources are compiled
+into the target that list belongs to, the solver or the unit test, not into
+SolverCore. The function is defined in \path{cmake/NektarCommon.cmake} and
+finds the implementations by file name, as \texttt{ADD\_ELMT\_OPERATOR}
+does. It generates the registrations and the per-shape
+\texttt{ShapeBlock} definitions from the policy counterparts of that
+macro's templates, \path{SolverCore/ElmtBlockOpWithPolicyFactoryDec.cpp.in}
+and \path{SolverCore/BlockOpWithPolicyShapeBlock.cpp.in}. A \texttt{<name>BlockOpDeviceSumFacTOP.hpp} header, where
+there is one, serves SumFacTOP on its own. The factory key is
+\texttt{BlockAdvectionFusedElmt} or \texttt{BlockAdvDiffFusedElmt}, the
+policy's \texttt{name}, the execution space and the implementation, so
+\texttt{Create()} takes the policy by name:
+\begin{lstlisting}[style=C++Style]
+auto op = SolverCore::AdvectionFusedElmtOp<TData>::Create(
+    expList, components, "EulerModel2D");
+\end{lstlisting}
+\texttt{Create()} returns null when no block operator is registered for the
+policy, execution space and implementation, or when one does not take a
+block of the mesh, so that a caller can fall back to the separate operators.
+
+The implementation is chosen as for any element operator: with
+\texttt{-{}-opImpl}, or under the key \texttt{ADVECTIONFUSEDELMT} or
+\texttt{ADVDIFFFUSEDELMT} of the backend sections of the session's
+\texttt{OPTIMISATION/OPERATORS}. Serial and AVX implement SumFac; Device
+implements SumFacTOP. A block whose implementation is named nowhere takes
+its default (\texttt{ElmtOp::GetOpImpl()}, given the policy's name so that
+it checks for the policy's block operators); on Device that default is
+SumFac at low order, for which there is no fused block operator, and
+\texttt{Create()} then returns null. A session can name the implementation
+for every block:
+\begin{lstlisting}[style=XMLStyle]
+<OPTIMISATION>
+  <OPERATORS>
+    <DEVICEBACKEND>
+      <ADVDIFFFUSEDELMT> SumFacTOP </ADVDIFFFUSEDELMT>
+    </DEVICEBACKEND>
+  </OPERATORS>
+</OPTIMISATION>
+\end{lstlisting}
+
+\subsection{Implementations}
+
+\textbf{Serial and AVX (SumFac).} The kernels process one SIMD vector of
+elements at a time and differentiate and extract all the variables of an
+element group together, through the multi-variable line-blocked kernels of
+\texttt{PhysDerivSumFacStdKernels.hpp} and
+\texttt{PhysTraceExtractBlockOpSerialAVXSumFacKernels.hpp}, so that each
+line of a differentiation matrix is read once for every variable. The
+fields are taken at any interleave width and leave at the width they
+arrived at.
+
+\textbf{Device (SumFacTOP).} One kernel launch per block, one element per
+thread block and one thread per quadrature point; thread blocks stride over
+the elements of a block, and padding elements have their outputs zeroed.
+The kernel stages the transposed differentiation matrices in shared memory
+once, then for each element
+\begin{enumerate}
+  \item stages each variable in turn, forms its gradient for the
+    advection-diffusion operator, and extracts its trace;
+  \item for the advection-diffusion operator, writes the gradient trace of
+    the listed elements, evaluates the viscous flux and extracts each of
+    its components onto the traces, contracted with the outward normal;
+  \item evaluates the advective flux and forms the flux vector;
+  \item aligns each variable's flux with the reference directions in
+    shared memory and applies the transposed sum-factorised derivative,
+    scaled by $-1$.
+\end{enumerate}
+Staging one variable at a time bounds the shared memory by
+$\sum_d n_{q,d}^2 + \mathrm{NDIM}\, n_q + w + n_q^{tr}$ values, with $n_q$
+the element's quadrature points, $w$ the trace-extraction workspace and
+$n_q^{tr}$ its trace points (the last for the advection-diffusion operator
+only), about 36\,KB for a hexahedron of $10^3$ points in double precision.
+The kernel reads and writes at width 1 and reshapes the fields to it and
+back.
+
+\subsection{Limits}
+
+\begin{itemize}
+  \item Elements of the seven shapes are taken, in one, two and three
+    dimensions, but only when the coordinate dimension equals the shape
+    dimension: manifolds embedded in a higher dimension are not taken.
+    The nodal shape types (\texttt{NodalTri}, \texttt{NodalTet},
+    \texttt{NodalPrism}, \texttt{NodalPyr}) are not taken either: no
+    kernels are generated for them, and a field that has such a block
+    keeps the separate operators.
+  \item Homogeneous fields are not supported.
+  \item On Device an element has at most as many quadrature points as a
+    fused thread block may have threads
+    (\texttt{SolverCore::fusedElmtMaxBlockSize}), and the kernel's shared
+    memory must fit a thread block; ten points per direction in three
+    dimensions fits. On CUDA and HIP the cap is the device's maximum block
+    size, 1024, since the kernels' launch bounds keep their registers
+    within it. SYCL has no launch bounds, so there the cap is the default
+    block size (256 on CUDA and HIP devices): $6^3$ points in a hexahedron,
+    for instance, but not $7^3$.
+  \item The advection-diffusion pass is laid out for the
+    average-of-normal-fluxes form of the viscous trace flux. The flux of
+    averages can be formed on every trace by listing every element for the
+    gradient trace, but that writes the $\mathrm{NDIM} \times \mathrm{NVAR}$
+    gradient components on every trace point, the traffic the form avoids.
+\end{itemize}
+A block outside these limits is refused, and \texttt{Create()} returns null.
+
+\subsection{Testing}
+
+\texttt{TestAdvectionFusedElmt} and \texttt{TestAdvDiffFusedElmt} compare
+the operators with the separate chain they replace:
+\begin{itemize}
+  \item \texttt{PhysTraceExtract} for the state trace;
+  \item \texttt{PhysDeriv} for the gradient;
+  \item the policy, evaluated point by point, for the fluxes;
+  \item \texttt{IProductWRTDerivBase}, with scale $-1$, for the derivative
+    inner products;
+  \item \texttt{PhysTraceExtract::ApplyNormalComponent()} of the viscous
+    flux for the normal viscous flux on the traces;
+  \item \texttt{PhysTraceExtract} of the gradient for the gradient trace.
+\end{itemize}
+They share one fixture (\texttt{TestFusedElmt.hpp}) and register an Euler
+policy for the advection operator and a Navier--Stokes one for the
+advection-diffusion operator, in one, two and three dimensions, and run them
+on every shape, on straight-sided meshes and, for every shape but the
+hexahedron, curved ones (a mixed mesh of quadrilaterals and triangles in two
+dimensions). Each runs at orders 1 to 8 on the modified and the orthogonal
+bases, each with the expansion's own points and with one point more per
+direction, which covers the compile-time and runtime sizes of the size
+switch, and trace rules that are and are not the volume rules. Every case
+runs with the fields at width 1 and, where the execution space interleaves,
+at its vector width, and for the advection-diffusion operator with the
+gradient trace on every other element and on every element. They run on
+Serial, AVX and Device.

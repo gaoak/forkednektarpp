@@ -430,29 +430,14 @@ protected:
         }
 
         // Workspaces, sized for the largest intermediate any shape of
-        // this dimension can need. A segment has no tangential stage
-        // and so needs none.
-        if (m_dimension == 2)
+        // this dimension can need (PhysTraceExtractWorkspaceSizes()): one
+        // in two dimensions, two in three. A segment has no tangential
+        // stage and so needs none.
+        const auto wspSizes = PhysTraceExtractWorkspaceSizes(m_nm, m_nq);
+        for (unsigned int i = 0; i + 1 < m_dimension; ++i)
         {
-            // The values of an edge pair the normal-direction stage
-            // extracts, before the tangential interpolation reads them.
-            m_wsp.push_back(std::vector<simd_t, tinysimd::allocator<simd_t>>(
-                2 * std::max(m_nm[0], m_nm[1])));
-        }
-        else if (m_dimension == 3)
-        {
-            // The face blocks of a face pair, then the scratch of the
-            // general face interpolation: the first in-trace direction
-            // already interpolated while the second is still on the
-            // volume points.
             m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(std::max(
-                    m_nm[0] * m_nm[1] * 2,
-                    std::max(m_nm[1] * m_nm[2] * 2, m_nm[0] * m_nm[2] * 2))));
-            m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(std::max(
-                    m_nq[4] * m_nm[1] * 2,
-                    std::max(m_nq[2] * m_nm[2] * 2, m_nq[0] * m_nm[2] * 2))));
+                std::vector<simd_t, tinysimd::allocator<simd_t>>(wspSizes[i]));
         }
     }
 

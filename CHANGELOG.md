@@ -146,6 +146,7 @@ v5.11.0
 - Add the comparisons `>=`, `<`, `<=` and a lane-wise `select` to every tinysimd back-end, the `scalar_type_t` trait, and `Select()`, which chooses between two scalars or two SIMD vectors alike (!2904)
 - Add uniform and normal random fills to the Math library (`Math::fillUniform`, `Math::fillNormal`, `Math::RandomGenerator`) over cuRAND, hipRAND and oneMath/oneMKL on the device (!2903)
 - Add the white noise forcing (`TYPE="Noise"`) to SolverCore, and read the redesign forcing configuration through SessionNode
+- Add the fused element-local operators AdvectionFusedElmt and AdvDiffFusedElmt to SolverCore: the element-local part of a weak DG right-hand side in one pass, for a flux policy registered by the code that supplies it, with SumFac on Serial and AVX and SumFacTOP on Device; add multi-variable line-blocked PhysDeriv and PhysTraceExtract kernels for Serial and AVX (!2912)
 - Tidy the device SumFac and SumFacTOP element operators: share 2D/3D shape-dispatch helpers for BwdTrans and IProductWRTBase, stage shared-memory data with `StageToSharedMemory`/`StageTransposeToSharedMemory`, and drop a redundant barrier after the nodal-to-modal mapping (!2905)
 - Fix device Dirichlet projection reading out of bounds in 3DH1, and reject homogeneous expansions in the boundary surface integral and MeanRemoval (!2907)
 - Agree across ranks on the field definitions a variable is written with (!2907)
