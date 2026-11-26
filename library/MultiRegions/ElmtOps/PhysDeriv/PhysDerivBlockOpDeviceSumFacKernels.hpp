@@ -115,6 +115,7 @@ namespace Nektar::MultiRegions::detail
  *
  * @param   sizeParam1D  Element sizes; unused.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  *
  * @return Zero.
  */
@@ -126,7 +127,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int PhysDerivSharedMemorySize(
     [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     return 0;
 }
@@ -143,6 +145,7 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  *
  * @return Table entries to allocate per thread block.
  */
@@ -154,7 +157,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int PhysDerivSharedMemorySize(
     [[maybe_unused]] const TPhysSizeParameter2D sizeParam2D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
@@ -187,6 +191,7 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  *
  * @return Table entries to allocate per thread block.
  */
@@ -198,7 +203,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int PhysDerivSharedMemorySize(
     const TPhysSizeParameter3D sizeParam3D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
@@ -1031,6 +1037,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DKernel(
  * @param   nelmt       Elements in the block, including padding.
  * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   outoffset   Stride between the Cartesian planes of @p out.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  * @param   D0          1D differentiation matrix.
  * @param   df          Derivative factors of the block.
  * @param   in          Input values of the block, warp interleaved and
@@ -1050,6 +1057,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t outoffset,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
@@ -1199,6 +1207,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
  * @param   nelmt       Elements in the block, including padding.
  * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   outoffset   Stride between the Cartesian planes of @p out.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  * @param   D0,D1       1D differentiation matrices.
  * @param   f0,f1       Collapsed-coordinate factor tables.
  * @param   df          Derivative factors of the block.
@@ -1218,6 +1227,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t outoffset,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
@@ -1420,6 +1430,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  * @param   elmtsPerBlock   Elements per thread block, one per thread; unused.
  * @param   outoffset       Stride between the Cartesian planes of
  *                          @p out.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  * @param   D0,D1,D2        1D differentiation matrices.
  * @param   f0,f1,f1m,f2    Collapsed-coordinate factor tables.
  * @param   df              Derivative factors of the block.
@@ -1441,6 +1452,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t outoffset,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,

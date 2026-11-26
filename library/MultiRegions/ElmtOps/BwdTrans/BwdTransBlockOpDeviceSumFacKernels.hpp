@@ -1122,6 +1122,8 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacKernel(
  *                          compile-time form; with the latter the sizes
  *                          below are compile-time constants.
  * @tparam TthreadBlock     Back-end thread-block handle type.
+ * @tparam TUseSharedWsp    Type of @p useSharedMemoryWsp: `bool`, or a
+ *                          `std::bool_constant` SelectSharedWorkSpace() fixed.
  *
  * @param   sizeParam1D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
@@ -1144,23 +1146,22 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacKernel(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, typename TSizeParameter1D, typename TthreadBlock,
-          typename TData,
+          typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
-    BwdTransKernelLauncher(const TSizeParameter1D sizeParam1D,
-                           const size_t nelmt,
-                           [[maybe_unused]] const unsigned int elmtsPerBlock,
-                           [[maybe_unused]] const bool isModified,
-                           [[maybe_unused]] const bool useSharedMemoryWsp,
-                           const TData *NEK_RESTRICT basis0,
-                           [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
-                           const TData *NEK_RESTRICT in,
-                           TData *NEK_RESTRICT out,
-                           [[maybe_unused]] TData *NEK_RESTRICT wsp,
-                           [[maybe_unused]] unsigned char *shmemptr,
-                           const TthreadBlock &threadBlock)
+    BwdTransKernelLauncher(
+        const TSizeParameter1D sizeParam1D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
+        [[maybe_unused]] const bool isModified,
+        [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
+        const TData *NEK_RESTRICT basis0,
+        [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp,
+        [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
                   "Template argument must be either of type "
@@ -1214,6 +1215,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @tparam TSizeParameter2D 2D size parameter, runtime or compile-time
  *                          form.
  * @tparam TthreadBlock     Back-end thread-block handle type.
+ * @tparam TUseSharedWsp    Type of @p useSharedMemoryWsp: `bool`, or a
+ *                          `std::bool_constant` SelectSharedWorkSpace() fixed.
  *
  * @param   sizeParam2D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
@@ -1236,22 +1239,20 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, typename TSizeParameter2D, typename TthreadBlock,
-          typename TData,
+          typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-    BwdTransKernelLauncher(const TSizeParameter2D sizeParam2D,
-                           const size_t nelmt,
-                           [[maybe_unused]] const unsigned int elmtsPerBlock,
-                           const bool isModified, const bool useSharedMemoryWsp,
-                           const TData *NEK_RESTRICT basis0,
-                           const TData *NEK_RESTRICT basis1,
-                           const TData *NEK_RESTRICT nodToMod,
-                           const TData *NEK_RESTRICT in,
-                           TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
-                           [[maybe_unused]] unsigned char *shmemptr,
-                           const TthreadBlock &threadBlock)
+    BwdTransKernelLauncher(
+        const TSizeParameter2D sizeParam2D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int elmtsPerBlock,
+        const bool isModified, const TUseSharedWsp useSharedMemoryWsp,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+        [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -1339,6 +1340,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @tparam TSizeParameter3D 3D size parameter, runtime or compile-time
  *                          form.
  * @tparam TthreadBlock     Back-end thread-block handle type.
+ * @tparam TUseSharedWsp    Type of @p useSharedMemoryWsp: `bool`, or a
+ *                          `std::bool_constant` SelectSharedWorkSpace() fixed.
  *
  * @param   sizeParam3D Mode and quadrature-point counts of an element.
  * @param   nelmt       Elements in the block, padding included.
@@ -1362,7 +1365,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, typename TSizeParameter3D, typename TthreadBlock,
-          typename TData,
+          typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -1370,7 +1373,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     BwdTransKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
         [[maybe_unused]] const unsigned int elmtsPerBlock,
-        const bool isModified, const bool useSharedMemoryWsp,
+        const bool isModified, const TUseSharedWsp useSharedMemoryWsp,
         [[maybe_unused]] const unsigned int *index0,
         [[maybe_unused]] const unsigned int *index1,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,

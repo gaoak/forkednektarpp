@@ -189,6 +189,7 @@ v5.11.0
 - Making SolverCore's EquationSystem base class truly generic (!2951)
 - Making SolverCore's UnsteadySystem base class truly generic (!2953)
 - Update ProfilerElmtOps for trace operators and add SumFacTOP implementation to IProductWRTPhysNormalDerivTrace (!2957)
+- Select the shared or global memory workspace of the device SumFacTOP kernels at compile time where the device architecture's limits are known, and fall back to global memory for SumFacTOP Advection, Divergence and PhysDeriv (!2960)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

@@ -326,6 +326,21 @@ protected:
     }
 
     /**
+     * @brief Shared memory in bytes one thread block of a @p SHAPE_TYPE launch
+     * requests, for @p elmtsPerBlock elements per thread block, with the input
+     * staged there if @p useSharedMemoryWsp.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+    static constexpr unsigned int SharedMemorySize(
+        const TSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+        const bool useSharedMemoryWsp)
+    {
+        return sizeof(TData) *
+               PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(
+                   sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+    }
+
+    /**
      * @brief Worker for every dimension: one kernel launch
      * differentiating every component and homogeneous mode of the
      * block.
@@ -333,10 +348,12 @@ protected:
      * @details
      * The launch configuration comes from the shared helpers: dynamic
      * shared memory from PhysDerivSharedMemorySize for the shape and
-     * strategy at hand, in bytes (nothing for segments; for SumFac the
-     * collapsed-coordinate tables of the simplex-type shapes and
-     * nothing for quadrilaterals and hexahedra; for SumFacTOP one
-     * element's nqTot input values), threads per block from
+     * strategy at hand, in bytes (for SumFac the collapsed-coordinate
+     * tables of the simplex-type shapes, the input being read in place;
+     * for SumFacTOP each element's nqTot input values, none for
+     * segments). The SumFacTOP input goes in shared memory only when
+     * SelectSharedWorkSpace() accepts that size, and is otherwise read
+     * in place. Threads per block come from
      * GetDeviceKernelParameters (a warp for SumFac; for SumFacTOP the
      * element's point count rounded up to whole warps and capped at
      * the device default block size) and the grid's X extent from
@@ -402,12 +419,24 @@ protected:
         // Set Kernel parameters.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nqTot());
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam, elmtsPerBlock);
+        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        // SumFac reads the input in place.
+        const auto useSharedMemoryWsp = [&]() {
+            if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
+            {
+                return false;
+            }
+            else if constexpr (std::is_same_v<Implementation,
+                                              MultiRegions::SumFacTOP>)
+            {
+                return SelectSharedWorkSpace<
+                    Implementation,
+                    SharedMemorySize<SHAPE_TYPE, TPhysSizeParameter>>(
+                    sizeParam, elmtsPerBlock);
+            }
+        }();
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
             sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
 
@@ -428,8 +457,8 @@ protected:
                     kernelParams.gridSize, inblock.GetNumHomoModes(),
                     inblock.GetNumComponents(), kernelParams.blockSize, 1, 1,
                     kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                    elmtsPerBlockArg, outoffset, m_D[ind0]..., m_f[ind1]...,
-                    m_dfptr, inptr, outptr);
+                    elmtsPerBlockArg, outoffset, useSharedMemoryWsp,
+                    m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr, outptr);
             });
 
         // Reshape back, if necessary.

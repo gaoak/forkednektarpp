@@ -29,6 +29,8 @@ IF (NEKTAR_DEVICE_ARCH)
         MESSAGE(FATAL_ERROR "For AMD GPU, NEKTAR_DEVICE_ARCH must be specified as gfxXXX, got '${NEKTAR_DEVICE_ARCH}'")
     ENDIF()
     ADD_COMPILE_DEFINITIONS(__NEKTAR_DEVICE_ARCH__="${NEKTAR_DEVICE_ARCH}")
+    INCLUDE(NektarDeviceArchLimits)
+    NEKTAR_AMD_ARCH_LIMITS(${NEKTAR_DEVICE_ARCH})
     SET(CMAKE_HIP_ARCHITECTURES ${NEKTAR_DEVICE_ARCH})
 ELSE()
     MESSAGE(FATAL_ERROR "HIP back-end requires NEKTAR_DEVICE_ARCH=<arch> with <arch> specified as gfxXXX. The <arch> value can be queried using the following command: `rocm-smi --showproductname | grep gfx`. For the following GPU, please use:

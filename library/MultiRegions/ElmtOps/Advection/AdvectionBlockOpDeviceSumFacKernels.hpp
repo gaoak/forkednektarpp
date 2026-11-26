@@ -90,6 +90,7 @@ namespace Nektar::MultiRegions::detail
  *
  * @param   sizeParam1D  Element sizes; unused.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  *
  * @return Zero.
  */
@@ -101,7 +102,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int AdvectionSharedMemorySize(
     [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     return 0;
 }
@@ -122,6 +124,7 @@ inline constexpr unsigned int AdvectionSharedMemorySize(
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  *
  * @return Shared-memory requirement in elements of TData.
  */
@@ -133,7 +136,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int AdvectionSharedMemorySize(
     [[maybe_unused]] const TPhysSizeParameter2D sizeParam2D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
@@ -166,6 +170,7 @@ inline constexpr unsigned int AdvectionSharedMemorySize(
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  *
  * @return Shared-memory requirement in elements of TData.
  */
@@ -177,7 +182,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int AdvectionSharedMemorySize(
     const TPhysSizeParameter3D sizeParam3D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
@@ -584,6 +590,7 @@ NEK_DEVICE_INLINE static void Advection3DSumFacKernel(
  * @param   nelmt        Elements in the block, including padding.
  * @param   elmtsPerBlock  Elements per thread block, one per thread;
  *                       unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  * @param   D0           1D derivative matrix of the direction.
  * @param   df           Derivative factors of the block.
  * @param   advVel       Velocity data of the block.
@@ -605,6 +612,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel, const size_t advVelOffset,
     const unsigned int nhomo, const TData *NEK_RESTRICT in,
@@ -668,6 +676,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
  * @param   nelmt        Elements in the block, including padding.
  * @param   elmtsPerBlock  Elements per thread block, one per thread;
  *                       unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  * @param   D0           1D derivative matrix of direction 0.
  * @param   D1           1D derivative matrix of direction 1.
  * @param   f0           Collapsed-coordinate factor of direction 0.
@@ -692,6 +701,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT advVel,
@@ -774,6 +784,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
  * @param   nelmt        Elements in the block, including padding.
  * @param   elmtsPerBlock  Elements per thread block, one per thread;
  *                       unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  * @param   D0           1D derivative matrix of direction 0.
  * @param   D1           1D derivative matrix of direction 1.
  * @param   D2           1D derivative matrix of direction 2.
@@ -801,6 +812,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,

@@ -590,7 +590,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>(
+        NektarSpaces::Device::defaultBlockSize,
+        NektarSpaces::Device::warpSize)))
     PhysLiftProjectKernelLauncher(
         const TSizeParameter1D sizeParam1D,
         const TTraceSizeParameter1D traceSizeParam1D, const size_t nelmt,
@@ -660,7 +662,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>(
+        NektarSpaces::Device::defaultBlockSize,
+        NektarSpaces::Device::warpSize)))
     PhysLiftProjectKernelLauncher(
         const TSizeParameter2D sizeParam2D,
         const TTraceSizeParameter2D traceSizeParam2D, const size_t nelmt,
@@ -788,7 +792,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>(
+        NektarSpaces::Device::defaultBlockSize,
+        NektarSpaces::Device::warpSize)))
     PhysLiftProjectKernelLauncher(
         const TSizeParameter3D sizeParam3D,
         const TTraceSizeParameter3D traceSizeParam3D, const size_t nelmt,
@@ -927,7 +933,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>(
+        NektarSpaces::Device::defaultBlockSize,
+        NektarSpaces::Device::warpSize)))
     PhysLiftProjectLiftBasisTransposeKernelLauncher(
         const TSizeParameter1D sizeParam1D,
         [[maybe_unused]] const TTraceSizeParameter1D traceSizeParam1D,
@@ -982,7 +990,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>(
+        NektarSpaces::Device::defaultBlockSize,
+        NektarSpaces::Device::warpSize)))
     PhysLiftProjectLiftBasisTransposeKernelLauncher(
         const TSizeParameter2D sizeParam2D,
         const TTraceSizeParameter2D traceSizeParam2D, const size_t nelmt,
@@ -1090,7 +1100,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>(
+        NektarSpaces::Device::defaultBlockSize,
+        NektarSpaces::Device::warpSize)))
     PhysLiftProjectLiftBasisTransposeKernelLauncher(
         const TSizeParameter3D sizeParam3D,
         const TTraceSizeParameter3D traceSizeParam3D, const size_t nelmt,
@@ -1216,7 +1228,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>(
+        NektarSpaces::Device::defaultBlockSize,
+        NektarSpaces::Device::warpSize)))
     PhysLiftProjectScaleBwdTransKernelLauncher(
         const TSizeParameter1D sizeParam1D,
         [[maybe_unused]] const TTraceSizeParameter1D traceSizeParam1D,
@@ -1265,7 +1279,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>(
+        NektarSpaces::Device::defaultBlockSize,
+        NektarSpaces::Device::warpSize)))
     PhysLiftProjectScaleBwdTransKernelLauncher(
         const TSizeParameter2D sizeParam2D,
         const TTraceSizeParameter2D traceSizeParam2D, const size_t nelmt,
@@ -1340,7 +1356,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
-    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>()))
+    (GetMaxThreadPerBlock<Implementation, TSizeParameter3D>(
+        NektarSpaces::Device::defaultBlockSize,
+        NektarSpaces::Device::warpSize)))
     PhysLiftProjectScaleBwdTransKernelLauncher(
         const TSizeParameter3D sizeParam3D,
         const TTraceSizeParameter3D traceSizeParam3D, const size_t nelmt,

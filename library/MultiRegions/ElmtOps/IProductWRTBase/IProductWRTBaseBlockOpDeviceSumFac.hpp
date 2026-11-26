@@ -389,6 +389,23 @@ protected:
     }
 
     /**
+     * @brief Shared memory in bytes one thread block of a @p SHAPE_TYPE launch
+     * requests, for @p elmtsPerBlock elements per thread block, with the
+     * workspace staged there if @p useSharedMemoryWsp, for the row padding
+     * @p padded.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+    static constexpr unsigned int SharedMemorySize(
+        const TSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+        const bool useSharedMemoryWsp, const bool padded)
+    {
+        return sizeof(TData) *
+               IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation,
+                                               TData>(
+                   sizeParam, padded, elmtsPerBlock, useSharedMemoryWsp);
+    }
+
+    /**
      * @brief Worker for every dimension: apply the operator to all elements
      * of the block with a single fused kernel launch.
      *
@@ -412,7 +429,7 @@ protected:
      * headers; the workspace holds every element under SumFac and one
      * element per thread block under SumFacTOP. The intermediates go in
      * shared memory instead, and the global workspace is zero, when
-     * UseSharedWorkSpace() accepts the size
+     * SelectSharedWorkSpace() accepts the size
      * IProductWRTBaseSharedMemorySize() gives with them staged there: one
      * warp of elements under SumFac, one element under SumFacTOP.
      *
@@ -470,23 +487,16 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Stage intermediates in shared memory if they fit.
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
-        const unsigned int shmemsizeWithSharedWsp =
-            sizeof(TData) *
-            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
-                sizeParam, this->m_integration, elmtsPerBlock, true);
-        const bool useSharedMemoryWsp =
-            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto useSharedMemoryWsp =
+            SelectSharedWorkSpace<Implementation,
+                                  SharedMemorySize<SHAPE_TYPE, TSizeParameter>,
+                                  false, true>(sizeParam, elmtsPerBlock,
+                                               this->m_integration);
 
         // Set Kernel parameters.
-        const unsigned int shmemsize =
-            useSharedMemoryWsp
-                ? shmemsizeWithSharedWsp
-                : sizeof(TData) *
-                      IProductWRTBaseSharedMemorySize<SHAPE_TYPE,
-                                                      Implementation, TData>(
-                          sizeParam, this->m_integration, elmtsPerBlock, false);
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp, this->m_integration);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
             sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
 
