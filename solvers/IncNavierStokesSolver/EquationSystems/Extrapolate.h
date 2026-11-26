@@ -147,6 +147,12 @@ public:
         m_forcing = forcing;
     }
 
+    /// Set the linear drag rate used in the normal momentum balance.
+    void SetHartmannBraking(NekDouble rate)
+    {
+        m_hartmannBraking = rate;
+    }
+
     void GenerateHOPBCMap(
         const LibUtilities::SessionReaderSharedPtr &pSsession);
 
@@ -158,6 +164,9 @@ public:
 
     void ExtrapolatePressureHBCs(void);
     void CopyPressureHBCsToPbndExp(void);
+
+    /// Apply Hartmann drag using the velocity prescribed for this step.
+    void ApplyHartmannPressureBCs();
 
     Array<OneD, NekDouble> GetMaxStdVelocity(
         const Array<OneD, Array<OneD, NekDouble>> inarray);
@@ -271,6 +280,11 @@ protected:
     int m_intSteps;
 
     NekDouble m_timestep;
+
+    NekDouble m_hartmannBraking = 0.0;
+
+    /// Boundaries with a prescribed velocity at the new pressure time level.
+    Array<OneD, bool> m_hartmannDirichletVelocity;
 
     /// Storage for current and previous levels of high order pressure boundary
     /// conditions.

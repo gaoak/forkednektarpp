@@ -43,6 +43,8 @@
 
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 
+#include <cmath>
+
 namespace Nektar
 {
 
@@ -78,6 +80,23 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
     m_MHD.hasLorentzForce = DefinedForcing("ForcingLorentz");
     IncNavierStokes::v_InitObject(DeclareField);
     m_explicitDiffusion = false;
+
+    if (!m_MHD.hasLorentzForce)
+    {
+        NekDouble hartmannBraking = 0.0;
+        m_session->LoadParameter("HartmannBraking", hartmannBraking, 0.0);
+        ASSERTL0(std::isfinite(hartmannBraking) && hartmannBraking >= 0.0,
+                 "HartmannBraking must be a finite, non-negative rate.");
+        if (hartmannBraking > 0.0)
+        {
+            ASSERTL0(m_expdim == 2 && m_spacedim == 2 &&
+                         m_session->MatchSolverInfoAsEnum(
+                             "SolverType", eVelocityCorrectionScheme),
+                     "HartmannBraking requires a two-dimensional "
+                     "VelocityCorrectionScheme session.");
+            SetImplicitLorentzDamping(hartmannBraking);
+        }
+    }
 
     // Set m_pressure to point to last field of m_fields;
     if (StringUtils::IEquals(m_session->GetVariable(m_fields.size() - 1), "p"))
@@ -177,6 +196,10 @@ void VelocityCorrectionScheme::SetUpExtrapolation()
             m_advObject);
 
         m_extrapolation->SetForcing(m_forcing);
+        if (!m_MHD.hasLorentzForce)
+        {
+            m_extrapolation->SetHartmannBraking(m_MHD.implicitLorentzDamping);
+        }
         m_extrapolation->SubSteppingTimeIntegration(m_intScheme);
         m_extrapolation->GenerateBndElmtExpansion();
         m_extrapolation->GenerateHOPBCMap(m_session);
@@ -577,6 +600,11 @@ void VelocityCorrectionScheme::v_GenerateSummary(SolverUtils::SummaryList &s)
     AdvectionSystem::v_GenerateSummary(s);
     SolverUtils::AddSummaryItem(s, "Splitting Scheme",
                                 "Velocity correction (strong press. form)");
+    if (!m_MHD.hasLorentzForce && m_MHD.implicitLorentzDamping > 0.0)
+    {
+        SolverUtils::AddSummaryItem(s, "Hartmann braking rate",
+                                    m_MHD.implicitLorentzDamping);
+    }
 
     if (m_extrapolation->GetSubStepName().size())
     {
@@ -801,20 +829,9 @@ void VelocityCorrectionScheme::v_EvaluateAdvection_SetPressureBCs(
     params["Kinvis"]   = m_kinvis;
     params["Time"]     = time + m_timestep;
     params["pressure"] = 1.;
-    // High-order pressure BCs currently consume a single damping scalar
-    // (IncBaseCondition::AddRigidBodyAcc only acts on moving walls).  Pass the
-    // largest velocity-component value so no part of the model damping is
-    // dropped; with anisotropic damping this is an approximation at moving
-    // walls and an exact no-op at stationary walls (the term multiplies the
-    // wall translation velocity, which is zero here).
-    NekDouble hopbcDamping = 0.0;
-    for (size_t i = 0; i < m_velocity.size(); ++i)
+    if (m_MHD.implicitLorentzDamping > 0.0)
     {
-        hopbcDamping = std::max(hopbcDamping, m_MHD.implicitDamping[i]);
-    }
-    if (hopbcDamping > 0.0)
-    {
-        params["ImplicitLorentzDamping"] = hopbcDamping;
+        params["ImplicitLorentzDamping"] = m_MHD.implicitLorentzDamping;
     }
     AddMovingFrameDataToParams(m_strFrameData, m_movingFrameData, params);
     m_extrapolation->EvaluatePressureBCs(inarray, outarray, m_kinvis);
@@ -842,6 +859,7 @@ void VelocityCorrectionScheme::v_SolveUnsteadyStokesSystem(
 
     // Substep the pressure boundary condition if using substepping
     m_extrapolation->SubStepSetPressureBCs(inarray, aii_Dt, m_kinvis);
+    m_extrapolation->ApplyHartmannPressureBCs();
 
     // Set up forcing term for pressure Poisson equation
     LibUtilities::Timer timer;
@@ -1014,22 +1032,20 @@ void VelocityCorrectionScheme::v_SolveViscous(
             factors[StdRegions::eFactorGJP] = m_GJPJumpScale / m_diffCoeff[i];
         }
 
-        // Implicit damping is component-wise: sigma |B|^2 plus the Hartmann
-        // braking chi_i (Sommeria & Moreau 1982, eq. 18).  It only applies to
-        // velocity fields, not to any additional passive scalars.
-        NekDouble implicitDamping = 0.0;
+        NekDouble implicitLorentzDamping = 0.0;
         for (int j = 0; j < m_velocity.size(); ++j)
         {
             if (m_velocity[j] == i)
             {
-                implicitDamping = m_MHD.implicitDamping[j];
+                implicitLorentzDamping = m_MHD.implicitLorentzDamping;
                 break;
             }
         }
 
-        // Setup coefficients for equation.
+        // Setup coefficients for equation. The Lorentz reaction term only
+        // applies to velocity fields, not to any additional passive scalars.
         factors[StdRegions::eFactorLambda] =
-            (1.0 / aii_Dt + implicitDamping) / m_diffCoeff[i];
+            (1.0 / aii_Dt + implicitLorentzDamping) / m_diffCoeff[i];
         m_fields[i]->HelmSolve(Forcing[i], m_fields[i]->UpdateCoeffs(), factors,
                                varCoeffMap, varFactorsMap);
         m_fields[i]->BwdTrans(m_fields[i]->GetCoeffs(), outarray[i]);
