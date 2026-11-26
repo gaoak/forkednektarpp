@@ -462,6 +462,22 @@ protected:
     }
 
     /**
+     * @brief Shared memory in bytes one thread block of a @p SHAPE_TYPE launch
+     * requests, for @p elmtsPerBlock elements per thread block, with the
+     * workspace staged there if @p useSharedMemoryWsp, for the coordinate
+     * dimension @p ncoord.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+    static constexpr unsigned int SharedMemorySize(
+        const TSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+        const bool useSharedMemoryWsp, const unsigned int ncoord)
+    {
+        return sizeof(TData) *
+               HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
+                   ncoord, sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+    }
+
+    /**
      * @brief Worker for every dimension: apply the operator to all
      * elements of the block with a single kernel launch covering every
      * component and homogeneous mode.
@@ -478,7 +494,7 @@ protected:
      * component's intermediates at once; the dynamic shared-memory
      * request is HelmholtzSharedMemorySize, in bytes, and is not scaled
      * by ncomp. The intermediates go in shared memory instead, and the
-     * global workspace is zero, when UseSharedWorkSpace() accepts the
+     * global workspace is zero, when SelectSharedWorkSpace() accepts the
      * size HelmholtzSharedMemorySize gives with them staged there: one
      * warp of elements under SumFac, one element under SumFacTOP. Threads per
      * block come from GetDeviceKernelParameters: a warp for SumFac; for
@@ -604,23 +620,15 @@ protected:
         auto advVelSize = nelmt * sizeParam.nqTot() * nhomo;
 
         // Stage intermediates in shared memory if they fit.
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
-        const unsigned int shmemsizeWithSharedWsp =
-            sizeof(TData) *
-            HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
-                m_coordDim, sizeParam, elmtsPerBlock, true);
-        const bool useSharedMemoryWsp =
-            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto useSharedMemoryWsp = SelectSharedWorkSpace<
+            Implementation, SharedMemorySize<SHAPE_TYPE, TSizeParameter>,
+            LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], 3u>(
+            sizeParam, elmtsPerBlock, m_coordDim);
 
         // Set Kernel parameters.
-        const unsigned int shmemsize =
-            useSharedMemoryWsp
-                ? shmemsizeWithSharedWsp
-                : sizeof(TData) *
-                      HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation,
-                                                TData>(m_coordDim, sizeParam,
-                                                       elmtsPerBlock, false);
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp, m_coordDim);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
             sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
 

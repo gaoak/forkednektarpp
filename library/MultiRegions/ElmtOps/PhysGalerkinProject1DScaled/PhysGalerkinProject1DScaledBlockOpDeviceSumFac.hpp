@@ -220,6 +220,21 @@ protected:
             std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
     }
 
+    /**
+     * @brief Shared memory in bytes one thread block of a @p SHAPE_TYPE launch
+     * requests, for @p elmtsPerBlock elements per thread block, with the
+     * workspace staged there if @p useSharedMemoryWsp.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+    static constexpr unsigned int SharedMemorySize(
+        const TSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+        const bool useSharedMemoryWsp)
+    {
+        return sizeof(TData) *
+               BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
+                   sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+    }
+
     // Generic operator implementation. ind0 indexes each direction,
     // ind1 the precomputed index arrays used by the kernels.
     template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter,
@@ -241,22 +256,15 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Stage intermediates in shared memory if they fit.
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
-        const unsigned int shmemsizeWithSharedWsp =
-            sizeof(TData) *
-            BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam, elmtsPerBlock, true);
-        const bool useSharedMemoryWsp =
-            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto useSharedMemoryWsp =
+            SelectSharedWorkSpace<Implementation,
+                                  SharedMemorySize<SHAPE_TYPE, TSizeParameter>>(
+                sizeParam, elmtsPerBlock);
 
         // Set Kernel parameters.
-        const unsigned int shmemsize =
-            useSharedMemoryWsp
-                ? shmemsizeWithSharedWsp
-                : sizeof(TData) *
-                      BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(
-                          sizeParam, elmtsPerBlock, false);
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
             sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
 

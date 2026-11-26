@@ -93,6 +93,7 @@ namespace Nektar::MultiRegions::detail
  *
  * @param   sizeParam1D  Element sizes; unused.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  *
  * @return Zero.
  */
@@ -104,7 +105,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
     [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     return 0;
 }
@@ -125,6 +127,7 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  *
  * @param   sizeParam2D  Quadrature-point counts per direction.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  *
  * @return Entry count; the caller multiplies by sizeof(TData).
  */
@@ -136,7 +139,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
     [[maybe_unused]] const TPhysSizeParameter2D sizeParam2D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
@@ -168,6 +172,7 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  *
  * @param   sizeParam3D  Quadrature-point counts per direction.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  *
  * @return Entry count; the caller multiplies by sizeof(TData).
  */
@@ -179,7 +184,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
     const TPhysSizeParameter3D sizeParam3D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     const unsigned int nq0 = sizeParam3D.nq0();
     const unsigned int nq1 = sizeParam3D.nq1();
@@ -450,6 +456,7 @@ NEK_DEVICE_INLINE static void Divergence3DSumFacKernel(
  *                      included.
  * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   inoffset    Component stride; unused in one dimension.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  * @param   D0          1D derivative matrix.
  * @param   df          Derivative factors of the block,
  *                      warp-interleaved.
@@ -467,10 +474,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     [[maybe_unused]] const unsigned int elmtsPerBlock,
-    [[maybe_unused]] const size_t inoffset, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, [[maybe_unused]] unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    [[maybe_unused]] const size_t inoffset,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter1D_v<TPhysSizeParameter1D>,
@@ -537,6 +545,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   inoffset    Stride from one input component to the next,
  *                      a component spanning all the planes.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  * @param   D0          1D derivative matrix of direction 0.
  * @param   D1          1D derivative matrix of direction 1.
  * @param   f0          Collapsed-coordinate factor table of
@@ -559,6 +568,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t inoffset,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
@@ -648,6 +658,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  * @param   elmtsPerBlock Elements per thread block, one per thread; unused.
  * @param   inoffset    Stride from one input component to the next,
  *                      a component spanning all the planes.
+ * @param   useSharedMemoryWsp  Unused; SumFac reads the input in place.
  * @param   D0          1D derivative matrix of direction 0.
  * @param   D1          1D derivative matrix of direction 1.
  * @param   D2          1D derivative matrix of direction 2.
@@ -674,6 +685,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     [[maybe_unused]] const unsigned int elmtsPerBlock, const size_t inoffset,
+    [[maybe_unused]] const bool useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,

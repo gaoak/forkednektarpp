@@ -1105,6 +1105,7 @@ NEK_DEVICE_INLINE static void LaplacianPhysDerivApplyMetric3DSumFacTOPKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, bool VARCOEFF, typename TSizeParameter1D,
           typename TElmtsPerBlock, typename TthreadBlock, typename TData,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -1112,7 +1113,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LaplacianKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
         const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
-        [[maybe_unused]] const bool isModified, const bool useSharedMemoryWsp,
+        [[maybe_unused]] const bool isModified,
+        const TUseSharedWsp useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
@@ -1200,6 +1202,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, bool VARCOEFF, typename TSizeParameter2D,
           typename TElmtsPerBlock, typename TthreadBlock, typename TData,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -1207,7 +1210,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LaplacianKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
         const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
-        const bool isModified, const bool useSharedMemoryWsp,
+        const bool isModified, const TUseSharedWsp useSharedMemoryWsp,
         const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -1376,6 +1379,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, bool VARCOEFF, typename TSizeParameter3D,
           typename TElmtsPerBlock, typename TthreadBlock, typename TData,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -1383,7 +1387,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LaplacianKernelLauncher(
         const TSizeParameter3D sizeParam3D, const unsigned int ncoord,
         const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
-        const bool isModified, const bool useSharedMemoryWsp,
+        const bool isModified, const TUseSharedWsp useSharedMemoryWsp,
         const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,

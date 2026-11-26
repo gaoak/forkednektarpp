@@ -2099,6 +2099,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
  * @tparam TElmtsPerBlock   SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock     Back-end thread-block handle type.
  * @tparam TData            Floating-point type of the field data.
+ * @tparam TUseSharedWsp    Type of @p useSharedMemoryWsp: `bool`, or a
+ *                          `std::bool_constant` SelectSharedWorkSpace() fixed.
  *
  * @param   sizeParam1D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
@@ -2125,6 +2127,7 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacTOPKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TSizeParameter1D,
           typename TElmtsPerBlock, typename TthreadBlock, typename TData,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -2132,7 +2135,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTBaseKernelLauncher(
         const TSizeParameter1D sizeParam1D, const size_t nelmt,
         const TElmtsPerBlock elmtsPerBlock,
-        [[maybe_unused]] const bool isModified, const bool useSharedMemoryWsp,
+        [[maybe_unused]] const bool isModified,
+        const TUseSharedWsp useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
@@ -2230,6 +2234,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, typename TSizeParameter1D,
           typename TElmtsPerBlock, typename TthreadBlock, typename TData,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -2237,7 +2242,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTBaseKernelLauncher(
         const TSizeParameter1D sizeParam1D, const size_t nelmt,
         const TElmtsPerBlock elmtsPerBlock,
-        [[maybe_unused]] const bool isModified, const bool useSharedMemoryWsp,
+        [[maybe_unused]] const bool isModified,
+        const TUseSharedWsp useSharedMemoryWsp,
         const TData *NEK_RESTRICT basis0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
@@ -2325,6 +2331,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @tparam TElmtsPerBlock   SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock     Back-end thread-block handle type.
  * @tparam TData            Floating-point type of the field data.
+ * @tparam TUseSharedWsp    Type of @p useSharedMemoryWsp: `bool`, or a
+ *                          `std::bool_constant` SelectSharedWorkSpace() fixed.
  *
  * @param   sizeParam2D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
@@ -2351,6 +2359,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TSizeParameter2D,
           typename TElmtsPerBlock, typename TthreadBlock, typename TData,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -2358,7 +2367,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTBaseKernelLauncher(
         const TSizeParameter2D sizeParam2D, const size_t nelmt,
         const TElmtsPerBlock elmtsPerBlock, const bool isModified,
-        const bool useSharedMemoryWsp, const unsigned int *NEK_RESTRICT index0,
+        const TUseSharedWsp useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
@@ -2502,6 +2512,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, typename TSizeParameter2D,
           typename TElmtsPerBlock, typename TthreadBlock, typename TData,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -2509,7 +2520,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTBaseKernelLauncher(
         const TSizeParameter2D sizeParam2D, const size_t nelmt,
         const TElmtsPerBlock elmtsPerBlock, const bool isModified,
-        const bool useSharedMemoryWsp, const unsigned int *NEK_RESTRICT index0,
+        const TUseSharedWsp useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT in,
         TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData scale,
@@ -2632,6 +2644,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @tparam TElmtsPerBlock   SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock     Back-end thread-block handle type.
  * @tparam TData            Floating-point type of the field data.
+ * @tparam TUseSharedWsp    Type of @p useSharedMemoryWsp: `bool`, or a
+ *                          `std::bool_constant` SelectSharedWorkSpace() fixed.
  *
  * @param   sizeParam3D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
@@ -2659,6 +2673,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, bool DEFORMED, typename TSizeParameter3D,
           typename TElmtsPerBlock, typename TthreadBlock, typename TData,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -2666,7 +2681,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTBaseKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
         const TElmtsPerBlock elmtsPerBlock, const bool isModified,
-        const bool useSharedMemoryWsp, const unsigned int *NEK_RESTRICT index0,
+        const TUseSharedWsp useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
@@ -2848,6 +2864,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool SCALE, bool APPEND, typename TSizeParameter3D,
           typename TElmtsPerBlock, typename TthreadBlock, typename TData,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -2855,7 +2872,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     IProductWRTBaseKernelLauncher(
         const TSizeParameter3D sizeParam3D, const size_t nelmt,
         const TElmtsPerBlock elmtsPerBlock, const bool isModified,
-        const bool useSharedMemoryWsp, const unsigned int *NEK_RESTRICT index0,
+        const TUseSharedWsp useSharedMemoryWsp,
+        const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,

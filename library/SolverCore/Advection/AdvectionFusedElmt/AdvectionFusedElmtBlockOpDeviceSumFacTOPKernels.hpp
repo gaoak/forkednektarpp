@@ -206,7 +206,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int AdvectionFusedElmtSharedMemorySize(
  * parameter by its points, but does not know the trace size parameters, to
  * which it gives the cap. Since only the total enters the bound, a
  * compile-time trace size parameter is passed as one flat count of its
- * points (AdvectionFusedElmtPoints()); any other takes the cap.
+ * points (AdvectionFusedElmtPoints()); any other takes the cap. A launch
+ * takes one element per block, so packs no more than a warp.
  */
 template <typename TTraceSize>
 static constexpr unsigned int AdvectionFusedElmtMaxThreads()
@@ -222,12 +223,14 @@ static constexpr unsigned int AdvectionFusedElmtMaxThreads()
         return MultiRegions::detail::GetMaxThreadPerBlock<
             MultiRegions::SumFacTOP,
             MultiRegions::detail::TemplatedPhysSizeParameter1D<
-                1u, TTraceSize::nmTot()>>(maxBlockSize);
+                1u, TTraceSize::nmTot()>>(maxBlockSize,
+                                          NektarSpaces::Device::warpSize);
     }
     else
     {
         return MultiRegions::detail::GetMaxThreadPerBlock<
-            MultiRegions::SumFacTOP, TTraceSize>(maxBlockSize);
+            MultiRegions::SumFacTOP, TTraceSize>(
+            maxBlockSize, NektarSpaces::Device::warpSize);
     }
 }
 

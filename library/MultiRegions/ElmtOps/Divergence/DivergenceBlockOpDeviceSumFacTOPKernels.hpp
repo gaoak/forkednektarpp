@@ -58,13 +58,14 @@
  * elements (padding included). The homogeneous planes ride the second
  * grid dimension, each thread block offsetting the input and output to
  * the plane given by its second block index, all planes sharing the
- * derivative factors. In two and three dimensions the
+ * derivative factors. In two and three dimensions, where they fit, the
  * component being differentiated and the running sum are staged in
  * two shared-memory workspaces, the sum being written out once all
  * components have been added; the PhysDerivDir SumFacTOP kernels
  * close with a barrier, so the next component may be copied in
- * immediately afterwards. Element data is expected contiguous
- * (interleave width one) and the derivative factors in the
+ * immediately afterwards. Otherwise each component is read in place
+ * and the sum accumulated directly in the output. Element data is expected
+ * contiguous (interleave width one) and the derivative factors in the
  * factor-major layout, which is what
  * DivergenceBlockOpImpl::m_implInterleaveWidth and its DerivFactorKey
  * request for this strategy. The DivergenceKernelLauncher overloads
@@ -106,6 +107,7 @@ namespace Nektar::MultiRegions::detail
  *
  * @param   sizeParam1D  Element sizes; unused.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused.
  *
  * @return Zero.
  */
@@ -117,7 +119,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
     [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     return 0;
 }
@@ -126,7 +129,7 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  * @brief Dynamic shared memory, counted in TData entries, that one
  * thread block of the 2D SumFacTOP divergence kernel requires: two
  * per-element workspaces of nq0 * nq1 entries for each of its
- * @p elmtsPerBlock elements.
+ * @p elmtsPerBlock elements if @p useSharedMemoryWsp, else none.
  *
  * One workspace holds the component currently being differentiated,
  * the other the running sum. Unlike the SumFac overload this does not
@@ -141,6 +144,8 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  * @param   sizeParam2D  Quadrature-point counts per direction.
  * @param   elmtsPerBlock  Elements per thread block, from
  *                       GetElmtsPerBlock().
+ * @param   useSharedMemoryWsp  Stage the input and the running sum in
+ *                       shared memory.
  *
  * @return Entry count; the caller multiplies by sizeof(TData).
  */
@@ -151,17 +156,17 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
-    const TPhysSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock)
+    const TPhysSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
-
-    return 2 * elmtsPerBlock * sizeParam2D.nqTot();
+    return useSharedMemoryWsp ? 2u * elmtsPerBlock * sizeParam2D.nqTot() : 0u;
 }
 
 /**
  * @brief Dynamic shared memory, counted in TData entries, that one
  * thread block of the 3D SumFacTOP divergence kernel requires: two
  * per-element workspaces of nq0 * nq1 * nq2 entries for each of its
- * @p elmtsPerBlock elements.
+ * @p elmtsPerBlock elements if @p useSharedMemoryWsp, else none.
  *
  * As in two dimensions, one workspace holds the component currently
  * being differentiated and the other the running sum, independently
@@ -175,6 +180,8 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  * @param   sizeParam3D  Quadrature-point counts per direction.
  * @param   elmtsPerBlock  Elements per thread block, from
  *                       GetElmtsPerBlock().
+ * @param   useSharedMemoryWsp  Stage the input and the running sum in
+ *                       shared memory.
  *
  * @return Entry count; the caller multiplies by sizeof(TData).
  */
@@ -185,10 +192,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int DivergenceSharedMemorySize(
-    const TPhysSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock)
+    const TPhysSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
-
-    return 2 * elmtsPerBlock * sizeParam3D.nqTot();
+    return useSharedMemoryWsp ? 2u * elmtsPerBlock * sizeParam3D.nqTot() : 0u;
 }
 
 /**
@@ -220,6 +227,9 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  * @tparam TPhysSizeParameter1D 1D physical-space size parameter.
  * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
+ * @tparam TUseSharedWsp        Type of @p useSharedMemoryWsp: `bool`, or a
+ *                              `std::bool_constant` SelectSharedWorkSpace()
+ *                              fixed.
  *
  * @param   sizeParam1D Element sizes (coordinate dimension and point
  *                      count).
@@ -228,6 +238,7 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  * @param   elmtsPerBlock Elements per thread block, from
  *                      GetDeviceKernelParameters().
  * @param   inoffset    Component stride; unused in one dimension.
+ * @param   useSharedMemoryWsp  Unused; the input is read in place.
  * @param   D0          1D derivative matrix.
  * @param   df          Derivative factors of the block.
  * @param   in          Component data of the block.
@@ -239,12 +250,13 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter1D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, [[maybe_unused]] const size_t inoffset,
+    [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
@@ -290,15 +302,17 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  * that way; the launch site sizes that allocation with
  * DivergenceSharedMemorySize.
  *
- * Each element's share of the dynamic shared memory is split into two
- * workspaces of nqTot entries, `s_wsp0` staging the component being
- * differentiated and `s_wsp1` holding the running sum. Per element the threads
- * copy the u component into `s_wsp0`, barrier, and call
- * PhysDerivDir2DSumFacTOPKernel with DIR = 0, which writes
+ * With @p useSharedMemoryWsp each element's share of the dynamic shared
+ * memory is split into two workspaces of nqTot entries, `s_wsp0` staging
+ * the component being differentiated and `s_wsp1` holding the running sum.
+ * Per element the threads copy the u component into `s_wsp0`, barrier, and
+ * call PhysDerivDir2DSumFacTOPKernel with DIR = 0, which writes
  * \f$\partial u/\partial x\f$ to `s_wsp1`; the v component from
  * @p inoffset is then staged the same way and added with DIR = 1 and
  * APPEND, and `s_wsp1` is copied out to global memory before the
- * block moves on to its next element.
+ * block moves on to its next element. Otherwise the components are read in
+ * place and the sum accumulated in the output, each thread re-reading only
+ * the points it wrote.
  *
  * @tparam SHAPE_TYPE           Element shape.
  * @tparam Implementation       Implementation tag; SumFacTOP here.
@@ -307,6 +321,9 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  * @tparam TPhysSizeParameter2D 2D physical-space size parameter.
  * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
+ * @tparam TUseSharedWsp        Type of @p useSharedMemoryWsp: `bool`, or a
+ *                              `std::bool_constant` SelectSharedWorkSpace()
+ *                              fixed.
  *
  * @param   sizeParam2D Element sizes (coordinate dimension and point
  *                      counts).
@@ -316,6 +333,8 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  *                      GetDeviceKernelParameters().
  * @param   inoffset    Stride from one input component to the next,
  *                      a component spanning all the planes.
+ * @param   useSharedMemoryWsp  Stage the input and the running sum in
+ *                      shared memory.
  * @param   D0          1D derivative matrix of direction 0.
  * @param   D1          1D derivative matrix of direction 1.
  * @param   f0          Collapsed-coordinate factor table of
@@ -333,17 +352,17 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter2D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const size_t inoffset,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    const TUseSharedWsp useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -365,40 +384,60 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     TData *s_wsp0        = (TData *)shmemptr + 2 * nqTot * wspIdx;
     TData *s_wsp1        = s_wsp0 + nqTot;
     const unsigned int p = getBlockIdx<1>(threadBlock);
-    for (size_t e0 =
-             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
-         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
-                           elmtsPerBlock)
-    {
-        const auto elmtBlock =
-            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
-        const size_t e            = elmtBlock.elmtIdx;
-        const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
-        const unsigned int stride = getLocalRange<0>(elmtBlock);
-        const TData *dfptr        = df + ndf * dfsize * e;
-        const TData *inptr        = in + nqTot * nelmt * p + nqTot * e;
-        TData *outptr             = out + nqTot * nelmt * p + nqTot * e;
-
-        // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
-        localBarrier(elmtBlock);
-
-        PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, false, DEFORMED, 0>(
-            ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, s_wsp1, elmtBlock);
-
-        // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr + inoffset, s_wsp0, elmtBlock);
-        localBarrier(elmtBlock);
-
-        PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 1>(
-            ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, s_wsp0, s_wsp1, elmtBlock);
-
-        // Copy to global memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
         {
-            outptr[idx] = s_wsp1[idx];
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e     = elmtBlock.elmtIdx;
+            const TData *dfptr = df + ndf * dfsize * e;
+            const TData *inptr = in + nqTot * nelmt * p + nqTot * e;
+            TData *outptr      = out + nqTot * nelmt * p + nqTot * e;
+
+            // Stage each component and the running sum if they fit, else
+            // read the components in place and sum into the output.
+            const TData *compptr = inptr;
+            TData *sumptr        = outptr;
+            if constexpr (decltype(isShared)::value)
+            {
+                LoadToSharedMemory(nqTot, compptr, s_wsp0, elmtBlock);
+                localBarrier(elmtBlock);
+                compptr = s_wsp0;
+                sumptr  = s_wsp1;
+            }
+
+            PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, false, DEFORMED, 0>(
+                ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, compptr, sumptr,
+                elmtBlock);
+
+            compptr = inptr + inoffset;
+            if constexpr (decltype(isShared)::value)
+            {
+                LoadToSharedMemory(nqTot, compptr, s_wsp0, elmtBlock);
+                localBarrier(elmtBlock);
+                compptr = s_wsp0;
+            }
+
+            PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 1>(
+                ncoord, nq0, nq1, D0, D1, f0, f1, dfptr, compptr, sumptr,
+                elmtBlock);
+
+            // Copy to global memory.
+            if constexpr (decltype(isShared)::value)
+            {
+                const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
+                const unsigned int stride = getLocalRange<0>(elmtBlock);
+                for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+                {
+                    outptr[idx] = s_wsp1[idx];
+                }
+            }
         }
-    }
+    });
 }
 
 /**
@@ -413,12 +452,13 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  * parameters.
  *
  * The structure is that of the 2D launcher with a third component:
- * the u, v and w components are staged in turn in the shared
- * workspace `s_wsp0` and PhysDerivDir3DSumFacTOPKernel is called with
- * DIR = 0, 1 and 2, the first overwriting the running sum in
+ * with @p useSharedMemoryWsp the u, v and w components are staged in turn
+ * in the shared workspace `s_wsp0` and PhysDerivDir3DSumFacTOPKernel is
+ * called with DIR = 0, 1 and 2, the first overwriting the running sum in
  * `s_wsp1` and the others accumulating onto it, after which `s_wsp1`
- * is copied out to global memory. The element is assumed to have
- * coordinate dimension three, so it carries nine derivative factors.
+ * is copied out to global memory; otherwise the components are read in
+ * place and the sum accumulated in the output. The element is assumed to
+ * have coordinate dimension three, so it carries nine derivative factors.
  *
  * @tparam SHAPE_TYPE           Element shape.
  * @tparam Implementation       Implementation tag; SumFacTOP here.
@@ -427,6 +467,9 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  * @tparam TPhysSizeParameter3D 3D physical-space size parameter.
  * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
+ * @tparam TUseSharedWsp        Type of @p useSharedMemoryWsp: `bool`, or a
+ *                              `std::bool_constant` SelectSharedWorkSpace()
+ *                              fixed.
  *
  * @param   sizeParam3D Element sizes (point counts per direction).
  * @param   nelmt       Elements of one plane of the block, padding
@@ -435,6 +478,8 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  *                      GetDeviceKernelParameters().
  * @param   inoffset    Stride from one input component to the next,
  *                      a component spanning all the planes.
+ * @param   useSharedMemoryWsp  Stage the input and the running sum in
+ *                      shared memory.
  * @param   D0          1D derivative matrix of direction 0.
  * @param   D1          1D derivative matrix of direction 1.
  * @param   D2          1D derivative matrix of direction 2.
@@ -456,18 +501,19 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter3D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const size_t inoffset,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    const TUseSharedWsp useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
@@ -489,50 +535,72 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     TData *s_wsp0        = (TData *)shmemptr + 2 * nqTot * wspIdx;
     TData *s_wsp1        = s_wsp0 + nqTot;
     const unsigned int p = getBlockIdx<1>(threadBlock);
-    for (size_t e0 =
-             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
-         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
-                           elmtsPerBlock)
-    {
-        const auto elmtBlock =
-            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
-        const size_t e            = elmtBlock.elmtIdx;
-        const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
-        const unsigned int stride = getLocalRange<0>(elmtBlock);
-        const TData *dfptr        = df + ndf * dfsize * e;
-        const TData *inptr        = in + nqTot * nelmt * p + nqTot * e;
-        TData *outptr             = out + nqTot * nelmt * p + nqTot * e;
-
-        // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
-        localBarrier(elmtBlock);
-
-        PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, false, DEFORMED, 0>(
-            nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, s_wsp1,
-            elmtBlock);
-
-        // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr + inoffset, s_wsp0, elmtBlock);
-        localBarrier(elmtBlock);
-
-        PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 1>(
-            nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, s_wsp1,
-            elmtBlock);
-
-        // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr + 2 * inoffset, s_wsp0, elmtBlock);
-        localBarrier(elmtBlock);
-
-        PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 2>(
-            nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, s_wsp0, s_wsp1,
-            elmtBlock);
-
-        // Copy to global memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
         {
-            outptr[idx] = s_wsp1[idx];
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e     = elmtBlock.elmtIdx;
+            const TData *dfptr = df + ndf * dfsize * e;
+            const TData *inptr = in + nqTot * nelmt * p + nqTot * e;
+            TData *outptr      = out + nqTot * nelmt * p + nqTot * e;
+
+            // Stage each component and the running sum if they fit, else
+            // read the components in place and sum into the output.
+            const TData *compptr = inptr;
+            TData *sumptr        = outptr;
+            if constexpr (decltype(isShared)::value)
+            {
+                LoadToSharedMemory(nqTot, compptr, s_wsp0, elmtBlock);
+                localBarrier(elmtBlock);
+                compptr = s_wsp0;
+                sumptr  = s_wsp1;
+            }
+
+            PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, false, DEFORMED, 0>(
+                nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, compptr,
+                sumptr, elmtBlock);
+
+            compptr = inptr + inoffset;
+            if constexpr (decltype(isShared)::value)
+            {
+                LoadToSharedMemory(nqTot, compptr, s_wsp0, elmtBlock);
+                localBarrier(elmtBlock);
+                compptr = s_wsp0;
+            }
+
+            PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 1>(
+                nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, compptr,
+                sumptr, elmtBlock);
+
+            compptr = inptr + 2 * inoffset;
+            if constexpr (decltype(isShared)::value)
+            {
+                LoadToSharedMemory(nqTot, compptr, s_wsp0, elmtBlock);
+                localBarrier(elmtBlock);
+                compptr = s_wsp0;
+            }
+
+            PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 2>(
+                nq0, nq1, nq2, D0, D1, D2, f0, f1, f1m, f2, dfptr, compptr,
+                sumptr, elmtBlock);
+
+            // Copy to global memory.
+            if constexpr (decltype(isShared)::value)
+            {
+                const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
+                const unsigned int stride = getLocalRange<0>(elmtBlock);
+                for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+                {
+                    outptr[idx] = s_wsp1[idx];
+                }
+            }
         }
-    }
+    });
 }
 
 #endif

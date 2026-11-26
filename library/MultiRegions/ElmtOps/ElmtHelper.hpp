@@ -75,6 +75,7 @@
 #pragma once
 
 #include <limits>
+#include <type_traits>
 
 #include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
 
@@ -1428,10 +1429,8 @@ protected:
  * size parameter the bound is the parameter's total mode count (plain
  * forms) or total point count (physical-space forms) rounded up to whole
  * warps, at most @p maxBlockSize, or, where that count is half a warp or
- * less, the default block size, at most @p maxBlockSize, as such an element
- * may share its block with others (GetElmtsPerBlock(), whose blocks
- * GetDeviceKernelParameters() keeps to the default block size unless
- * given a larger cap); with any other size parameter -- the runtime forms
+ * less, @p packingThreads, as such elements may share a block
+ * (GetElmtsPerBlock()); with any other size parameter -- the runtime forms
  * and the trace forms -- it is @p maxBlockSize, the cap
  * GetDeviceKernelParameters() applies at run time.
  * Other implementations return 0.
@@ -1441,13 +1440,17 @@ protected:
  *                          instantiated with.
  * @param  maxBlockSize     The cap, the same as the launch's
  *                          GetDeviceKernelParameters() argument.
+ * @param  packingThreads   Threads packed with whole elements, the same as
+ *                          the launch's GetElmtsPerBlock() argument; at
+ *                          most @p maxBlockSize.
  *
  * @return Maximum threads per block for the launch-bounds annotation.
  */
 template <typename Implementation, typename TSizeParameter>
 static constexpr unsigned int GetMaxThreadPerBlock(
     [[maybe_unused]] const unsigned int maxBlockSize =
-        NektarSpaces::Device::defaultBlockSize)
+        NektarSpaces::Device::defaultBlockSize,
+    [[maybe_unused]] const unsigned int packingThreads = defaultPackingThreads)
 {
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -1457,14 +1460,17 @@ static constexpr unsigned int GetMaxThreadPerBlock(
     }
     else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
     {
+        // A packed block takes at most packingThreads threads, within the cap.
+        ASSERTL0(packingThreads <= maxBlockSize,
+                 "packingThreads exceeds maxBlockSize.");
+
         if constexpr (IsTemplatedSizeParameter1D<TSizeParameter>::value ||
                       IsTemplatedSizeParameter2D<TSizeParameter>::value ||
                       IsTemplatedSizeParameter3D<TSizeParameter>::value)
         {
             constexpr unsigned int ndofs = TSizeParameter::nmTot();
             return (2u * ndofs <= warpsize)
-                       ? std::min(NektarSpaces::Device::defaultBlockSize,
-                                  maxBlockSize)
+                       ? packingThreads
                        : std::min((ndofs + warpsize - 1u) / warpsize * warpsize,
                                   maxBlockSize);
         }
@@ -1475,8 +1481,7 @@ static constexpr unsigned int GetMaxThreadPerBlock(
         {
             constexpr unsigned int ndofs = TSizeParameter::nqTot();
             return (2u * ndofs <= warpsize)
-                       ? std::min(NektarSpaces::Device::defaultBlockSize,
-                                  maxBlockSize)
+                       ? packingThreads
                        : std::min((ndofs + warpsize - 1u) / warpsize * warpsize,
                                   maxBlockSize);
         }
@@ -1515,6 +1520,21 @@ NEK_HOSTDEVICE_INLINE void DispatchWorkSpace(const bool useSharedMemoryWsp,
     }
 }
 
+/**
+ * @brief Call @p func with @p useSharedMemoryWsp, a flag already fixed at
+ * compile time by SelectSharedWorkSpace(), so that the kernel body is compiled
+ * for that workspace alone.
+ *
+ * @param   useSharedMemoryWsp    Stage intermediates in shared memory.
+ * @param   func            Kernel body, called with the flag.
+ */
+template <bool USE_SHARED, typename TFunc>
+NEK_HOSTDEVICE_INLINE void DispatchWorkSpace(
+    const std::bool_constant<USE_SHARED> useSharedMemoryWsp, TFunc &&func)
+{
+    func(useSharedMemoryWsp);
+}
+
 /// One element per thread block as a compile-time constant. Passed to a
 /// SumFacTOP kernel in place of elmtsPerBlock, it folds the element-group
 /// indexing of GetDeviceElmtBlock() and GetDeviceSharedWorkSpaceIdx() away.
@@ -1522,7 +1542,7 @@ using SingleElmtPerBlock = std::integral_constant<unsigned int, 1u>;
 
 /// Elements per thread block as a run-time count, which may be several.
 /// Passed to a SumFacTOP kernel in place of elmtsPerBlock where its blocks may
-/// take several elements (IsPackableSize()).
+/// take several elements (DispatchElmtsPerBlock()).
 class MultipleElmtPerBlock
 {
 public:
@@ -1542,11 +1562,50 @@ private:
 };
 
 /**
- * @brief Whether a SumFacTOP block of size parameter @p TSizeParameter may
- * take several elements per thread block (GetElmtsPerBlock()): always for a
- * run-time size, and for a templated one where its smallest mode or point
- * count is half a warp or less; for a templated trace size, the volume point
- * count its modes stand for in the lift operators.
+ * @brief Whether @p TSizeParameter carries its sizes as template
+ * parameters.
+ */
+template <typename TSizeParameter> static constexpr bool IsTemplatedSize(void)
+{
+    return IsTemplatedSizeParameter1D<TSizeParameter>::value ||
+           IsTemplatedSizeParameter2D<TSizeParameter>::value ||
+           IsTemplatedSizeParameter3D<TSizeParameter>::value ||
+           IsTemplatedPhysSizeParameter1D<TSizeParameter>::value ||
+           IsTemplatedPhysSizeParameter2D<TSizeParameter>::value ||
+           IsTemplatedPhysSizeParameter3D<TSizeParameter>::value ||
+           IsTemplatedTraceSizeParameter1D<TSizeParameter>::value ||
+           IsTemplatedTraceSizeParameter2D<TSizeParameter>::value ||
+           IsTemplatedTraceSizeParameter3D<TSizeParameter>::value;
+}
+
+/**
+ * @brief Degrees of freedom of one element of size parameter @p sizeParam:
+ * its quadrature points for a physical-space size, which has no modes, else
+ * its modes.
+ */
+template <typename TSizeParameter>
+NEK_FORCE_INLINE static constexpr unsigned int GetDofsPerElmt(
+    const TSizeParameter sizeParam)
+{
+    if constexpr (IsPhysSizeParameter1D_v<TSizeParameter> ||
+                  IsPhysSizeParameter2D_v<TSizeParameter> ||
+                  IsPhysSizeParameter3D_v<TSizeParameter>)
+    {
+        return sizeParam.nqTot();
+    }
+    else
+    {
+        return sizeParam.nmTot();
+    }
+}
+
+/**
+ * @brief Whether a SumFacTOP block of the templated size parameter
+ * @p TSizeParameter may take several elements per thread block
+ * (GetElmtsPerBlock()): where its smallest mode or point count is half a warp
+ * or less; for a templated trace size, the volume point count its modes stand
+ * for in the lift operators. Never for a run-time size, whose packing is only
+ * known at run time.
  */
 template <typename TSizeParameter> static constexpr bool IsPackableSize(void)
 {
@@ -1574,7 +1633,7 @@ template <typename TSizeParameter> static constexpr bool IsPackableSize(void)
     }
     else
     {
-        return true;
+        return false;
     }
 }
 
@@ -1598,43 +1657,168 @@ NEK_FORCE_INLINE static void DispatchElmtsPerBlock(
     [[maybe_unused]] const TSizeParameter sizeParam,
     const unsigned int elmtsPerBlock, TFunc &&func)
 {
-    constexpr bool templated =
-        IsTemplatedSizeParameter1D<TSizeParameter>::value ||
-        IsTemplatedSizeParameter2D<TSizeParameter>::value ||
-        IsTemplatedSizeParameter3D<TSizeParameter>::value ||
-        IsTemplatedPhysSizeParameter1D<TSizeParameter>::value ||
-        IsTemplatedPhysSizeParameter2D<TSizeParameter>::value ||
-        IsTemplatedPhysSizeParameter3D<TSizeParameter>::value ||
-        IsTemplatedTraceSizeParameter1D<TSizeParameter>::value ||
-        IsTemplatedTraceSizeParameter2D<TSizeParameter>::value ||
-        IsTemplatedTraceSizeParameter3D<TSizeParameter>::value;
-
-    if constexpr (!std::is_same_v<Implementation, SumFacTOP>)
+    if constexpr (std::is_same_v<Implementation, SumFac>)
     {
         func(elmtsPerBlock);
     }
-    else if constexpr (!IsPackableSize<TSizeParameter>())
+    else if constexpr (std::is_same_v<Implementation, SumFacTOP>)
     {
-        ASSERTL1(elmtsPerBlock == 1u,
-                 "This templated size takes one element per thread block.");
-        func(SingleElmtPerBlock{});
+        if constexpr (IsTemplatedSize<TSizeParameter>())
+        {
+            // Fixed by the size at compile time.
+            if constexpr (IsPackableSize<TSizeParameter>())
+            {
+                func(MultipleElmtPerBlock{elmtsPerBlock});
+            }
+            else
+            {
+                ASSERTL1(elmtsPerBlock == 1u, "This templated size takes one "
+                                              "element per thread block.");
+                func(SingleElmtPerBlock{});
+            }
+        }
+        else
+        {
+            // Chosen at run time.
+            if (elmtsPerBlock > 1u)
+            {
+                func(MultipleElmtPerBlock{elmtsPerBlock});
+            }
+            else
+            {
+                func(SingleElmtPerBlock{});
+            }
+        }
     }
-    else if constexpr (templated)
+}
+
+/**
+ * @brief Whether a kernel holds its stage intermediates in shared memory,
+ * fixed at compile time where it can be.
+ *
+ * Where @p sizeParam is templated, and so @p elmtsPerBlock a
+ * `std::integral_constant` (GetElmtsPerBlock()), on a build whose target
+ * architecture GetDeviceArchProperties() lists, the result is `std::true_type`
+ * or `std::false_type`, and DispatchWorkSpace() compiles the kernel body for
+ * that workspace alone. Otherwise it is UseSharedWorkSpace() at run time.
+ *
+ * @tparam Implementation    Implementation tag.
+ * @tparam SharedMemorySize  The operator's constexpr shared memory in bytes
+ *                           of a thread block, of the size parameter, the
+ *                           elements per thread block and whether the
+ *                           workspace is staged there.
+ *
+ * @param   sizeParam      Size parameter of the launch.
+ * @param   elmtsPerBlock  Elements per thread block of the launch.
+ */
+template <typename Implementation, auto SharedMemorySize,
+          typename TSizeParameter, typename TElmtsPerBlock>
+NEK_FORCE_INLINE static auto SelectSharedWorkSpace(
+    const TSizeParameter sizeParam, const TElmtsPerBlock elmtsPerBlock)
+{
+    if constexpr (IsTemplatedSize<TSizeParameter>() &&
+                  GetDeviceArchProperties().known)
     {
-        func(MultipleElmtPerBlock{elmtsPerBlock});
-    }
-    else if (elmtsPerBlock == 1u)
-    {
-        func(SingleElmtPerBlock{});
+        return std::bool_constant<UseSharedWorkSpace<Implementation>(
+            SharedMemorySize(sizeParam, elmtsPerBlock, true))>{};
     }
     else
     {
-        func(MultipleElmtPerBlock{elmtsPerBlock});
+        return UseSharedWorkSpace<Implementation>(
+            SharedMemorySize(sizeParam, elmtsPerBlock, true));
+    }
+}
+
+/**
+ * @brief SelectSharedWorkSpace() for a request that also depends on one
+ * run-time input @p arg, known to lie in [@p Lower, @p Upper], over which the
+ * request does not decrease.
+ *
+ * Where the workspace taken at both ends agrees, the result is that
+ * compile-time constant; otherwise it is UseSharedWorkSpace() at run time for
+ * @p arg.
+ *
+ * @tparam Implementation    Implementation tag.
+ * @tparam SharedMemorySize  The operator's constexpr shared memory in bytes
+ *                           of a thread block, of the size parameter, the
+ *                           elements per thread block, whether the
+ *                           workspace is staged there, and @p arg.
+ * @tparam Lower, Upper      Least and greatest value of @p arg.
+ *
+ * @param   sizeParam      Size parameter of the launch.
+ * @param   elmtsPerBlock  Elements per thread block of the launch.
+ * @param   arg            Run-time input of the request.
+ */
+template <typename Implementation, auto SharedMemorySize, auto Lower,
+          auto Upper, typename TSizeParameter, typename TElmtsPerBlock,
+          typename TArg>
+NEK_FORCE_INLINE static auto SelectSharedWorkSpace(
+    const TSizeParameter sizeParam, const TElmtsPerBlock elmtsPerBlock,
+    const TArg arg)
+{
+    if constexpr (IsTemplatedSize<TSizeParameter>() &&
+                  GetDeviceArchProperties().known)
+    {
+        constexpr size_t lower =
+            SharedMemorySize(sizeParam, elmtsPerBlock, true, Lower);
+        constexpr size_t upper =
+            SharedMemorySize(sizeParam, elmtsPerBlock, true, Upper);
+        constexpr bool useLower = UseSharedWorkSpace<Implementation>(lower);
+        constexpr bool useUpper = UseSharedWorkSpace<Implementation>(upper);
+
+        // SumFac rejects an empty request, so a range from zero may not take
+        // one workspace throughout.
+        if constexpr ((lower > 0 || upper == 0) && useLower == useUpper)
+        {
+            return std::bool_constant<useLower>{};
+        }
+        else
+        {
+            return UseSharedWorkSpace<Implementation>(
+                SharedMemorySize(sizeParam, elmtsPerBlock, true, arg));
+        }
+    }
+    else
+    {
+        return UseSharedWorkSpace<Implementation>(
+            SharedMemorySize(sizeParam, elmtsPerBlock, true, arg));
     }
 }
 #endif
 
 } // namespace Nektar::MultiRegions::detail
+
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+namespace Nektar::MultiRegions
+{
+
+/**
+ * @brief GetElmtsPerBlock() of detail::GetDofsPerElmt() and @p PACKING_THREADS,
+ * a `std::integral_constant` for a templated @p sizeParam.
+ */
+template <typename Implementation,
+          unsigned int PACKING_THREADS = defaultPackingThreads,
+          typename TSizeParameter,
+          std::enable_if_t<!std::is_arithmetic_v<TSizeParameter>, bool> = true>
+NEK_FORCE_INLINE static constexpr auto GetElmtsPerBlock(
+    const TSizeParameter sizeParam)
+{
+    if constexpr (detail::IsTemplatedSize<TSizeParameter>())
+    {
+        return std::integral_constant<unsigned int,
+                                      GetElmtsPerBlock<Implementation>(
+                                          detail::GetDofsPerElmt(sizeParam),
+                                          PACKING_THREADS)>{};
+    }
+    else
+    {
+        return GetElmtsPerBlock<Implementation>(
+            detail::GetDofsPerElmt(sizeParam), PACKING_THREADS);
+    }
+}
+
+} // namespace Nektar::MultiRegions
+#endif
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 namespace Nektar
@@ -1784,10 +1968,10 @@ NEK_DEVICE_INLINE static TData warpReduceSum(
  *
  * Each warp reduces first when the shares are whole warps, and each aligned
  * group of a share's lanes when the shares are a power of two below a warp
- * (GetElmtThreads()), so that the lanes reduced together are of one element;
- * otherwise, and on the SYCL CPU back-ends, where a sub-group need not be
- * consecutive work-items, each thread adds its own value. A thread with no
- * element adds nothing.
+ * (GetDeviceKernelParameters()), so that the lanes reduced together are of
+ * one element; otherwise, and on the SYCL CPU back-ends, where a sub-group
+ * need not be consecutive work-items, each thread adds its own value. A
+ * thread with no element adds nothing.
  */
 template <typename Scope, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void blockReduceSum(

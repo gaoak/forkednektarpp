@@ -362,6 +362,21 @@ protected:
     }
 
     /**
+     * @brief Shared memory in bytes one thread block of a @p SHAPE_TYPE launch
+     * requests, for @p elmtsPerBlock elements per thread block, with the
+     * workspace staged there if @p useSharedMemoryWsp.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+    static constexpr unsigned int SharedMemorySize(
+        const TSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+        const bool useSharedMemoryWsp)
+    {
+        return sizeof(TData) *
+               CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
+                   sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+    }
+
+    /**
      * @brief Worker for every dimension: evaluate curl(curl u) on all
      * elements of the block with a single fused kernel launch.
      *
@@ -383,7 +398,7 @@ protected:
      * for segments). The vorticity goes in shared memory instead, after
      * any factor tables and, under SumFacTOP, with the staged input
      * components, and the global workspace is zero, when
-     * UseSharedWorkSpace() accepts the size CurlCurlSharedMemorySize
+     * SelectSharedWorkSpace() accepts the size CurlCurlSharedMemorySize
      * gives with it staged there: one warp of elements under SumFac, one
      * element under SumFacTOP.
      *
@@ -463,22 +478,14 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Stage intermediates in shared memory if they fit.
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nqTot());
-        const unsigned int shmemsizeWithSharedWsp =
-            sizeof(TData) *
-            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam, elmtsPerBlock, true);
-        const bool useSharedMemoryWsp =
-            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto useSharedMemoryWsp = SelectSharedWorkSpace<
+            Implementation, SharedMemorySize<SHAPE_TYPE, TPhysSizeParameter>>(
+            sizeParam, elmtsPerBlock);
 
         // Set Kernel parameters.
-        const unsigned int shmemsize =
-            useSharedMemoryWsp
-                ? shmemsizeWithSharedWsp
-                : sizeof(TData) *
-                      CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
-                          sizeParam, elmtsPerBlock, false);
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
             sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
 
@@ -568,19 +575,23 @@ protected:
 
         // Set Kernel parameters. SumFacTOP stages the element's three
         // components in shared memory if they fit, else reads them in place.
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nqTot());
-        const bool useSharedMemoryWsp =
-            std::is_same_v<Implementation, MultiRegions::SumFacTOP>
-                ? UseSharedWorkSpace<Implementation>(
-                      sizeof(TData) *
-                      CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
-                          sizeParam, elmtsPerBlock, true))
-                : false;
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto useSharedMemoryWsp = [&] {
+            if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
+            {
+                return std::false_type{};
+            }
+            else if constexpr (std::is_same_v<Implementation,
+                                              MultiRegions::SumFacTOP>)
+            {
+                return SelectSharedWorkSpace<
+                    Implementation,
+                    SharedMemorySize<SHAPE_TYPE, TPhysSizeParameter>>(
+                    sizeParam, elmtsPerBlock);
+            }
+        }();
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
             sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
 

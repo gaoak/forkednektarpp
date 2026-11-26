@@ -389,6 +389,22 @@ protected:
         }
     }
 
+    /**
+     * @brief Shared memory in bytes one thread block of a @p SHAPE_TYPE launch
+     * requests, for @p elmtsPerBlock elements per thread block, with the
+     * workspace staged there if @p useSharedMemoryWsp, for the coordinate
+     * dimension @p ncoord.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+    static constexpr unsigned int SharedMemorySize(
+        const TSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+        const bool useSharedMemoryWsp, const unsigned int ncoord)
+    {
+        return sizeof(TData) *
+               LaplacianSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
+                   ncoord, sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+    }
+
     /// Generic operator implementation. ind0 indexes each direction,
     /// ind1 the precomputed index arrays used by the kernels,
     /// ind2 the collapsed coordinate factors used by the kernels.
@@ -448,23 +464,15 @@ protected:
                 : 0;
 
         // Stage intermediates in shared memory if they fit.
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nmTot());
-        const unsigned int shmemsizeWithSharedWsp =
-            sizeof(TData) *
-            LaplacianSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
-                m_coordDim, sizeParam, elmtsPerBlock, true);
-        const bool useSharedMemoryWsp =
-            UseSharedWorkSpace<Implementation>(shmemsizeWithSharedWsp);
+        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto useSharedMemoryWsp = SelectSharedWorkSpace<
+            Implementation, SharedMemorySize<SHAPE_TYPE, TSizeParameter>,
+            LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], 3u>(
+            sizeParam, elmtsPerBlock, m_coordDim);
 
         // Set Kernel parameters.
-        const unsigned int shmemsize =
-            useSharedMemoryWsp
-                ? shmemsizeWithSharedWsp
-                : sizeof(TData) *
-                      LaplacianSharedMemorySize<SHAPE_TYPE, Implementation,
-                                                TData>(m_coordDim, sizeParam,
-                                                       elmtsPerBlock, false);
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp, m_coordDim);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
             sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
 
