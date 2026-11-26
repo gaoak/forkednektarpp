@@ -801,9 +801,20 @@ void VelocityCorrectionScheme::v_EvaluateAdvection_SetPressureBCs(
     params["Kinvis"]   = m_kinvis;
     params["Time"]     = time + m_timestep;
     params["pressure"] = 1.;
-    if (m_MHD.implicitLorentzDamping > 0.0)
+    // High-order pressure BCs currently consume a single damping scalar
+    // (IncBaseCondition::AddRigidBodyAcc only acts on moving walls).  Pass the
+    // largest velocity-component value so no part of the model damping is
+    // dropped; with anisotropic damping this is an approximation at moving
+    // walls and an exact no-op at stationary walls (the term multiplies the
+    // wall translation velocity, which is zero here).
+    NekDouble hopbcDamping = 0.0;
+    for (size_t i = 0; i < m_velocity.size(); ++i)
     {
-        params["ImplicitLorentzDamping"] = m_MHD.implicitLorentzDamping;
+        hopbcDamping = std::max(hopbcDamping, m_MHD.implicitDamping[i]);
+    }
+    if (hopbcDamping > 0.0)
+    {
+        params["ImplicitLorentzDamping"] = hopbcDamping;
     }
     AddMovingFrameDataToParams(m_strFrameData, m_movingFrameData, params);
     m_extrapolation->EvaluatePressureBCs(inarray, outarray, m_kinvis);
@@ -1003,20 +1014,22 @@ void VelocityCorrectionScheme::v_SolveViscous(
             factors[StdRegions::eFactorGJP] = m_GJPJumpScale / m_diffCoeff[i];
         }
 
-        NekDouble implicitLorentzDamping = 0.0;
+        // Implicit damping is component-wise: sigma |B|^2 plus the Hartmann
+        // braking chi_i (Sommeria & Moreau 1982, eq. 18).  It only applies to
+        // velocity fields, not to any additional passive scalars.
+        NekDouble implicitDamping = 0.0;
         for (int j = 0; j < m_velocity.size(); ++j)
         {
             if (m_velocity[j] == i)
             {
-                implicitLorentzDamping = m_MHD.implicitLorentzDamping;
+                implicitDamping = m_MHD.implicitDamping[j];
                 break;
             }
         }
 
-        // Setup coefficients for equation. The Lorentz reaction term only
-        // applies to velocity fields, not to any additional passive scalars.
+        // Setup coefficients for equation.
         factors[StdRegions::eFactorLambda] =
-            (1.0 / aii_Dt + implicitLorentzDamping) / m_diffCoeff[i];
+            (1.0 / aii_Dt + implicitDamping) / m_diffCoeff[i];
         m_fields[i]->HelmSolve(Forcing[i], m_fields[i]->UpdateCoeffs(), factors,
                                varCoeffMap, varFactorsMap);
         m_fields[i]->BwdTrans(m_fields[i]->GetCoeffs(), outarray[i]);

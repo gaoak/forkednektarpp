@@ -114,7 +114,25 @@ public:
         ASSERTL0(damping >= 0.0,
                  "The implicit Lorentz damping coefficient must be "
                  "non-negative.");
-        m_MHD.implicitLorentzDamping = damping;
+        SetImplicitDamping(Array<OneD, NekDouble>(3, damping));
+    }
+
+    /// Set the implicit damping applied to each velocity component in the
+    /// Helmholtz solve, i.e. sigma |B|^2 plus, when Hartmann braking is
+    /// enabled, the model friction chi_i = chi (1 - b_hat_i^2)
+    /// (Sommeria & Moreau 1982, J. Fluid Mech. 118, eq. 18).  Only the first
+    /// m_spacedim entries are used.
+    void SetImplicitDamping(const Array<OneD, NekDouble> &damping)
+    {
+        ASSERTL0(damping.size() >= 3,
+                 "The implicit damping array must hold at least three "
+                 "components.");
+        for (size_t i = 0; i < damping.size(); ++i)
+        {
+            ASSERTL0(damping[i] >= 0.0,
+                     "The implicit damping coefficients must be non-negative.");
+        }
+        m_MHD.implicitDamping = damping;
     }
 
 protected:
@@ -180,8 +198,12 @@ protected:
     {
         /// Whether ForcingLorentz is defined.
         bool hasLorentzForce = false;
-        /// Coefficient sigma |B|^2 treated in the velocity Helmholtz solve.
-        NekDouble implicitLorentzDamping = 0.0;
+        /// Per-velocity-component damping treated in the velocity Helmholtz
+        /// solve: sigma |B|^2 plus, when Hartmann braking is enabled, the
+        /// model friction chi_i (Sommeria & Moreau 1982, eq. 18).  Only the
+        /// first m_spacedim entries are used; the rest stay zero.
+        Array<OneD, NekDouble> implicitDamping =
+            Array<OneD, NekDouble>(3, 0.0);
     } m_MHD;
 
     Array<OneD, Array<OneD, NekDouble>> m_F;

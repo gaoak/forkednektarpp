@@ -130,6 +130,13 @@ public:
         return m_nConvectiveFields;
     }
 
+    /// Kinematic viscosity (public read-only access, used by forcing models
+    /// such as the Hartmann braking term).
+    NekDouble GetKinvis() const
+    {
+        return m_kinvis;
+    }
+
     void AddForcing(const SolverUtils::ForcingSharedPtr &pForce);
 
     bool DefinedForcing(const std::string &sForce);
