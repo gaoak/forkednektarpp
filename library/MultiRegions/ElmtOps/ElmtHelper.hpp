@@ -74,6 +74,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <limits>
 #include <type_traits>
 
@@ -1441,7 +1442,7 @@ protected:
  * @param  maxBlockSize     The cap, the same as the launch's
  *                          GetDeviceKernelParameters() argument.
  * @param  packingThreads   Threads packed with whole elements, the same as
- *                          the launch's GetElmtsPerBlock() argument; at
+ *                          the launch's GetElmtsPerBlock() PACKING_THREADS; at
  *                          most @p maxBlockSize.
  *
  * @return Maximum threads per block for the launch-bounds annotation.
@@ -1581,21 +1582,43 @@ template <typename TSizeParameter> static constexpr bool IsTemplatedSize(void)
 /**
  * @brief Degrees of freedom of one element of size parameter @p sizeParam:
  * its quadrature points for a physical-space size, which has no modes, else
- * its modes.
+ * its modes; a `std::integral_constant` for a templated @p sizeParam. A
+ * launch passes it to both GetElmtsPerBlock() and
+ * GetDeviceKernelParameters().
  */
 template <typename TSizeParameter>
-NEK_FORCE_INLINE static constexpr unsigned int GetDofsPerElmt(
-    const TSizeParameter sizeParam)
+NEK_FORCE_INLINE static constexpr auto GetDofsPerElmt(
+    [[maybe_unused]] const TSizeParameter sizeParam)
 {
-    if constexpr (IsPhysSizeParameter1D_v<TSizeParameter> ||
-                  IsPhysSizeParameter2D_v<TSizeParameter> ||
-                  IsPhysSizeParameter3D_v<TSizeParameter>)
+    // No lambda in the template argument: Clang 18 (AdaptiveCpp) rejects it
+    // as a substitution failure.
+    constexpr bool IsPhys = IsPhysSizeParameter1D_v<TSizeParameter> ||
+                            IsPhysSizeParameter2D_v<TSizeParameter> ||
+                            IsPhysSizeParameter3D_v<TSizeParameter>;
+
+    if constexpr (IsTemplatedSize<TSizeParameter>())
     {
-        return sizeParam.nqTot();
+        if constexpr (IsPhys)
+        {
+            return std::integral_constant<unsigned int,
+                                          TSizeParameter::nqTot()>{};
+        }
+        else
+        {
+            return std::integral_constant<unsigned int,
+                                          TSizeParameter::nmTot()>{};
+        }
     }
     else
     {
-        return sizeParam.nmTot();
+        if constexpr (IsPhys)
+        {
+            return static_cast<unsigned int>(sizeParam.nqTot());
+        }
+        else
+        {
+            return static_cast<unsigned int>(sizeParam.nmTot());
+        }
     }
 }
 
@@ -1603,9 +1626,9 @@ NEK_FORCE_INLINE static constexpr unsigned int GetDofsPerElmt(
  * @brief Whether a SumFacTOP block of the templated size parameter
  * @p TSizeParameter may take several elements per thread block
  * (GetElmtsPerBlock()): where its smallest mode or point count is half a warp
- * or less; for a templated trace size, the volume point count its modes stand
- * for in the lift operators. Never for a run-time size, whose packing is only
- * known at run time.
+ * or less; for a templated trace size, its volume count nmTot(), which sizes
+ * the trace and lift operators. Never for a run-time size, whose packing is
+ * only known at run time.
  */
 template <typename TSizeParameter> static constexpr bool IsPackableSize(void)
 {
@@ -1628,7 +1651,7 @@ template <typename TSizeParameter> static constexpr bool IsPackableSize(void)
                        IsTemplatedTraceSizeParameter2D<TSizeParameter>::value ||
                        IsTemplatedTraceSizeParameter3D<TSizeParameter>::value)
     {
-        // The volume's point counts, as the lift operators use them.
+        // The volume's count, as the trace and lift operators use it.
         return TSizeParameter::nmTot() <= halfWarp;
     }
     else
@@ -1787,38 +1810,6 @@ NEK_FORCE_INLINE static auto SelectSharedWorkSpace(
 #endif
 
 } // namespace Nektar::MultiRegions::detail
-
-#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-namespace Nektar::MultiRegions
-{
-
-/**
- * @brief GetElmtsPerBlock() of detail::GetDofsPerElmt() and @p PACKING_THREADS,
- * a `std::integral_constant` for a templated @p sizeParam.
- */
-template <typename Implementation,
-          unsigned int PACKING_THREADS = defaultPackingThreads,
-          typename TSizeParameter,
-          std::enable_if_t<!std::is_arithmetic_v<TSizeParameter>, bool> = true>
-NEK_FORCE_INLINE static constexpr auto GetElmtsPerBlock(
-    const TSizeParameter sizeParam)
-{
-    if constexpr (detail::IsTemplatedSize<TSizeParameter>())
-    {
-        return std::integral_constant<unsigned int,
-                                      GetElmtsPerBlock<Implementation>(
-                                          detail::GetDofsPerElmt(sizeParam),
-                                          PACKING_THREADS)>{};
-    }
-    else
-    {
-        return GetElmtsPerBlock<Implementation>(
-            detail::GetDofsPerElmt(sizeParam), PACKING_THREADS);
-    }
-}
-
-} // namespace Nektar::MultiRegions
-#endif
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 namespace Nektar

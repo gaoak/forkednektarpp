@@ -70,9 +70,9 @@
  *
  * @note Two implementations are registered from this header:
  * MultiRegions::SumFac, one element per warp lane at the warp-size
- * interleave, and MultiRegions::SumFacTOP, one element per thread block
- * at width one. Implementation selects the kernel family, the launch
- * geometry GetDeviceKernelParameters() computes and
+ * interleave, and MultiRegions::SumFacTOP, one element, or a group of them,
+ * per thread block at width one. Implementation selects the kernel family, the
+ * launch geometry GetDeviceKernelParameters() computes and
  * PhysTraceExtractBlockOpImpl::m_implInterleaveWidth. A StdMat request
  * reaches the SumFac class through PhysTraceExtractBlockOp::Create(),
  * which maps it.
@@ -111,8 +111,8 @@ namespace Nektar::MultiRegions::detail
 
 /**
  * @brief Device block implementation of the trace extraction, one
- * element per warp lane (MultiRegions::SumFac) or per thread block
- * (MultiRegions::SumFacTOP).
+ * element per warp lane (MultiRegions::SumFac) or one element, or a group
+ * of them, per thread block (MultiRegions::SumFacTOP).
  *
  * @details
  * For every element of the block this evaluates the volume field at the
@@ -266,7 +266,7 @@ public:
 protected:
     /// Interleave width the kernels expect: the warp size for
     /// MultiRegions::SumFac, one element per lane, and one for
-    /// MultiRegions::SumFacTOP, one element per thread block. The Operator
+    /// MultiRegions::SumFacTOP, element contiguous. The Operator
     /// methods and v_ExtractTrace reshape the block storage to this
     /// width around every launch.
     static constexpr unsigned int m_implInterleaveWidth =
@@ -576,7 +576,6 @@ protected:
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        const unsigned int nTracePts = GetTraceNumPoints(traceid);
 
         // Initialize pointers.
         auto inptr    = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
@@ -609,8 +608,8 @@ protected:
                     std::make_integer_sequence<unsigned int, 0>();
 
                 LaunchExtractTraceND<LibUtilities::Seg>(
-                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, nTracePts,
-                    inptr, outptr, outOffset,
+                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, inptr,
+                    outptr, outOffset,
                     NonTemplatedTraceSizeParameter1D(m_nm[0], m_nq[0]), seq1D,
                     seq0D);
                 break;
@@ -621,8 +620,8 @@ protected:
                     std::make_integer_sequence<unsigned int, 2>();
 
                 LaunchExtractTraceND<LibUtilities::Quad>(
-                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, nTracePts,
-                    inptr, outptr, outOffset,
+                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, inptr,
+                    outptr, outOffset,
                     NonTemplatedTraceSizeParameter2D(m_nm[0], m_nm[1], m_nq[0],
                                                      m_nq[1]),
                     seq2D, seq2D);
@@ -635,8 +634,8 @@ protected:
                     std::make_integer_sequence<unsigned int, 2>();
 
                 LaunchExtractTraceND<LibUtilities::Tri>(
-                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, nTracePts,
-                    inptr, outptr, outOffset,
+                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, inptr,
+                    outptr, outOffset,
                     NonTemplatedTraceSizeParameter2D(m_nm[0], m_nm[1], m_nq[0],
                                                      m_nq[1]),
                     seq2D, seq2D);
@@ -650,8 +649,8 @@ protected:
                     std::make_integer_sequence<unsigned int, 6>();
 
                 LaunchExtractTraceND<LibUtilities::Hex>(
-                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, nTracePts,
-                    inptr, outptr, outOffset,
+                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, inptr,
+                    outptr, outOffset,
                     NonTemplatedTraceSizeParameter3D(m_nm[0], m_nm[1], m_nm[2],
                                                      m_nq[0], m_nq[1], m_nq[2],
                                                      m_nq[3], m_nq[4], m_nq[5]),
@@ -667,8 +666,8 @@ protected:
                     std::make_integer_sequence<unsigned int, 6>();
 
                 LaunchExtractTraceND<LibUtilities::Prism>(
-                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, nTracePts,
-                    inptr, outptr, outOffset,
+                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, inptr,
+                    outptr, outOffset,
                     NonTemplatedTraceSizeParameter3D(m_nm[0], m_nm[1], m_nm[2],
                                                      m_nq[0], m_nq[1], m_nq[2],
                                                      m_nq[3], m_nq[4], m_nq[5]),
@@ -684,8 +683,8 @@ protected:
                     std::make_integer_sequence<unsigned int, 6>();
 
                 LaunchExtractTraceND<LibUtilities::Pyr>(
-                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, nTracePts,
-                    inptr, outptr, outOffset,
+                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, inptr,
+                    outptr, outOffset,
                     NonTemplatedTraceSizeParameter3D(m_nm[0], m_nm[1], m_nm[2],
                                                      m_nq[0], m_nq[1], m_nq[2],
                                                      m_nq[3], m_nq[4], m_nq[5]),
@@ -701,8 +700,8 @@ protected:
                     std::make_integer_sequence<unsigned int, 6>();
 
                 LaunchExtractTraceND<LibUtilities::Tet>(
-                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, nTracePts,
-                    inptr, outptr, outOffset,
+                    traceid, nelmtPad, ncomp, numDataIn, numDataOut, inptr,
+                    outptr, outOffset,
                     NonTemplatedTraceSizeParameter3D(m_nm[0], m_nm[1], m_nm[2],
                                                      m_nq[0], m_nq[1], m_nq[2],
                                                      m_nq[3], m_nq[4], m_nq[5]),
@@ -726,6 +725,21 @@ protected:
     }
 
     /**
+     * @brief Shared memory in bytes one thread block of a @p SHAPE_TYPE launch
+     * requests, for @p elmtsPerBlock elements per thread block, with the
+     * workspace staged there if @p useSharedMemoryWsp.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+    static constexpr unsigned int SharedMemorySize(
+        const TSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+        const bool useSharedMemoryWsp)
+    {
+        return sizeof(TData) *
+               PhysTraceExtractSharedMemorySize<Implementation>(
+                   sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+    }
+
+    /**
      * @brief Per-trace path for every dimension: extract one named
      * trace of every element of the block.
      *
@@ -737,12 +751,10 @@ protected:
      * output by @p outOffset, scaled by #m_implInterleaveWidth, so the
      * caller can place each trace in turn within the output block.
      *
-     * The workspace comes from PhysTraceExtractWorkSpaceSize(), the
-     * same helper and so the same bound the bulk route asks for: it is
-     * written for a trace pair even though a per-trace launch fills one
-     * trace, and the kernel partitions it through the helpers behind
-     * that. A segment needs none and is given a null pointer,
-     * deviceMalloc() returning one for a zero-sized request.
+     * The workspace is sized as on the bulk route: it is written for a
+     * trace pair even though a per-trace launch fills one trace. A
+     * segment needs none and is given a null pointer, deviceMalloc()
+     * returning one for a zero-sized request.
      *
      * @tparam SHAPE_TYPE   Shape of the block, with each nodal shape
      *                      folded onto its parent by v_ExtractTrace();
@@ -770,8 +782,6 @@ protected:
      * @param   numDataOut  Packed trace entries per element, so
      *                      interleave blocks of the output stride by
      *                      `numDataOut * m_implInterleaveWidth`.
-     * @param   nTracePts   Trace points of this trace; sizes the launch
-     *                      only.
      * @param   inptr       Volume field of the block.
      * @param   outptr      Packed trace field of the block.
      * @param   outOffset   Offset of this trace's values within one
@@ -785,37 +795,56 @@ protected:
     NEK_FORCE_INLINE void LaunchExtractTraceND(
         const unsigned int traceid, const size_t nelmtPad,
         const unsigned int ncomp, const unsigned int nmTot,
-        const unsigned int numDataOut, const unsigned int nTracePts,
-        const TData *inptr, TData *outptr, const unsigned int outOffset,
-        TTraceSizeParameter sizeParam,
+        const unsigned int numDataOut, const TData *inptr, TData *outptr,
+        const unsigned int outOffset, TTraceSizeParameter sizeParam,
         std::integer_sequence<unsigned int, ind0...>,
         std::integer_sequence<unsigned int, ind1...>)
     {
+        // Stage intermediates in shared memory if they fit; SumFacTOP has no
+        // fallback.
+        const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+        const auto elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
+        const auto useSharedMemoryWsp = SelectSharedWorkSpace<
+            Implementation, SharedMemorySize<SHAPE_TYPE, TTraceSizeParameter>>(
+            sizeParam, elmtsPerBlock);
+
         // Set Kernel parameters.
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(nTracePts, 0u);
-        const unsigned int shmemsize =
-            sizeof(TData) * PhysTraceExtractSharedMemorySize<Implementation>(
-                                sizeParam, elmtsPerBlock);
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+        // A block of one element strides the trace points.
+        const unsigned int launchDofs =
+            elmtsPerBlock > 1u ? static_cast<unsigned int>(dofsPerElmt)
+                               : GetTraceNumPoints(traceid);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
-            nTracePts, nelmtPad, shmemsize, elmtsPerBlock);
+            launchDofs, nelmtPad, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const size_t wspSize =
-            PhysTraceExtractWorkSpaceSize<Implementation>(nelmtPad, sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : PhysTraceExtractWorkSpaceSize<Implementation>(
+                      WorkSpaceNumElmts<Implementation>(
+                          nelmtPad, kernelParams.gridSize, elmtsPerBlock),
+                      sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
 
         // PhysTraceExtract kernel.
-        DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (PhysTraceExtractTraceKernelLauncher<SHAPE_TYPE, Implementation>),
-            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-            kernelParams.shmemSize, m_streamID, traceid, sizeParam, nelmtPad,
-            nmTot, numDataOut, outOffset, m_B[ind0]...,
-            m_B[sizeof...(ind0) + ind1]..., inptr, outptr, wspptr,
-            (bool)this->m_isCollocated[ind1]...,
-            (bool)m_endPtsCollocated[ind0]...);
+        DispatchElmtsPerBlock<Implementation>(
+            sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                DEVICE_2DGRID_KERNEL_LAUNCHER(
+                    (PhysTraceExtractTraceKernelLauncher<SHAPE_TYPE,
+                                                         Implementation>),
+                    kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, traceid, sizeParam,
+                    nelmtPad, elmtsPerBlockArg, nmTot, numDataOut, outOffset,
+                    m_B[ind0]..., m_B[sizeof...(ind0) + ind1]..., inptr, outptr,
+                    useSharedMemoryWsp, wspptr,
+                    (bool)this->m_isCollocated[ind1]...,
+                    (bool)m_endPtsCollocated[ind0]...);
+            });
     }
 
     /**
@@ -944,14 +973,20 @@ protected:
      * in one the two end vertices, written contiguously at the start of
      * each element's output.
      *
-     * @c nqTotOut, from the size parameter's nqTotTrace(), reproduces
-     * the packed output length to size the launch, and the workspace
-     * comes from PhysTraceExtractWorkSpaceSize(), which the SumFac
-     * kernels partition per warp; for SumFacTOP it is zero and the
-     * kernels take the same per-element budget from dynamic shared
-     * memory instead. A segment
-     * needs none and is given a null pointer, deviceMalloc() returning
-     * one for a zero-sized request.
+     * @c nqTotOut, from the size parameter's nqTotTrace(), is the packed
+     * output length, and sizes a block of one element; a packed block is
+     * sized by the volume points. Under SumFac the intermediates go in
+     * shared memory, and the global workspace is zero, when
+     * SelectSharedWorkSpace() accepts the size
+     * PhysTraceExtractSharedMemorySize() gives with them staged there for
+     * one warp of elements; otherwise they go in the global workspace,
+     * sized by PhysTraceExtractWorkSpaceSize() times ncomp, of every
+     * element. SumFacTOP has no global-memory fallback: its kernels stage
+     * the intermediates of each group of elements in shared memory only,
+     * and a request beyond the shared memory per block is fatal in
+     * GetDeviceKernelParameters().
+     * A segment needs none and is given a null pointer, deviceMalloc()
+     * returning one for a zero-sized request.
      *
      * The component loop carries the GetNumHomoModes factor. That is
      * inert for three-dimensional elements, which support no
@@ -1011,22 +1046,37 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
-        // Set Kernel parameters.
+        // Stage intermediates in shared memory if they fit; SumFacTOP has no
+        // fallback.
         const unsigned int nqTotOut =
             sizeParam.template nqTotTrace<SHAPE_TYPE>();
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(nqTotOut, 0u);
-        const unsigned int shmemsize =
-            sizeof(TData) * PhysTraceExtractSharedMemorySize<Implementation>(
-                                sizeParam, elmtsPerBlock);
+        const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+        const auto elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
+        const auto useSharedMemoryWsp = SelectSharedWorkSpace<
+            Implementation, SharedMemorySize<SHAPE_TYPE, TTraceSizeParameter>>(
+            sizeParam, elmtsPerBlock);
+
+        // Set Kernel parameters.
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+        // A block of one element strides the trace points.
+        const unsigned int launchDofs =
+            elmtsPerBlock > 1u ? static_cast<unsigned int>(dofsPerElmt)
+                               : nqTotOut;
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
-            nqTotOut, nelmt, shmemsize, elmtsPerBlock);
+            launchDofs, nelmt, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            PhysTraceExtractWorkSpaceSize<Implementation>(nelmt, sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : PhysTraceExtractWorkSpaceSize<Implementation>(
+                      WorkSpaceNumElmts<Implementation>(
+                          nelmt, kernelParams.gridSize, elmtsPerBlock),
+                      sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -1040,13 +1090,19 @@ protected:
             (TData *)inptr, m_streamID);
 
         // PhysTraceExtract kernel.
-        DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (PhysTraceExtractKernelLauncher<SHAPE_TYPE, Implementation>),
-            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-            kernelParams.shmemSize, m_streamID, sizeParam, nelmt, nmTot,
-            m_B[ind0]..., m_B[sizeof...(ind0) + ind1]..., inptr, outptr, wspptr,
-            (bool)this->m_isCollocated[ind1]...,
-            (bool)m_endPtsCollocated[ind0]...);
+        DispatchElmtsPerBlock<Implementation>(
+            sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                DEVICE_2DGRID_KERNEL_LAUNCHER(
+                    (PhysTraceExtractKernelLauncher<SHAPE_TYPE,
+                                                    Implementation>),
+                    kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
+                    elmtsPerBlockArg, nmTot, m_B[ind0]...,
+                    m_B[sizeof...(ind0) + ind1]..., inptr, outptr,
+                    useSharedMemoryWsp, wspptr,
+                    (bool)this->m_isCollocated[ind1]...,
+                    (bool)m_endPtsCollocated[ind0]...);
+            });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

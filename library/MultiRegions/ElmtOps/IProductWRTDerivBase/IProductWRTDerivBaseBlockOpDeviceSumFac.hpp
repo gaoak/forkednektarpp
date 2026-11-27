@@ -577,15 +577,16 @@ protected:
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Stage intermediates in shared memory if they fit.
-        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+        const auto elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
         const auto useSharedMemoryWsp =
             SelectSharedWorkSpace<Implementation,
                                   SharedMemorySize<SHAPE_TYPE, TSizeParameter>>(
                 sizeParam, elmtsPerBlock);
 
         // Set Kernel parameters.
-        const unsigned int dofsPerElmt = GetDofsPerElmt(sizeParam);
-        const unsigned int shmemsize   = SharedMemorySize<SHAPE_TYPE>(
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
             sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
             dofsPerElmt, nelmt, shmemsize, elmtsPerBlock);

@@ -419,7 +419,9 @@ protected:
         // Set Kernel parameters.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+        const auto elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
         // SumFac reads the input in place.
         const auto useSharedMemoryWsp = [&]() {
             if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
@@ -438,7 +440,7 @@ protected:
         const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
             sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
-            sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
+            dofsPerElmt, nelmt, shmemsize, elmtsPerBlock);
 
         const auto outDim = (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();

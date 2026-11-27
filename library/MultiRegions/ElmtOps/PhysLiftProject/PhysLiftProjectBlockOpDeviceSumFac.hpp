@@ -961,13 +961,14 @@ protected:
         std::integer_sequence<unsigned int, ind1...>)
     {
         constexpr unsigned int DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(m_nqTot);
+        const auto dofsPerElmt     = GetDofsPerElmt(traceSizeParam);
+        const auto elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
         const unsigned int shmemsize =
             lift ? elmtsPerBlock * sizeof(TData) * CHUNK * stageSize : 0u;
         const unsigned int passesPerBlock = 1u;
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
-            m_nqTot, nelmt, shmemsize, elmtsPerBlock, passesPerBlock);
+            dofsPerElmt, nelmt, shmemsize, elmtsPerBlock, passesPerBlock);
         DispatchElmtsPerBlock<Implementation>(
             traceSizeParam, kernelParams.elmtsPerBlock,
             [&](const auto elmtsPerBlockArg) {
@@ -1012,8 +1013,9 @@ protected:
                     std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
                 return;
             }
-            const unsigned int elmtsPerBlock =
-                GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
+            const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+            const auto elmtsPerBlock =
+                GetElmtsPerBlock<Implementation, 0u>(dofsPerElmt);
             unsigned int shmemsize =
                 SharedMemoryBytes<SHAPE_TYPE, PhysLiftProjectKernel::Fused>(
                     sizeParam, traceSizeParam, elmtsPerBlock);
@@ -1234,13 +1236,14 @@ protected:
             {
                 // One thread per point of whole elements per thread block, as
                 // GetElmtsPerBlock() gives.
-                const unsigned int elmtsPerBlock =
-                    GetElmtsPerBlock<Implementation>(m_nqTot);
+                const auto dofsPerElmt = GetDofsPerElmt(traceSizeParam);
+                const auto elmtsPerBlock =
+                    GetElmtsPerBlock<Implementation>(dofsPerElmt);
                 const unsigned int shmemsize      = 0u;
                 const unsigned int passesPerBlock = 1u;
                 const auto kernelParams =
                     GetDeviceKernelParameters<Implementation>(
-                        m_nqTot, nelmt, shmemsize, elmtsPerBlock,
+                        dofsPerElmt, nelmt, shmemsize, elmtsPerBlock,
                         passesPerBlock);
                 this->DispatchAppendFlag(this->m_append, [&](auto append) {
                     constexpr bool APPEND = decltype(append)::value;
@@ -1315,13 +1318,14 @@ protected:
         }
         else if (m_invMassIsDiagonal)
         {
-            const unsigned int elmtsPerBlock =
-                GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
+            const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+            const auto elmtsPerBlock =
+                GetElmtsPerBlock<Implementation, 0u>(dofsPerElmt);
             const unsigned int shmemsize =
                 SharedMemoryBytes<SHAPE_TYPE, PhysLiftProjectKernel::Fused>(
                     sizeParam, traceSizeParam, elmtsPerBlock);
             const auto kernelParams = GetDeviceKernelParameters<Implementation>(
-                sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
+                dofsPerElmt, nelmt, shmemsize, elmtsPerBlock);
             this->DispatchAppendFlag(this->m_append, [&](auto append) {
                 constexpr bool APPEND = decltype(append)::value;
 
@@ -1344,8 +1348,9 @@ protected:
             // The dense standard inverse mass: the lift and the basis
             // transpose, the batched product, then the scale and the
             // backward transform.
-            const unsigned int elmtsPerBlock =
-                GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
+            const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+            const auto elmtsPerBlock =
+                GetElmtsPerBlock<Implementation, 0u>(dofsPerElmt);
             SizeScratch(inblock, false);
             const unsigned int shmemsizeA =
                 SharedMemoryBytes<SHAPE_TYPE,
@@ -1353,7 +1358,7 @@ protected:
                     sizeParam, traceSizeParam, elmtsPerBlock);
             const auto kernelParamsA =
                 GetDeviceKernelParameters<Implementation>(
-                    sizeParam.nmTot(), nelmt, shmemsizeA, elmtsPerBlock);
+                    dofsPerElmt, nelmt, shmemsizeA, elmtsPerBlock);
             DEVICE_2DGRID_KERNEL_LAUNCHER(
                 (PhysLiftProjectLiftBasisTransposeKernelLauncher<
                     SHAPE_TYPE, Implementation>),
@@ -1375,7 +1380,7 @@ protected:
                     sizeParam, traceSizeParam, elmtsPerBlock);
             const auto kernelParamsB =
                 GetDeviceKernelParameters<Implementation>(
-                    sizeParam.nmTot(), nelmt, shmemsizeB, elmtsPerBlock);
+                    dofsPerElmt, nelmt, shmemsizeB, elmtsPerBlock);
             this->DispatchAppendFlag(this->m_append, [&](auto append) {
                 constexpr bool APPEND = decltype(append)::value;
 

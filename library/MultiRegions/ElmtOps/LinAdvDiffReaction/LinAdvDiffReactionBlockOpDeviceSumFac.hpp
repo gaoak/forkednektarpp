@@ -620,7 +620,9 @@ protected:
         auto advVelSize = nelmt * sizeParam.nqTot() * nhomo;
 
         // Stage intermediates in shared memory if they fit.
-        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+        const auto elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
         const auto useSharedMemoryWsp = SelectSharedWorkSpace<
             Implementation, SharedMemorySize<SHAPE_TYPE, TSizeParameter>,
             LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], 3u>(
@@ -630,7 +632,7 @@ protected:
         const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
             sizeParam, elmtsPerBlock, useSharedMemoryWsp, m_coordDim);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
-            sizeParam.nmTot(), nelmt, shmemsize, elmtsPerBlock);
+            dofsPerElmt, nelmt, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
