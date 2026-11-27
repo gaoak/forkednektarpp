@@ -196,6 +196,7 @@ v5.11.0
 - NekMesh mesh generation quality pass: diagnose failures that used to crash or assert, and cut the memory and CAD work the generator wastes (!2816)
 - Adding high-order curvilinear (isoparametric) mesh h-adaptation in 2D (!2830)
 - Remove boost::call_traits (!2849)
+- Run the varopti_untangle_quad_distortion and _winslow tests to convergence, so that their worst-Jacobian check no longer depends on platform rounding (!2956)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)
