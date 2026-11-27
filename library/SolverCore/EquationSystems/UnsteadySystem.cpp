@@ -32,13 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/BasicUtils/StringUtils.hpp>
-
-#include <cmath>
-#include <iomanip>
-#include <iostream>
-
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/AvgAssmbScatr/AvgAssmbScatrOp.hpp>
 #include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
@@ -52,6 +47,10 @@
 #include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <SolverCore/NormOps/NormL2/NormL2Op.hpp>
 #include <SolverCore/TimeOps/TimeOp.hpp>
+
+#include <cmath>
+#include <iomanip>
+#include <iostream>
 
 namespace Nektar::SolverCore
 {
@@ -291,14 +290,14 @@ void UnsteadySystem::SetContinuousInitialConditions(
     const std::shared_ptr<MultiRegions::BwdTransOp<double>> &bwdTransOp,
     std::shared_ptr<FwdTransOp<double>> fwdTransOp)
 {
-    const bool galerkin =
-        m_initialConditionProjection == InitialConditionProjection::Galerkin;
-
     // Continuous coefficients: the Average result before its Dirichlet
     // values, and the start of the Galerkin solve.
     auto avgAssmbScatrOp =
         MultiRegions::AvgAssmbScatrOp<double>::Create(expList, variables);
     avgAssmbScatrOp->Apply(coeffs);
+
+    const bool galerkin =
+        m_initialConditionProjection == InitialConditionProjection::Galerkin;
 
     if (galerkin)
     {

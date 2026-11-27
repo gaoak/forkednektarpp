@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "SolverCore/SolverCore.hpp"
+#include <SolverCore/SolverCore.hpp>
 
 namespace Nektar::SolverCore
 {

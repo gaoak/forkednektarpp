@@ -10,6 +10,32 @@
 # or HIP objects that are compiled and linked by a device compiler.
 FIND_PACKAGE(Threads REQUIRED)
 
+#
+# SET_SHAPE_SWITCH_COMPILE_OPTIONS(file shape ext)
+#
+# The compile options of a generated per-shape source of an element
+# operator, @p file of shape @p shape with extension @p ext, shared by
+# ADD_ELMT_OPERATOR and ADD_POLICY_ELMT_BLOCK_OPERATOR. GCC 13 fails with
+# an internal compiler error in its loop-splitting pass on the
+# collapsed-shape units of the larger operators (Helmholtz, Laplacian)
+# once the equal-count cases of the size switch are compiled; the pass
+# gains nothing here. With the switch widened past order 6 the same
+# assertion fires in complete unrolling on the pyramid units, so those
+# lose that pass as well.
+#
+FUNCTION(SET_SHAPE_SWITCH_COMPILE_OPTIONS file shape ext)
+    IF(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+       AND "${ext}" STREQUAL "cpp"
+       AND "${shape}" MATCHES "(Tri|Prism|Pyr|Tet)$")
+        SET(SwitchFlags "-fno-split-loops")
+        IF("${shape}" STREQUAL "Pyr" AND NEKTAR_SWITCH_MAX GREATER 6)
+            LIST(APPEND SwitchFlags "-fdisable-tree-cunroll")
+        ENDIF()
+        SET_SOURCE_FILES_PROPERTIES("${file}"
+            PROPERTIES COMPILE_OPTIONS "${SwitchFlags}")
+    ENDIF()
+ENDFUNCTION()
+
 IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     # Macro for each operator.
     MACRO(ADD_OPERATOR dir OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
@@ -229,6 +255,189 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
             ${${NAME_SOURCES}}
         )
     ENDMACRO()
+
+    #
+    # ADD_POLICY_ELMT_BLOCK_OPERATOR(dir policyName policyType policyHeader
+    #                                ndim sources)
+    #
+    # Register, for one policy, the block operators of a SolverCore element
+    # operator whose implementations are templated on a policy as well as on
+    # the execution space, implementation and data type. The policy is the
+    # physics the operator evaluates at each quadrature point: for the fused
+    # element-local operators (SolverCore/Advection/AdvectionFusedElmt,
+    # SolverCore/AdvDiffusion/AdvDiffFusedElmt), a trivially copyable type
+    # supplying the advective flux AdvFlux() and, for the advection-diffusion
+    # operator, the viscous flux ViscFlux(), such as a compressible Euler or
+    # Navier-Stokes model. It belongs to the code that uses the operator, so
+    # the operator's own library cannot generate the registrations; this is
+    # called where the policy is defined, and the generated sources are
+    # compiled there.
+    #
+    # Implementations are found by file name, as ADD_ELMT_OPERATOR finds
+    # them and in its order: `<name>BlockOp<Impl>.hpp`, then
+    # `<name>BlockOp<SerialAVX|Device><StdMat|SumFac|Generic>.hpp`, with
+    # SumFac and SumFacTOP sharing the SumFac header and SumFacTOP skipped on
+    # Serial and AVX. A `<name>BlockOpDeviceSumFacTOP.hpp` header, where there
+    # is one, serves SumFacTOP on its own, ahead of the shared SumFac header,
+    # for an operator whose Device SumFac and SumFacTOP are separate
+    # implementations or which has only the latter. The registrations and per-shape ShapeBlock definitions are
+    # generated from SolverCore/ElmtBlockOpWithPolicyFactoryDec.cpp.in and
+    # SolverCore/BlockOpWithPolicyShapeBlock.cpp.in, under the factory key
+    # `<name>BlockOp<TData>::name + policyType::name + <ExecSpace><Impl>`,
+    # for the shapes of dimension @p ndim.
+    #
+    # Arguments:
+    #   - `dir`: the operator's directory under library/, named after the
+    #     operator, e.g.
+    #     ${CMAKE_SOURCE_DIR}/library/SolverCore/AdvDiffusion/AdvDiffFusedElmt.
+    #   - `policyName`: the policy's name in the generated file names, e.g.
+    #     NavierStokesModel3D.
+    #   - `policyType`: the policy's fully qualified C++ type, e.g.
+    #     "Nektar::UnitTests::NavierStokesModel<3>".
+    #   - `policyHeader`: the header declaring the policy, as it is included,
+    #     e.g. UnitTests/SolverCore/TestFusedElmtPolicies.hpp.
+    #   - `ndim`: the policy's dimension, 1, 2 or 3.
+    #   - `sources`: the list the generated sources are appended to.
+    #
+    FUNCTION(ADD_POLICY_ELMT_BLOCK_OPERATOR dir policyName policyType
+             policyHeader ndim sources)
+        # Set implementation types.
+        SET(ElmtOpImpl StdMat SumFac SumFacTOP Generic)
+
+        # Shape types for separate code compilation: those of the policy's
+        # dimension. The fused operators take no nodal shape types.
+        IF("${ndim}" STREQUAL "1")
+            SET(Shapes Seg)
+        ELSEIF("${ndim}" STREQUAL "2")
+            SET(Shapes Tri Quad)
+        ELSEIF("${ndim}" STREQUAL "3")
+            SET(Shapes Hex Pyr Prism Tet)
+        ELSE()
+            MESSAGE(FATAL_ERROR "ADD_POLICY_ELMT_BLOCK_OPERATOR: ${policyName} "
+                "has dimension '${ndim}'; expected 1, 2 or 3.")
+        ENDIF()
+
+        # Extract the operator name from the directory.
+        GET_FILENAME_COMPONENT(abs_dir "${dir}" ABSOLUTE)
+        GET_FILENAME_COMPONENT(name "${abs_dir}" NAME)
+        SET(OPERATOR ${name})
+        SET(POLICY_NAME ${policyName})
+        SET(POLICY_TYPE ${policyType})
+
+        # The policy counterparts of the MultiRegions registration and
+        # ShapeBlock templates.
+        SET(CONFIG_FILE
+            ${CMAKE_SOURCE_DIR}/library/SolverCore/ElmtBlockOpWithPolicyFactoryDec.cpp.in)
+        SET(SHAPE_CONFIG_FILE
+            ${CMAKE_SOURCE_DIR}/library/SolverCore/BlockOpWithPolicyShapeBlock.cpp.in)
+        SET(generated "")
+
+        # Loop through each possible execution space.
+        FOREACH(ExecSpace IN LISTS ExecSpaces)
+
+            IF("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX")
+                SET(ExecName "SerialAVX")
+            ELSE()
+                SET(ExecName "Device")
+            ENDIF()
+
+            # Set file extension.
+            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+                SET(SOURCE_EXT cu)
+            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+                SET(SOURCE_EXT hip)
+            ELSE()
+                SET(SOURCE_EXT cpp)
+            ENDIF()
+
+            # Loop through each possible implementation.
+            FOREACH(Impl IN LISTS ElmtOpImpl)
+
+                UNSET(implFile)
+
+                # These combinations do/should not exist.
+                IF(("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX")
+                   AND "${Impl}" STREQUAL "SumFacTOP")
+                    CONTINUE()
+                ENDIF()
+
+                # The headers are looked for in ADD_ELMT_OPERATOR's order
+                # (library/MultiRegions/CMakeLists.txt), with one addition:
+                # a Device SumFacTOP header of its own, for an operator whose
+                # Device SumFac and SumFacTOP are separate implementations or
+                # which has only the latter.
+
+                # Found an Impl header.
+                IF(EXISTS "${abs_dir}/${name}BlockOp${Impl}.hpp")
+                    SET(implFile "${abs_dir}/${name}BlockOp${Impl}.hpp")
+
+                # Found a Device SumFacTOP header.
+                ELSEIF((EXISTS "${abs_dir}/${name}BlockOp${ExecName}SumFacTOP.hpp") AND ("${Impl}" STREQUAL "SumFacTOP"))
+                    SET(implFile "${abs_dir}/${name}BlockOp${ExecName}SumFacTOP.hpp")
+
+                # Found a ExecName + StdMat header.
+                ELSEIF((EXISTS "${abs_dir}/${name}BlockOp${ExecName}StdMat.hpp") AND ("${Impl}" STREQUAL "StdMat"))
+                    SET(implFile "${abs_dir}/${name}BlockOp${ExecName}StdMat.hpp")
+
+                # Found a ExecName + SumFac header.
+                ELSEIF((EXISTS "${abs_dir}/${name}BlockOp${ExecName}SumFac.hpp") AND ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacTOP"))
+                    SET(implFile "${abs_dir}/${name}BlockOp${ExecName}SumFac.hpp")
+
+                # Found a ExecName + generic header.
+                ELSEIF((EXISTS "${abs_dir}/${name}BlockOp${ExecName}Generic.hpp") AND ("${Impl}" STREQUAL "Generic"))
+                    SET(implFile "${abs_dir}/${name}BlockOp${ExecName}Generic.hpp")
+
+                # No implementation, skip.
+                ELSE()
+                    CONTINUE() # This avoid creating a *.cpp file
+                ENDIF()
+
+                # The generated sources include the implementation and the
+                # header declaring the policy.
+                FILE(RELATIVE_PATH include_file ${CMAKE_SOURCE_DIR}/library
+                    "${implFile}")
+                SET(IMPL_HEADER
+                    "#include <${include_file}>\n#include <${policyHeader}>")
+
+                # Loop through each possible data type.
+                FOREACH(TData IN LISTS DataTypes)
+                    # Set up the name used for the .cpp declaration file and
+                    # create it from the registration template.
+                    SET(FactoryDeclName
+                        "src/Block${name}${policyName}${ExecSpace}${Impl}${TData}.${SOURCE_EXT}")
+                    CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+                    LIST(APPEND generated
+                        "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
+                    MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation for ${policyName}: "
+                        "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
+
+                    # The shape-specific ShapeBlock definitions, compiled one
+                    # file per shape.
+                    FOREACH(Shape IN LISTS Shapes)
+                        SET(ShapeName
+                            "src/${name}${policyName}${ExecSpace}${Impl}${TData}${Shape}.${SOURCE_EXT}")
+                        CONFIGURE_FILE(${SHAPE_CONFIG_FILE} ${ShapeName})
+                        LIST(APPEND generated
+                            "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
+                        SET_SHAPE_SWITCH_COMPILE_OPTIONS(
+                            "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}"
+                            "${Shape}" "${SOURCE_EXT}")
+                    ENDFOREACH()
+                ENDFOREACH()
+            ENDFOREACH()
+        ENDFOREACH()
+
+        # A policy that produces no block operator is almost always a
+        # mistake, and its only symptom is "No such operator" from the
+        # factory at run time, a long way from the cause.
+        IF(NOT generated)
+            MESSAGE(WARNING "ADD_POLICY_ELMT_BLOCK_OPERATOR: '${name}' "
+                "registered no block operator for ${policyName}. Expected an "
+                "implementation header named ${name}BlockOp<SerialAVX|Device>"
+                "<StdMat|SumFac|SumFacTOP|Generic>.hpp in ${dir}.")
+        ENDIF()
+        SET(${sources} ${${sources}} ${generated} PARENT_SCOPE)
+    ENDFUNCTION()
 ENDIF()
 
 #

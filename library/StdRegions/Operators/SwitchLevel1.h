@@ -38,7 +38,7 @@
 #include <boost/preprocessor/repetition/for.hpp>
 #include <boost/preprocessor/tuple/elem.hpp>
 
-#include "Operators/SwitchLimits.h"
+#include <Operators/SwitchLimits.h>
 
 /* The following code provide BOOST_PP macrros to sets up a switch
    statement that goes from  SMIN to SMAX */

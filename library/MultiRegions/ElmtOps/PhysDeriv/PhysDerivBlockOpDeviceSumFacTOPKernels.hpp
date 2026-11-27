@@ -117,6 +117,7 @@ namespace Nektar::MultiRegions::detail
  *
  * @param   sizeParam1D  Element sizes; unused.
  * @param   elmtsPerBlock  Elements per thread block; unused.
+ * @param   useSharedMemoryWsp  Unused.
  *
  * @return Zero.
  */
@@ -128,7 +129,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int PhysDerivSharedMemorySize(
     [[maybe_unused]] const TPhysSizeParameter1D sizeParam1D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     return 0;
 }
@@ -136,7 +138,8 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(
 /**
  * @brief Dynamic shared memory, in elements of the data type, a 2D
  * SumFacTOP launch needs: the quadrature-point values of each of its
- * @p elmtsPerBlock elements.
+ * @p elmtsPerBlock elements if @p useSharedMemoryWsp, else none, the input
+ * then being read in place.
  *
  * Unlike the SumFac form this does not depend on the shape: the
  * collapsed-coordinate tables are read straight from global memory and
@@ -150,6 +153,7 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(
  * @param   sizeParam2D  Quadrature-point counts per direction.
  * @param   elmtsPerBlock  Elements per thread block, from
  *                       GetElmtsPerBlock().
+ * @param   useSharedMemoryWsp  Stage the input in shared memory.
  *
  * @return Values to allocate per thread block.
  */
@@ -160,16 +164,17 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysDerivSharedMemorySize(
-    const TPhysSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock)
+    const TPhysSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
-
-    return elmtsPerBlock * sizeParam2D.nqTot();
+    return useSharedMemoryWsp ? elmtsPerBlock * sizeParam2D.nqTot() : 0u;
 }
 
 /**
  * @brief Dynamic shared memory, in elements of the data type, a 3D
  * SumFacTOP launch needs: the quadrature-point values of each of its
- * @p elmtsPerBlock elements.
+ * @p elmtsPerBlock elements if @p useSharedMemoryWsp, else none, the input
+ * then being read in place.
  *
  * @tparam SHAPE_TYPE            Shape of the block's elements; unused.
  * @tparam Implementation        Constrained to MultiRegions::SumFacTOP.
@@ -179,6 +184,7 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(
  * @param   sizeParam3D  Quadrature-point counts per direction.
  * @param   elmtsPerBlock  Elements per thread block, from
  *                       GetElmtsPerBlock().
+ * @param   useSharedMemoryWsp  Stage the input in shared memory.
  *
  * @return Values to allocate per thread block.
  */
@@ -189,10 +195,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysDerivSharedMemorySize(
-    const TPhysSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock)
+    const TPhysSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    const bool useSharedMemoryWsp)
 {
-
-    return elmtsPerBlock * sizeParam3D.nqTot();
+    return useSharedMemoryWsp ? elmtsPerBlock * sizeParam3D.nqTot() : 0u;
 }
 
 /**
@@ -1139,6 +1145,9 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
  * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Thread-block handle type.
  * @tparam TData                Floating-point type of the field data.
+ * @tparam TUseSharedWsp        Type of @p useSharedMemoryWsp: `bool`, or a
+ *                              `std::bool_constant` SelectSharedWorkSpace()
+ *                              fixed.
  *
  * @param   sizeParam1D Coordinate dimension and point count of the
  *                      element.
@@ -1146,6 +1155,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
  * @param   elmtsPerBlock Elements per thread block, from
  *                      GetDeviceKernelParameters().
  * @param   outoffset   Stride between the Cartesian planes of @p out.
+ * @param   useSharedMemoryWsp  Unused; the input is read in place.
  * @param   D0          1D differentiation matrix.
  * @param   df          Derivative factors of the block.
  * @param   in          Input values of the block, spanning every
@@ -1159,12 +1169,13 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter1D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const size_t outoffset,
+    [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
@@ -1282,7 +1293,8 @@ NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
  * triangles: claims the dynamic shared memory, unpacks the size
  * parameter, then strides the thread block over the block's element
  * groups (GetDeviceElmtBlock()) on the grid's X axis, staging each element's
- * input values in shared memory before differentiating it, while the Y and Z
+ * input values in shared memory before differentiating it if
+ * @p useSharedMemoryWsp, else reading them in place, while the Y and Z
  * axes select the homogeneous mode and component of a single fused launch that
  * covers every (component, mode) pair at once.
  *
@@ -1309,6 +1321,9 @@ NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
  * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Thread-block handle type.
  * @tparam TData                Floating-point type of the field data.
+ * @tparam TUseSharedWsp        Type of @p useSharedMemoryWsp: `bool`, or a
+ *                              `std::bool_constant` SelectSharedWorkSpace()
+ *                              fixed.
  *
  * @param   sizeParam2D Coordinate dimension and point counts of the
  *                      element.
@@ -1316,6 +1331,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
  * @param   elmtsPerBlock Elements per thread block, from
  *                      GetDeviceKernelParameters().
  * @param   outoffset   Stride between the Cartesian planes of @p out.
+ * @param   useSharedMemoryWsp  Stage the input in shared memory.
  * @param   D0,D1       1D differentiation matrices.
  * @param   f0,f1       Collapsed-coordinate factor tables.
  * @param   df          Derivative factors of the block.
@@ -1329,17 +1345,17 @@ NEK_DEVICE_KERNEL void PhysDerivDir1DKernelLauncher(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter2D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const size_t outoffset,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    const TUseSharedWsp useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -1363,27 +1379,35 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const unsigned int c      = getBlockIdx<2>(threadBlock);
     const unsigned int nmode  = getBlockRange<1>(threadBlock);
     const unsigned int outDim = (nmode > 1) ? 3u : ncoord;
-    for (size_t e0 =
-             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
-         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
-                           elmtsPerBlock)
-    {
-        const auto elmtBlock =
-            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
-        const size_t e     = elmtBlock.elmtIdx;
-        const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * nelmt * (nmode * c + m) + nqTot * e;
-        TData *outptr =
-            out + nqTot * nelmt * (outDim * nmode * c + m) + nqTot * e;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
+        {
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e     = elmtBlock.elmtIdx;
+            const TData *dfptr = df + ndf * dfsize * e;
+            const TData *inptr =
+                in + nqTot * nelmt * (nmode * c + m) + nqTot * e;
+            TData *outptr =
+                out + nqTot * nelmt * (outDim * nmode * c + m) + nqTot * e;
 
-        // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
-        localBarrier(elmtBlock);
+            // Stage the element's input if it fits, else read it in place.
+            if constexpr (decltype(isShared)::value)
+            {
+                LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
+                localBarrier(elmtBlock);
+                inptr = s_wsp0;
+            }
 
-        PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            ncoord, nq0, nq1, outoffset, D0, D1, f0, f1, dfptr, s_wsp0, outptr,
-            elmtBlock);
-    }
+            PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                ncoord, nq0, nq1, outoffset, D0, D1, f0, f1, dfptr, inptr,
+                outptr, elmtBlock);
+        }
+    });
 }
 
 /**
@@ -1488,7 +1512,8 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  * elements: claims the dynamic shared memory, unpacks the size
  * parameter, then strides the thread block over the block's element
  * groups (GetDeviceElmtBlock()), staging each element's input values in shared
- * memory before differentiating it.
+ * memory before differentiating it if @p useSharedMemoryWsp, else reading
+ * them in place.
  *
  * As the two-dimensional overload, with three differentiation matrices
  * and four collapsed-coordinate tables read from global memory, and the
@@ -1506,6 +1531,9 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Thread-block handle type.
  * @tparam TData                Floating-point type of the field data.
+ * @tparam TUseSharedWsp        Type of @p useSharedMemoryWsp: `bool`, or a
+ *                              `std::bool_constant` SelectSharedWorkSpace()
+ *                              fixed.
  *
  * @param   sizeParam3D     Point counts of the element.
  * @param   nelmt           Elements in the block, including padding.
@@ -1513,6 +1541,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  *                          GetDeviceKernelParameters().
  * @param   outoffset       Stride between the Cartesian planes of
  *                          @p out.
+ * @param   useSharedMemoryWsp  Stage the input in shared memory.
  * @param   D0,D1,D2        1D differentiation matrices.
  * @param   f0,f1,f1m,f2    Collapsed-coordinate factor tables.
  * @param   df              Derivative factors of the block.
@@ -1526,18 +1555,19 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter3D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const size_t outoffset,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
-    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    const TUseSharedWsp useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
@@ -1560,26 +1590,35 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const unsigned int m     = getBlockIdx<1>(threadBlock);
     const unsigned int c     = getBlockIdx<2>(threadBlock);
     const unsigned int nmode = getBlockRange<1>(threadBlock);
-    for (size_t e0 =
-             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
-         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
-                           elmtsPerBlock)
-    {
-        const auto elmtBlock =
-            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
-        const size_t e     = elmtBlock.elmtIdx;
-        const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * nelmt * (nmode * c + m) + nqTot * e;
-        TData *outptr = out + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
+    DispatchWorkSpace(useSharedMemoryWsp, [&](const auto isShared) {
+        for (size_t e0 = static_cast<size_t>(getBlockIdx<0>(threadBlock)) *
+                         elmtsPerBlock;
+             e0 < nelmt;
+             e0 +=
+             static_cast<size_t>(getBlockRange<0>(threadBlock)) * elmtsPerBlock)
+        {
+            const auto elmtBlock =
+                GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+            const size_t e     = elmtBlock.elmtIdx;
+            const TData *dfptr = df + ndf * dfsize * e;
+            const TData *inptr =
+                in + nqTot * nelmt * (nmode * c + m) + nqTot * e;
+            TData *outptr =
+                out + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
 
-        // Copy to shared memory.
-        LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
-        localBarrier(elmtBlock);
+            // Stage the element's input if it fits, else read it in place.
+            if constexpr (decltype(isShared)::value)
+            {
+                LoadToSharedMemory(nqTot, inptr, s_wsp0, elmtBlock);
+                localBarrier(elmtBlock);
+                inptr = s_wsp0;
+            }
 
-        PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            nq0, nq1, nq2, outoffset, D0, D1, D2, f0, f1, f1m, f2, dfptr,
-            s_wsp0, outptr, elmtBlock);
-    }
+            PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                nq0, nq1, nq2, outoffset, D0, D1, D2, f0, f1, f1m, f2, dfptr,
+                inptr, outptr, elmtBlock);
+        }
+    });
 }
 
 /**

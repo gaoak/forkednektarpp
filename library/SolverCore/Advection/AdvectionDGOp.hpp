@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
-#include "SolverCore/BndCond/BndCondUpdateOp.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
 #include <MultiRegions/Common/Operator.hpp>
+#include <SolverCore/Advection/AdvectionVolumeFluxOp.hpp>
+#include <SolverCore/BndCond/BndCondUpdateOp.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 namespace Nektar::SolverCore
 {

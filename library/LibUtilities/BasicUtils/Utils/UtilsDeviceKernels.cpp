@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernelsHelper.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernelsHelper.hpp>
 
 namespace Nektar
 {

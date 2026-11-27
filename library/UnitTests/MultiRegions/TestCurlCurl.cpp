@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestCurlCurl
 
-#include "TestCurlCurl.hpp"
+#include <UnitTests/MultiRegions/TestCurlCurl.hpp>
 
 #include <algorithm>
 #include <boost/test/tools/output_test_stream.hpp>

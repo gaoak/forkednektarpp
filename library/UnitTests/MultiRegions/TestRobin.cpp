@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestRobin
 
-#include "TestRobin.hpp"
+#include <UnitTests/MultiRegions/TestRobin.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

@@ -32,10 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "ProfilerBP.hpp"
+#include <Demos/Operators/Profilers/ProfilerBP.hpp>
 
 #if defined(NEKTAR_USE_MAGMA)
-#include "magma_v2.h"
+#include <magma_v2.h>
 #endif
 
 /**

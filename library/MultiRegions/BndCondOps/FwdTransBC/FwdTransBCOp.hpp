@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "LocalRegions/MatrixKey.h"
+#include <LocalRegions/MatrixKey.h>
 #include <MultiRegions/Common/Operator.hpp>
 
 #include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCBlockOp.hpp>

@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestComm
 
-#include "TestComm.hpp"
+#include <UnitTests/LibUtilities/TestComm.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 

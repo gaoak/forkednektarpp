@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
 
 #include <cstdint>
 #include <string>

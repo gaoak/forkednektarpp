@@ -148,8 +148,6 @@ public:
     /// parse this output, so its format must not change.
     void PrintNorms(std::ostream &out);
 
-    void CheckHomogeneousDimensions();
-
 protected:
     /// How the initial condition is brought into the polynomial space
     enum class InitialConditionProjection
@@ -173,7 +171,7 @@ protected:
     LibUtilities::SessionReaderSharedPtr m_session;
     SpatialDomains::MeshGraphSharedPtr m_graph;
     std::vector<MultiRegions::ExpListSharedPtr> m_expansionLists;
-    LibUtilities::FieldIOSharedPtr m_fieldIo;
+    LibUtilities::FieldIOSharedPtr m_fieldIO;
     LibUtilities::FieldMetaDataMap m_fieldMetaDataMap;
     std::string m_sessionName;
 
@@ -240,10 +238,6 @@ protected:
 
     SOLVER_CORE_EXPORT virtual void v_InitObject(
         bool declareExpansionLists = true);
-    void DeclareExpansionLists();
-    /// Group the session variables by expansion list into m_variables and
-    /// m_checkIfSystemSingular. The default is a single group of them all.
-    SOLVER_CORE_EXPORT virtual void v_SetExpansionVariables();
     SOLVER_CORE_EXPORT virtual void v_DoInitialise(
         bool dumpInitialConditions = true);
     SOLVER_CORE_EXPORT virtual void v_DoSolve();
@@ -252,7 +246,14 @@ protected:
 
     SOLVER_CORE_EXPORT virtual void v_InitialiseFields();
     SOLVER_CORE_EXPORT virtual void v_InitialiseOperators();
+    SOLVER_CORE_EXPORT std::shared_ptr<FwdTransOp<double>> CreateFwdTransOp(
+        const MultiRegions::ExpListSharedPtr &expList,
+        const std::vector<std::string> &variables);
     SOLVER_CORE_EXPORT virtual std::vector<bool> v_GetSystemSingularChecks();
+    SOLVER_CORE_EXPORT virtual void v_SetExpansionVariables();
+    void DeclareExpansionLists();
+
+    void CheckHomogeneousDimensions();
 
     /// Publish the fields of the system to the filters.
     SOLVER_CORE_EXPORT virtual FieldRegistry v_GetFieldRegistry();
@@ -260,19 +261,13 @@ protected:
     /// Return views of the output coefficients.
     SOLVER_CORE_EXPORT virtual CoefficientFieldViews v_GetOutputFieldViews();
 
+    SOLVER_CORE_EXPORT virtual void v_WriteFld(const std::string &outname);
+
     /// Write coefficient fields, scaled by @p scale, to a field file.
     SOLVER_CORE_EXPORT void WriteOutputFields(
         const std::string &outname, const CoefficientFieldViews &fields,
         const LibUtilities::FieldMetaDataMap &metadata,
         const double scale = 1.0);
-
-    SOLVER_CORE_EXPORT virtual void v_WriteFld(const std::string &outname);
-
-    /// Build the continuous projection, a mass matrix solve, for the fields
-    /// of an expansion list.
-    SOLVER_CORE_EXPORT std::shared_ptr<FwdTransOp<double>> CreateFwdTransOp(
-        const MultiRegions::ExpListSharedPtr &expList,
-        const std::vector<std::string> &variables);
 };
 
 } // namespace Nektar::SolverCore

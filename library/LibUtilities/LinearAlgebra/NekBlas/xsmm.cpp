@@ -33,11 +33,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 
 #include <stdexcept>
 
-#include "libxsmm.h"
+#include <libxsmm.h>
 
 namespace Nektar::NekBlas
 {

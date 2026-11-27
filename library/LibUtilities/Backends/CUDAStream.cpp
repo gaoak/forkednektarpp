@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "CUDAStream.hpp"
+#include <LibUtilities/Backends/CUDAStream.hpp>
 
 namespace Nektar
 {

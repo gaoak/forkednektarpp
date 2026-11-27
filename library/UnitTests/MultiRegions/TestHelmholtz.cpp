@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestHelmholtz
 
-#include "TestHelmholtz.hpp"
+#include <UnitTests/MultiRegions/TestHelmholtz.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

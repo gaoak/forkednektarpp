@@ -47,7 +47,7 @@
 
 #include <MultiRegions/ContField.h>
 
-#include "LibUtilities/BasicUtils/Field/Field.hpp"
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 
 namespace Nektar::MultiRegions::detail

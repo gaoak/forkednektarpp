@@ -38,12 +38,12 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
-#include "SolverCore/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 #include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
 #include <MultiRegions/ElmtOps/Helmholtz/HelmholtzOp.hpp>
 #include <MultiRegions/ElmtOps/Laplacian/LaplacianOp.hpp>
 #include <MultiRegions/ElmtOps/Mass/MassOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp>
+#include <SolverCore/PreconOps/DiagPrecon/DiagPreconOp.hpp>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 

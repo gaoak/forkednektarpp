@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "MultiRegions/DataWarehouse/LocalToGlobalDataWarehouseDef.hpp"
+#include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouseDef.hpp>
 
 namespace Nektar::MultiRegions
 {

@@ -32,8 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "TestOp.hpp"
-#include "VariableDiffusion.hpp"
+#include <UnitTests/MultiRegions/TestOp.hpp>
+#include <UnitTests/MultiRegions/VariableDiffusion.hpp>
 
 #include <cmath>
 

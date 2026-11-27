@@ -45,7 +45,7 @@
 #include <thread>
 #endif
 
-#include "LibUtilities/BasicUtils/Field/MemoryRegion.hpp"
+#include <LibUtilities/BasicUtils/Field/MemoryRegion.hpp>
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 
 namespace Nektar::LibUtilities

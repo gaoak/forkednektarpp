@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestAdvectionDealias
 
-#include "TestAdvectionDealias.hpp"
+#include <UnitTests/MultiRegions/TestAdvectionDealias.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

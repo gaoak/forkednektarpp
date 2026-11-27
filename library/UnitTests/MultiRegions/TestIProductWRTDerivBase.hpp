@@ -34,7 +34,7 @@
 
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
-#include "TestOp.hpp"
+#include <UnitTests/MultiRegions/TestOp.hpp>
 
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>

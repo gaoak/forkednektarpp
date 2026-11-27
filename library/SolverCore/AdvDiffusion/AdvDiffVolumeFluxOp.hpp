@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
-#include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
-#include "SolverCore/Flux/FluxOp.hpp"
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <SolverCore/Advection/AdvectionVolumeFluxOp.hpp>
+#include <SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp>
+#include <SolverCore/Flux/FluxOp.hpp>
 
 #include <memory>
 

@@ -66,6 +66,33 @@ ADD_NEKTAR_EXECUTABLE(TestMultiField
 ADD_NEKTAR_EXECUTABLE(TestForcingNoise
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestForcingNoise.cpp)
 
+# The fused element-local operators are templated on their flux policies, so
+# their block operators are registered here for the model policies the tests
+# define, in one, two and three dimensions: the Euler models for the
+# advection operator, the Navier-Stokes models for the advection-diffusion
+# one.
+SET(TestAdvectionFusedElmtSources TestAdvectionFusedElmt.cpp)
+SET(TestAdvDiffFusedElmtSources TestAdvDiffFusedElmt.cpp)
+FOREACH(dim 1 2 3)
+    ADD_POLICY_ELMT_BLOCK_OPERATOR(
+        ${CMAKE_SOURCE_DIR}/library/SolverCore/Advection/AdvectionFusedElmt
+        EulerModel${dim}D
+        "Nektar::UnitTests::EulerModel<${dim}>"
+        UnitTests/SolverCore/TestFusedElmtPolicies.hpp ${dim}
+        TestAdvectionFusedElmtSources)
+    ADD_POLICY_ELMT_BLOCK_OPERATOR(
+        ${CMAKE_SOURCE_DIR}/library/SolverCore/AdvDiffusion/AdvDiffFusedElmt
+        NavierStokesModel${dim}D
+        "Nektar::UnitTests::NavierStokesModel<${dim}>"
+        UnitTests/SolverCore/TestFusedElmtPolicies.hpp ${dim}
+        TestAdvDiffFusedElmtSources)
+ENDFOREACH()
+FOREACH(test TestAdvectionFusedElmt TestAdvDiffFusedElmt)
+    ADD_NEKTAR_EXECUTABLE(${test}
+        COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS}
+        SOURCES ${${test}Sources})
+ENDFOREACH()
+
 # Registers one test per execution space. Named rather than overriding the
 # SET_UNIT_TEST of cmake/NektarCommon.cmake, which the sibling Operators unit
 # tests use with a different signature.
@@ -142,6 +169,8 @@ SET_SOLVERCORE_UNIT_TEST_IMPL(HelmSolve_serial_stdmat TestHelmSolve Serial StdMa
 SET_SOLVERCORE_UNIT_TEST_IMPL(HelmSolve_serial_sumfac TestHelmSolve Serial SumFac)
 SET_SOLVERCORE_UNIT_TEST_IMPL(LinearADRSolve_serial_stdmat TestLinearADRSolve Serial StdMat)
 SET_SOLVERCORE_UNIT_TEST_IMPL(LinearADRSolve_serial_sumfac TestLinearADRSolve Serial SumFac)
+SET_SOLVERCORE_UNIT_TEST_IMPL(AdvectionFusedElmt_serial_sumfac TestAdvectionFusedElmt Serial SumFac)
+SET_SOLVERCORE_UNIT_TEST_IMPL(AdvDiffFusedElmt_serial_sumfac TestAdvDiffFusedElmt Serial SumFac)
 IF (NEKTAR_USE_MPI)
     # SET_SOLVERCORE_UNIT_TEST_IMPL(HelmSolve_serial TestHelmSolve Serial SumFac)
 ENDIF()
@@ -179,6 +208,8 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_SOLVERCORE_UNIT_TEST_IMPL(HelmSolve_avx_sumfac TestHelmSolve AVX SumFac)
     SET_SOLVERCORE_UNIT_TEST_IMPL(LinearADRSolve_avx_stdmat TestLinearADRSolve AVX StdMat)
     SET_SOLVERCORE_UNIT_TEST_IMPL(LinearADRSolve_avx_sumfac TestLinearADRSolve AVX SumFac)
+    SET_SOLVERCORE_UNIT_TEST_IMPL(AdvectionFusedElmt_avx_sumfac TestAdvectionFusedElmt AVX SumFac)
+    SET_SOLVERCORE_UNIT_TEST_IMPL(AdvDiffFusedElmt_avx_sumfac TestAdvDiffFusedElmt AVX SumFac)
 ENDIF()
 IF(NEKTAR_ENABLE_DEVICE)
     SET_SOLVERCORE_UNIT_TEST(RungeKuttaDevice TestRungeKutta Device)
@@ -221,6 +252,8 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_SOLVERCORE_UNIT_TEST_IMPL(LinearADRSolve_device_stdmat TestLinearADRSolve Device StdMat)
     SET_SOLVERCORE_UNIT_TEST_IMPL(LinearADRSolve_device_sumfac TestLinearADRSolve Device SumFac)
     SET_SOLVERCORE_UNIT_TEST_IMPL(LinearADRSolve_device_sumfactop TestLinearADRSolve Device SumFacTOP)
+    SET_SOLVERCORE_UNIT_TEST_IMPL(AdvectionFusedElmt_device_sumfactop TestAdvectionFusedElmt Device SumFacTOP)
+    SET_SOLVERCORE_UNIT_TEST_IMPL(AdvDiffFusedElmt_device_sumfactop TestAdvDiffFusedElmt Device SumFacTOP)
 ENDIF()
 ENDIF()
 

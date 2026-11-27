@@ -589,13 +589,14 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPMultiplyKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, bool LOCAL_PIPELINE, bool SHARED_SCRATCH,
           typename TPhysSizeParameter1D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const unsigned int ncomp,
-    const unsigned int nhomo, [[maybe_unused]] const bool useSharedMemoryWsp,
+    const unsigned int nhomo,
+    [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT Binterp0, const TData *NEK_RESTRICT Bproject0,
     const TData scale, const TData *NEK_RESTRICT in, const size_t inCompStride,
@@ -749,13 +750,14 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, bool LOCAL_PIPELINE, bool SHARED_SCRATCH,
           typename TPhysSizeParameter2D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const unsigned int ncomp,
-    const unsigned int nhomo, [[maybe_unused]] const bool useSharedMemoryWsp,
+    const unsigned int nhomo,
+    [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT Binterp0,
@@ -932,13 +934,14 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, bool LOCAL_PIPELINE, bool SHARED_SCRATCH,
           typename TPhysSizeParameter3D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const unsigned int ncomp,
-    const unsigned int nhomo, [[maybe_unused]] const bool useSharedMemoryWsp,
+    const unsigned int nhomo,
+    [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,

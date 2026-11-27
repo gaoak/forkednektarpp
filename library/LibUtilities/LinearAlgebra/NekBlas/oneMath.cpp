@@ -33,7 +33,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 
 #include <LibUtilities/Backends/SYCLQueue.hpp>
 
@@ -41,10 +41,10 @@
 #include <vector>
 
 #if defined(NEKTAR_ENABLE_ONEMATH)
-#include "oneapi/math.hpp"
+#include <oneapi/math.hpp>
 using namespace oneapi::math;
 #elif defined(NEKTAR_ENABLE_ONEMKL)
-#include "oneapi/mkl.hpp"
+#include <oneapi/mkl.hpp>
 using namespace oneapi::mkl;
 #endif
 

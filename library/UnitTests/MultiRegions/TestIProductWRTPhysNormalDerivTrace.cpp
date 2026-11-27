@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestIProductWRTPhysNormalDerivTrace
 
-#include "TestIProductWRTPhysNormalDerivTrace.hpp"
+#include <UnitTests/MultiRegions/TestIProductWRTPhysNormalDerivTrace.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

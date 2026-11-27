@@ -261,10 +261,10 @@ public:
      *   currently gives SumFacTOP from order three in 3D and order six in
      *   1D and 2D, SumFac below it, and SumFac elsewhere), and warns that
      *   it has done so, naming the table's row. When that default is
-     *   SumFacTOP and no block operator "Block" + @p opName is registered
-     *   under it, the block takes SumFac instead. Create() asks once per block
-     *   shape and order, so the blocks of a mesh of mixed shape or order
-     *   can take different implementations.
+     *   SumFacTOP and no block operator "Block" + @p opName + @p policyName
+     *   is registered under it, the block takes SumFac instead. Create() asks
+     * once per block shape and order, so the blocks of a mesh of mixed shape or
+     * order can take different implementations.
      *
      * @param opName  Operator name (e.g. "Mass", "Helmholtz").
      * @param opExecSpace  Execution space whose map is consulted; must be
@@ -274,6 +274,9 @@ public:
      * @param exp  Representative element of the block the implementation
      * is for, whose shape and highest order set the default; null for
      * SumFac.
+     * @param policyName  Name of the policy the operator's block operators
+     * are registered for, for an operator whose block operators are
+     * templated on one (ADD_POLICY_ELMT_BLOCK_OPERATOR); empty otherwise.
      *
      * @return std::string containing the implementation name (e.g. "SumFac",
      * "StdMat").
@@ -281,7 +284,8 @@ public:
     static std::string GetOpImpl(
         const std::string &opName, const std::string &opExecSpace,
         LibUtilities::SessionReaderSharedPtr session,
-        const StdRegions::StdExpansionSharedPtr &exp = nullptr)
+        const StdRegions::StdExpansionSharedPtr &exp = nullptr,
+        const std::string &policyName                = "")
     {
         ASSERTL0(
             opExecSpace == "Serial" || opExecSpace == "AVX" ||
@@ -314,7 +318,7 @@ public:
                 std::string reason;
                 if (opImpl == "SumFacTOP" &&
                     !GetBlockOperatorFactory<TData>().ModuleExists(
-                        "Block" + opName + opExecSpace + opImpl))
+                        "Block" + opName + policyName + opExecSpace + opImpl))
                 {
                     opImpl = "SumFac";
                     reason = " (" + opName + " has no SumFacTOP)";

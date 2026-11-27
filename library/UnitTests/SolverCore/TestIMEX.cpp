@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestIMEX
 
-#include "TestTimeOps.hpp"
+#include <UnitTests/SolverCore/TestTimeOps.hpp>
 
 #include <SolverCore/TimeOps/IMEX/IMEXOp.hpp>
 

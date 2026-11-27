@@ -146,6 +146,7 @@ v5.11.0
 - Add the comparisons `>=`, `<`, `<=` and a lane-wise `select` to every tinysimd back-end, the `scalar_type_t` trait, and `Select()`, which chooses between two scalars or two SIMD vectors alike (!2904)
 - Add uniform and normal random fills to the Math library (`Math::fillUniform`, `Math::fillNormal`, `Math::RandomGenerator`) over cuRAND, hipRAND and oneMath/oneMKL on the device (!2903)
 - Add the white noise forcing (`TYPE="Noise"`) to SolverCore, and read the redesign forcing configuration through SessionNode
+- Add the fused element-local operators AdvectionFusedElmt and AdvDiffFusedElmt to SolverCore: the element-local part of a weak DG right-hand side in one pass, for a flux policy registered by the code that supplies it, with SumFac on Serial and AVX and SumFacTOP on Device; add multi-variable line-blocked PhysDeriv and PhysTraceExtract kernels for Serial and AVX (!2912)
 - Tidy the device SumFac and SumFacTOP element operators: share 2D/3D shape-dispatch helpers for BwdTrans and IProductWRTBase, stage shared-memory data with `StageToSharedMemory`/`StageTransposeToSharedMemory`, and drop a redundant barrier after the nodal-to-modal mapping (!2905)
 - Fix device Dirichlet projection reading out of bounds in 3DH1, and reject homogeneous expansions in the boundary surface integral and MeanRemoval (!2907)
 - Agree across ranks on the field definitions a variable is written with (!2907)
@@ -188,6 +189,7 @@ v5.11.0
 - Making SolverCore's EquationSystem base class truly generic (!2951)
 - Making SolverCore's UnsteadySystem base class truly generic (!2953)
 - Update ProfilerElmtOps for trace operators and add SumFacTOP implementation to IProductWRTPhysNormalDerivTrace (!2957)
+- Select the shared or global memory workspace of the device SumFacTOP kernels at compile time where the device architecture's limits are known, and fall back to global memory for SumFacTOP Advection, Divergence and PhysDeriv (!2960)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -295,6 +297,7 @@ v5.11.0
 - Fix minor improvement for HDF5 reading mesh in parallel not reading all faces (!2788) 
 - Move remaining Operators unit tests to MultiRegions (!2851)
 - Fix ProfilerElmtOps for 1D/2D cases and fix interleaving for ProfilerBP and ProfilerAssmbScatrOps (!2938)
+- Consistently use bracket for header file include in redesign code and some tidy-up (!2958)
 
 v5.10.0
 -------

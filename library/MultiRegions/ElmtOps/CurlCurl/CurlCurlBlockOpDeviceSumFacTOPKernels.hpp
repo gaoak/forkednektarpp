@@ -713,6 +713,9 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
  * @tparam TPhysSizeParameter1D 1D physical-space size parameter.
  * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
+ * @tparam TUseSharedWsp        Type of @p useSharedMemoryWsp: `bool`, or a
+ *                              `std::bool_constant` SelectSharedWorkSpace()
+ *                              fixed.
  *
  * @param   sizeParam1D  Element sizes: coordinate dimension and
  *                       quadrature points.
@@ -734,13 +737,13 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter1D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, [[maybe_unused]] const size_t inoffset,
-    [[maybe_unused]] const bool useSharedMemoryWsp,
+    [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT in, [[maybe_unused]] TData *NEK_RESTRICT wsp,
     TData *NEK_RESTRICT out, [[maybe_unused]] unsigned char *shmemptr,
@@ -800,6 +803,9 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
  * @tparam TPhysSizeParameter2D 2D physical-space size parameter.
  * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
+ * @tparam TUseSharedWsp        Type of @p useSharedMemoryWsp: `bool`, or a
+ *                              `std::bool_constant` SelectSharedWorkSpace()
+ *                              fixed.
  *
  * @param   sizeParam2D  Element sizes: coordinate dimension and
  *                       per-direction quadrature points.
@@ -827,13 +833,13 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter2D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const size_t inoffset,
-    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TUseSharedWsp useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT wsp,
@@ -928,13 +934,13 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
 // from the block index.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter2D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const size_t inoffset,
-    const size_t outoffset, const bool useSharedMemoryWsp,
+    const size_t outoffset, const TUseSharedWsp useSharedMemoryWsp,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
@@ -1029,6 +1035,9 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
  * @tparam TPhysSizeParameter3D 3D physical-space size parameter.
  * @tparam TElmtsPerBlock       SingleElmtPerBlock or MultipleElmtPerBlock.
  * @tparam TthreadBlock         Back-end thread-block handle type.
+ * @tparam TUseSharedWsp        Type of @p useSharedMemoryWsp: `bool`, or a
+ *                              `std::bool_constant` SelectSharedWorkSpace()
+ *                              fixed.
  *
  * @param   sizeParam3D  Element sizes: per-direction quadrature points.
  * @param   nelmt        Elements in the block, including padding.
@@ -1062,13 +1071,13 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter3D, typename TElmtsPerBlock,
-          typename TthreadBlock, typename TData,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
     const TElmtsPerBlock elmtsPerBlock, const size_t inoffset,
-    const bool useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
+    const TUseSharedWsp useSharedMemoryWsp, const TData *NEK_RESTRICT D0,
     const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,

@@ -32,9 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "TestOp.hpp"
 #include <MultiRegions/Common/Operator.hpp>
 #include <MultiRegions/ElmtOps/ElmtOp.hpp>
+#include <UnitTests/MultiRegions/TestOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;

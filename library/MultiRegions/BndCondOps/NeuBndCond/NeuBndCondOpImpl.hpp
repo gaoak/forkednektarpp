@@ -48,8 +48,8 @@
 #include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp>
 #include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondOp.hpp>
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 

@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestBndCondPhys
 
-#include "TestBndCondPhys.hpp"
+#include <UnitTests/MultiRegions/TestBndCondPhys.hpp>
 
 #include <iostream>
 

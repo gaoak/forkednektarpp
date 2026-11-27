@@ -64,8 +64,8 @@ template <typename TData> struct Abs
 };
 } // namespace Nektar::IntegralOp
 
-#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
-#include "LibUtilities/BasicUtils/Utils/UtilsSerialAVXKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsSerialAVXKernels.hpp>
 
 namespace Nektar::LibUtilities
 {

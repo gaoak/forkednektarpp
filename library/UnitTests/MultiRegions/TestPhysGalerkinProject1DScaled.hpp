@@ -34,7 +34,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "TestOp.hpp"
+#include <UnitTests/MultiRegions/TestOp.hpp>
 
 #include <MultiRegions/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledOp.hpp>
 

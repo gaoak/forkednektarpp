@@ -34,7 +34,7 @@
 
 #define BOOST_TEST_MODULE TestFwdTrans
 
-#include "TestFwdTrans.hpp"
+#include <UnitTests/SolverCore/TestFwdTrans.hpp>
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>

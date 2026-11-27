@@ -55,7 +55,8 @@
  *   warp-interleaved data.
  * - SumFacTOP (AdvectionBlockOpDeviceSumFacTOPKernels.hpp): one element per
  *   thread block. The block's threads are indexed over the element's
- *   quadrature points and its input is staged in shared memory, exposing
+ *   quadrature points and its input is staged in shared memory when it
+ *   fits, exposing
  *   parallelism within an element rather than across elements.
  *
  * The two strategies want different storage and derivative-factor
@@ -337,6 +338,21 @@ protected:
     }
 
     /**
+     * @brief Shared memory in bytes one thread block of a @p SHAPE_TYPE launch
+     * requests, for @p elmtsPerBlock elements per thread block, with the input
+     * staged there if @p useSharedMemoryWsp.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+    static constexpr unsigned int SharedMemorySize(
+        const TSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+        const bool useSharedMemoryWsp)
+    {
+        return sizeof(TData) *
+               AdvectionSharedMemorySize<SHAPE_TYPE, Implementation>(
+                   sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+    }
+
+    /**
      * @brief Worker for every dimension: advect all elements of the block
      * with a single kernel launch covering every component and
      * homogeneous mode.
@@ -355,11 +371,12 @@ protected:
      * The second dimension is ncomp = GetNumComponents() *
      * GetNumHomoModes(), one row per component or homogeneous mode. The
      * dynamic shared memory request is sizeof(TData) times
-     * AdvectionSharedMemorySize for the shape and strategy at hand: the
-     * collapsed-coordinate
-     * factor tables for SumFac (nothing for segments, quadrilaterals and
-     * hexahedra) and one element's input for SumFacTOP (nothing for
-     * segments).
+     * AdvectionSharedMemorySize for the shape and strategy at hand: for
+     * SumFac the collapsed-coordinate factor tables of the simplex-type
+     * shapes, the input being read in place; for SumFacTOP each element's
+     * input (none for segments), in shared memory only when
+     * SelectSharedWorkSpace() accepts that size and otherwise read in
+     * place.
      *
      * The launch goes through DEVICE_2DGRID_KERNEL_LAUNCHER to the
      * AdvectionKernelLauncher overload of this dimension and strategy,
@@ -449,12 +466,24 @@ protected:
         // Set Kernel parameters.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nqTot());
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            AdvectionSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam, elmtsPerBlock);
+        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        // SumFac reads the input in place.
+        const auto useSharedMemoryWsp = [&]() {
+            if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
+            {
+                return false;
+            }
+            else if constexpr (std::is_same_v<Implementation,
+                                              MultiRegions::SumFacTOP>)
+            {
+                return SelectSharedWorkSpace<
+                    Implementation,
+                    SharedMemorySize<SHAPE_TYPE, TPhysSizeParameter>>(
+                    sizeParam, elmtsPerBlock);
+            }
+        }();
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
             sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
 
@@ -481,9 +510,9 @@ protected:
                                                  APPEND, DEFORMED>),
                         kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
                         kernelParams.shmemSize, m_streamID, sizeParam, nelmt,
-                        elmtsPerBlockArg, m_D[ind0]..., m_f[ind1]..., m_dfptr,
-                        advVelPtr, advVelOffset, nhomo, inptr, outptr,
-                        this->m_scale);
+                        elmtsPerBlockArg, useSharedMemoryWsp, m_D[ind0]...,
+                        m_f[ind1]..., m_dfptr, advVelPtr, advVelOffset, nhomo,
+                        inptr, outptr, this->m_scale);
                 });
         });
 

@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
 namespace Nektar::MultiRegions::detail
 {

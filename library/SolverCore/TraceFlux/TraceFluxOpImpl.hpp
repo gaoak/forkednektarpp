@@ -2839,10 +2839,9 @@ protected:
      * @brief Decide which interior and partition blocks the in-place kernels
      * take: a block whose two sides are both collocated with the global
      * trace in every direction and both ways, so that neither side
-     * interpolates, and whose point maps were built; a partition block is
-     * not taken on Device, where it keeps the packed path. Run once at
-     * construction; the kernels' state for a block is built per field layout
-     * (BuildLayout()).
+     * interpolates; a partition block is not taken on Device, where it keeps
+     * the packed path. Run once at construction; the kernels' state for a block
+     * is built per field layout (BuildLayout()).
      *
      * The maps alone do not say a block is collocated: PackPointMaps() builds
      * them for every oriented block, because the device gathers read through
@@ -2855,9 +2854,11 @@ protected:
     {
         const auto isNull     = [](const TData *m) { return m == nullptr; };
         const auto collocated = [&](const TraceDetails &T,
-                                    const TraceDeviceData &D) {
-            return D.ptMapFwd != nullptr &&
-                   std::all_of(T.interpFwd.begin(), T.interpFwd.end(),
+                                    [[maybe_unused]] const TraceDeviceData &D) {
+            ASSERTL1(D.ptMapFwd != nullptr,
+                     "PackTraceBlock() builds the point maps of every "
+                     "interior and partition block.");
+            return std::all_of(T.interpFwd.begin(), T.interpFwd.end(),
                                isNull) &&
                    std::all_of(T.interpBwd.begin(), T.interpBwd.end(), isNull);
         };

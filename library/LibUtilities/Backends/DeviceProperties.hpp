@@ -451,4 +451,78 @@ private:
 #endif
 }
 
+/**
+ * @brief Limits of a device architecture that the launch heuristics read,
+ * in the units GetDeviceProperties reports them.
+ */
+struct DeviceArchProperties
+{
+    /// Whether the build's target architecture is listed.
+    bool known                           = false;
+    size_t sharedMemoryPerBlock          = 0;
+    size_t sharedMemoryPerMultiprocessor = 0;
+    size_t maxThreadsPerMultiprocessor   = 0;
+};
+
+/**
+ * @brief Limits of the build's target architecture, known at compile time.
+ *
+ * CUDA and HIP builds, and SYCL-CUDA and SYCL-HIP builds given one, target
+ * the single architecture NEKTAR_DEVICE_ARCH, whose limits CMake
+ * (NektarDeviceArchLimits.cmake) defines for host and device code alike. An
+ * architecture it does not list, and the other back-ends, are not known.
+ * CheckDeviceArchProperties() verifies the limits against the device.
+ */
+constexpr DeviceArchProperties GetDeviceArchProperties()
+{
+#if defined(NEKTAR_DEVICE_SHARED_MEMORY_PER_BLOCK)
+    return DeviceArchProperties{true, NEKTAR_DEVICE_SHARED_MEMORY_PER_BLOCK,
+                                NEKTAR_DEVICE_SHARED_MEMORY_PER_MP,
+                                NEKTAR_DEVICE_MAX_THREADS_PER_MP};
+#else
+    return DeviceArchProperties{};
+#endif
+}
+
+/**
+ * @brief Check, once, that the device has the limits
+ * GetDeviceArchProperties() lists for the build's target architecture.
+ *
+ * A launch that relies on more shared memory per block than the device has
+ * fails, so less of it is fatal; the per-multiprocessor limits only steer the
+ * SumFac occupancy heuristic, so a mismatch there is a warning. SYCL reports
+ * no per-multiprocessor limits of its own (GetDeviceProperties stands in
+ * work-group ones), so those are not compared there.
+ */
+[[maybe_unused]] static void CheckDeviceArchProperties()
+{
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(NEKTAR_ENABLE_SYCL)
+    [[maybe_unused]] static const bool checked = [] {
+#if defined(NEKTAR_DEVICE_ARCH_NAME)
+        constexpr DeviceArchProperties arch = GetDeviceArchProperties();
+        if constexpr (arch.known)
+        {
+            const std::string msg =
+                " the one NektarDeviceArchLimits.cmake defines for " +
+                std::string(NEKTAR_DEVICE_ARCH_NAME) + ".";
+            ASSERTL0(GetDeviceProperties::SharedMemoryPerBlock() >=
+                         arch.sharedMemoryPerBlock,
+                     "Shared memory per block is less than" + msg);
+#if !defined(NEKTAR_ENABLE_SYCL)
+            WARNINGL0(GetDeviceProperties::SharedMemoryPerMultiprocessor() ==
+                          arch.sharedMemoryPerMultiprocessor,
+                      "Shared memory per multiprocessor differs from" + msg);
+            WARNINGL0(static_cast<size_t>(
+                          GetDeviceProperties::MaxThreadsPerMultiprocessor()) ==
+                          arch.maxThreadsPerMultiprocessor,
+                      "Threads per multiprocessor differ from" + msg);
+#endif
+        }
+#endif
+        return true;
+    }();
+#endif
+}
+
 } // namespace Nektar
