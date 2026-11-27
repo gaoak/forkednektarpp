@@ -320,8 +320,17 @@
                                           NQ(i), NQ(i), NQ(i), NQ(i),          \
                                           NQ(i)>());                           \
         break;
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
-    defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ_M1(i), NQ(i),       \
+                                          NQ(i), NQ(i), NQ_M1(i), NQ(i),       \
+                                          NQ(i)>());                           \
+        break;
+#elif defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
@@ -362,8 +371,12 @@
         if ((nm0 == nm1) && (nm1 == nm2) && (nq00 == nq10) && (nq00 == nq20) &&
             (nq00 == nq01) && (nq10 == nq11) && (nq20 == nq21) &&
             (nq00 == nm0))
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
-    defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism)
+        // The direction-0 faces are quadrilaterals: nq01 is promoted to nq00.
+        if ((nm0 == nm1) && (nm1 == nm2+1) && (nq00 == nq10) && (nq00 == nq20) &&
+            (nq00 == nq01) && (nq10 == nq11+1) && (nq20 == nq21) &&
+            (nq00 == nm0))
+#elif defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
         if ((nm0 == nm1) && (nm1 == nm2+1) && (nq00 == nq10) && (nq00 == nq20) &&
             (nq00 == nq01+1) && (nq10 == nq11+1) && (nq20 == nq21) &&
             (nq00 == nm0))
@@ -440,8 +453,17 @@
                                           NQ(i), NQ(i), NQ(i), NQ(i),          \
                                           NQ(i)>());                           \
         break;
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
-    defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ_M1(i), NQ(i),       \
+                                          NQ(i), NQ(i), NQ_M1(i), NQ(i),       \
+                                          NQ(i)>());                           \
+        break;
+#elif defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
@@ -482,8 +504,12 @@
         if ((nm0 == nm1) && (nm1 == nm2) && (nq00 == nq10) && (nq00 == nq20) &&
             (nq00 == nq01) && (nq10 == nq11) && (nq20 == nq21) &&
             (nq00 == nm0))
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
-    defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism)
+        // The direction-0 faces are quadrilaterals: nq01 is promoted to nq00.
+        if ((nm0 == nm1) && (nm1 == nm2+1) && (nq00 == nq10) && (nq00 == nq20) &&
+            (nq00 == nq01) && (nq10 == nq11+1) && (nq20 == nq21) &&
+            (nq00 == nm0))
+#elif defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
         if ((nm0 == nm1) && (nm1 == nm2+1) && (nq00 == nq10) && (nq00 == nq20) &&
             (nq00 == nq01+1) && (nq10 == nq11+1) && (nq20 == nq21) &&
             (nq00 == nm0))

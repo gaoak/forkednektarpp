@@ -478,7 +478,9 @@ protected:
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Stage intermediates in shared memory if they fit.
-        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+        const auto elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
         const auto useSharedMemoryWsp = SelectSharedWorkSpace<
             Implementation, SharedMemorySize<SHAPE_TYPE, TPhysSizeParameter>>(
             sizeParam, elmtsPerBlock);
@@ -487,7 +489,7 @@ protected:
         const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
             sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
-            sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
+            dofsPerElmt, nelmt, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer. The fused kernel needs storage for
         // the intermediate omega = curl(u), and SumFacTOP for its staged
@@ -575,7 +577,9 @@ protected:
 
         // Set Kernel parameters. SumFacTOP stages the element's three
         // components in shared memory if they fit, else reads them in place.
-        const auto elmtsPerBlock = GetElmtsPerBlock<Implementation>(sizeParam);
+        const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+        const auto elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
         const auto useSharedMemoryWsp = [&] {
             if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
             {
@@ -593,7 +597,7 @@ protected:
         const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
             sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
-            sizeParam.nqTot(), nelmt, shmemsize, elmtsPerBlock);
+            dofsPerElmt, nelmt, shmemsize, elmtsPerBlock);
 
         // Offsets between the components of a block: one component spans all
         // of the planes.

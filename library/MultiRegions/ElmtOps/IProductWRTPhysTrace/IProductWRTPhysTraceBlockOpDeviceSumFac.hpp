@@ -66,9 +66,9 @@
  *
  * @note Two implementations are registered from this header:
  * MultiRegions::SumFac, one element per warp lane at the warp-size
- * interleave, and MultiRegions::SumFacTOP, one element per thread block
- * at width one. Implementation selects the kernel family, the launch
- * geometry GetDeviceKernelParameters() computes and
+ * interleave, and MultiRegions::SumFacTOP, one element, or a group of them,
+ * per thread block at width one. Implementation selects the kernel family, the
+ * launch geometry GetDeviceKernelParameters() computes and
  * IProductWRTPhysTraceBlockOpImpl::m_implInterleaveWidth. A StdMat
  * request reaches the SumFac class through
  * IProductWRTPhysTraceBlockOp::Create(), which maps it.
@@ -106,8 +106,8 @@ namespace Nektar::MultiRegions::detail
 
 /**
  * @brief Device block implementation of the trace lifting term, one
- * element per warp lane (MultiRegions::SumFac) or per thread block
- * (MultiRegions::SumFacTOP).
+ * element per warp lane (MultiRegions::SumFac) or one element, or a group
+ * of them, per thread block (MultiRegions::SumFacTOP).
  *
  * @details
  * For every element of the block this accumulates
@@ -332,10 +332,10 @@ public:
 protected:
     /// Interleave width the kernels expect: the warp size for
     /// MultiRegions::SumFac, one element per lane, and one for
-    /// MultiRegions::SumFacTOP, one element per thread block. The Operator
-    /// methods reshape the block storage to this width around every
-    /// launch; the per-trace launchers scale their per-element offsets
-    /// by it.
+    /// MultiRegions::SumFacTOP, one element, or a group of them, per thread
+    /// block. The Operator methods reshape the block storage to this width
+    /// around every launch; the per-trace launchers scale their per-element
+    /// offsets by it.
     static constexpr unsigned int m_implInterleaveWidth =
         std::is_same_v<Implementation, MultiRegions::SumFac>
             ? NektarSpaces::Device::warpSize
@@ -441,12 +441,11 @@ protected:
      * Both arms always run their kernel in appending mode: the caller
      * is responsible for zeroing @p outblock before the first trace.
      *
-     * The workspace is BlockOperator's shared static device buffer,
-     * sized here for the whole block by
-     * IProductWRTPhysTraceWorkSpaceSize(). In two dimensions a lane
-     * needs one IProductWRTPhysTraceEdgeModeBlockSize(), the trace-mode
-     * buffer the edge inner product writes and the lift then reads,
-     * hence the @c ntrace of one this path asks for. In three
+     * The workspace is placed by LaunchIProductWRTPhysTraceND() and
+     * sized by IProductWRTPhysTraceWorkSpaceSize(). In two dimensions an
+     * element needs one IProductWRTPhysTraceEdgeModeBlockSize(), the
+     * trace-mode buffer the edge inner product writes and the lift then
+     * reads, hence the @c ntrace of one this path asks for. In three
      * dimensions it needs a face's mode block,
      * IProductWRTPhysTraceFaceModeBlockSize(), plus
      * IProductWRTPhysTraceFaceScratchSize() for the general
@@ -634,6 +633,31 @@ protected:
     // Helper functions to launch kernels
 
     /**
+     * @brief Shared memory in bytes one thread block of a single-trace
+     * @p SHAPE_TYPE launch requests, for @p elmtsPerBlock elements per
+     * thread block, with the workspace staged there if
+     * @p useSharedMemoryWsp.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+    static constexpr unsigned int TraceSharedMemorySize(
+        const TSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+        const bool useSharedMemoryWsp)
+    {
+        if constexpr (IsTraceSizeParameter2D_v<TSizeParameter>)
+        {
+            return sizeof(TData) *
+                   IProductWRTPhysTraceSharedMemorySize<Implementation>(
+                       sizeParam, elmtsPerBlock, useSharedMemoryWsp, 1u);
+        }
+        else
+        {
+            return sizeof(TData) *
+                   IProductWRTPhysTraceSharedMemorySize<Implementation>(
+                       sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+        }
+    }
+
+    /**
      * @brief Per-trace path for every dimension: lift one named trace
      * of every element of the block, accumulating into the output.
      *
@@ -660,12 +684,18 @@ protected:
      * looked up in #m_shapeTraceIDtoJacOff. Both offsets are scaled by
      * #m_implInterleaveWidth, the interleave the data is stored at.
      *
-     * The workspace is BlockOperator's shared static buffer, sized by
-     * IProductWRTPhysTraceWorkSpaceSize(), which the SumFac kernels
-     * partition per warp; the SumFacTOP kernels take the same budget
-     * from dynamic shared memory instead. This path covers a single
-     * trace, hence the @c ntrace of one in two dimensions; in three the
-     * two regions are sized per face already, so the bulk and the
+     * The global-memory workspace is the static per-stream buffer
+     * shared by all block operators, sized by
+     * IProductWRTPhysTraceWorkSpaceSize() times ncomp, of every element
+     * under SumFac. They go in shared memory instead, and the global
+     * workspace is zero, when SelectSharedWorkSpace() accepts the size
+     * IProductWRTPhysTraceSharedMemorySize() gives with them staged there
+     * for one warp of elements. SumFacTOP has no global-memory fallback: its
+     * kernels stage the intermediates of each element group
+     * (GetElmtsPerBlock()) in shared memory only, and a request beyond the
+     * shared memory per block is fatal in GetDeviceKernelParameters(). This
+     * path covers a single trace, hence the @c ntrace of one in two dimensions;
+     * in three the regions are sized per face already, so the bulk and the
      * per-trace budgets coincide.
      *
      * @tparam SHAPE_TYPE   Shape of the block, with each nodal shape
@@ -715,38 +745,41 @@ protected:
             (DEFORMED) ? numDataIn
                        : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
 
-        // Set Kernel parameters. This path covers a single trace, hence
-        // the ntrace of one in two dimensions; in three the regions are
-        // sized per face already.
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
-        unsigned int shmemsize = 0;
-        if constexpr (IsTraceSizeParameter2D_v<TTraceSizeParameter>)
-        {
-            shmemsize = sizeof(TData) *
-                        IProductWRTPhysTraceSharedMemorySize<Implementation>(
-                            sizeParam, elmtsPerBlock, 1u);
-        }
-        else
-        {
-            shmemsize = sizeof(TData) *
-                        IProductWRTPhysTraceSharedMemorySize<Implementation>(
-                            sizeParam, elmtsPerBlock);
-        }
+        // Stage intermediates in shared memory if they fit; SumFacTOP has no
+        // fallback. This path covers a single trace, hence the ntrace of one
+        // in two dimensions; in three the regions are sized per face already.
+        const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+        const auto elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
+        const auto useSharedMemoryWsp = SelectSharedWorkSpace<
+            Implementation,
+            TraceSharedMemorySize<SHAPE_TYPE, TTraceSizeParameter>>(
+            sizeParam, elmtsPerBlock);
+
+        // Set Kernel parameters.
+        const unsigned int shmemsize = TraceSharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
-            sizeParam.nmTot(), nelmtPad, shmemsize, elmtsPerBlock);
+            dofsPerElmt, nelmtPad, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer, sized for a single trace as above.
         size_t wspSize = 0;
-        if constexpr (IsTraceSizeParameter2D_v<TTraceSizeParameter>)
+        if (!useSharedMemoryWsp)
         {
-            wspSize = IProductWRTPhysTraceWorkSpaceSize<Implementation>(
-                nelmtPad, sizeParam, 1u);
-        }
-        else
-        {
-            wspSize = IProductWRTPhysTraceWorkSpaceSize<Implementation>(
-                nelmtPad, sizeParam);
+            if constexpr (IsTraceSizeParameter2D_v<TTraceSizeParameter>)
+            {
+                wspSize = IProductWRTPhysTraceWorkSpaceSize<Implementation>(
+                    WorkSpaceNumElmts<Implementation>(
+                        nelmtPad, kernelParams.gridSize, elmtsPerBlock),
+                    sizeParam, 1u);
+            }
+            else
+            {
+                wspSize = IProductWRTPhysTraceWorkSpaceSize<Implementation>(
+                    WorkSpaceNumElmts<Implementation>(
+                        nelmtPad, kernelParams.gridSize, elmtsPerBlock),
+                    sizeParam);
+            }
         }
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -760,16 +793,22 @@ protected:
                                                [traceid];
 
         // IProductWRTPhysTrace kernel.
-        DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (IProductWRTPhysTraceTraceKernelLauncher<Implementation, DEFORMED>),
-            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-            kernelParams.shmemSize, m_streamID, traceid, SHAPE_TYPE, sizeParam,
-            m_B[ind0]..., nelmtPad, numDataIn, numDataOut, numDataJac,
-            m_B[sizeof...(ind0) + ind1]..., m_W[ind1]...,
-            m_jacptr + jacOffset * m_implInterleaveWidth, wspptr,
-            inptr + inOffset * m_implInterleaveWidth, outptr,
-            (bool)this->m_isCollocated[ind1]...,
-            (bool)m_endPtsCollocated[ind0]..., this->m_append);
+        DispatchElmtsPerBlock<Implementation>(
+            sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                DEVICE_2DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTPhysTraceTraceKernelLauncher<Implementation,
+                                                             DEFORMED>),
+                    kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, traceid, SHAPE_TYPE,
+                    sizeParam, m_B[ind0]..., nelmtPad, elmtsPerBlockArg,
+                    numDataIn, numDataOut, numDataJac,
+                    m_B[sizeof...(ind0) + ind1]..., m_W[ind1]...,
+                    m_jacptr + jacOffset * m_implInterleaveWidth,
+                    useSharedMemoryWsp, wspptr,
+                    inptr + inOffset * m_implInterleaveWidth, outptr,
+                    (bool)this->m_isCollocated[ind1]...,
+                    (bool)m_endPtsCollocated[ind0]..., this->m_append);
+            });
     }
 
     /**
@@ -832,6 +871,21 @@ protected:
             std::make_integer_sequence<unsigned int, NumTangentialDir(DIM)>());
     }
 
+    /**
+     * @brief Shared memory in bytes one thread block of a @p SHAPE_TYPE launch
+     * requests, for @p elmtsPerBlock elements per thread block, with the
+     * workspace staged there if @p useSharedMemoryWsp.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, typename TSizeParameter>
+    static constexpr unsigned int SharedMemorySize(
+        const TSizeParameter sizeParam, const unsigned int elmtsPerBlock,
+        const bool useSharedMemoryWsp)
+    {
+        return sizeof(TData) *
+               IProductWRTPhysTraceSharedMemorySize<Implementation>(
+                   sizeParam, elmtsPerBlock, useSharedMemoryWsp);
+    }
+
     /// @name Dimensional entry points
     /// Each builds the block's size parameter, non-templated where the
     /// generated switch found no compiled combination and templated
@@ -870,13 +924,19 @@ protected:
      * expression replaces the per-shape spellings the two- and
      * three-dimensional paths carried separately; they agreed already.
      *
-     * The workspace is BlockOperator's shared static buffer, sized by
-     * IProductWRTPhysTraceWorkSpaceSize(), which the SumFac kernels
-     * partition per warp; the SumFacTOP kernels take the same budget
-     * from dynamic shared memory instead. Its two-dimensional arm
-     * defaults to an @c ntrace of two, this path integrating a whole
-     * edge pair in one call; a segment needs no workspace at all and is
-     * given a null pointer, deviceMalloc() returning one for a
+     * The global-memory workspace is the static per-stream buffer
+     * shared by all block operators, sized by
+     * IProductWRTPhysTraceWorkSpaceSize() times ncomp, of every element
+     * under SumFac. They go in shared memory instead, and the global
+     * workspace is zero, when SelectSharedWorkSpace() accepts the size
+     * IProductWRTPhysTraceSharedMemorySize() gives with them staged there
+     * for one warp of elements. SumFacTOP has no global-memory fallback: its
+     * kernels stage the intermediates of each element group
+     * (GetElmtsPerBlock()) in shared memory only, and a request beyond the
+     * shared memory per block is fatal in GetDeviceKernelParameters(). The
+     * two-dimensional size helpers default to an @c ntrace of two, this path
+     * integrating a whole edge pair in one call; a segment needs no workspace
+     * at all and is given a null pointer, deviceMalloc() returning one for a
      * zero-sized request.
      *
      * The flag IProductWRTPhysTraceBlockOp::m_append reaches the
@@ -925,22 +985,31 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Stage intermediates in shared memory if they fit; SumFacTOP has no
+        // fallback.
+        const auto dofsPerElmt = GetDofsPerElmt(sizeParam);
+        const auto elmtsPerBlock =
+            GetElmtsPerBlock<Implementation>(dofsPerElmt);
+        const auto useSharedMemoryWsp = SelectSharedWorkSpace<
+            Implementation, SharedMemorySize<SHAPE_TYPE, TTraceSizeParameter>>(
+            sizeParam, elmtsPerBlock);
+
         // Set Kernel parameters.
-        const unsigned int elmtsPerBlock =
-            GetElmtsPerBlock<Implementation>(sizeParam.nmTot(), 0u);
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTPhysTraceSharedMemorySize<Implementation>(sizeParam,
-                                                                 elmtsPerBlock);
+        const unsigned int shmemsize = SharedMemorySize<SHAPE_TYPE>(
+            sizeParam, elmtsPerBlock, useSharedMemoryWsp);
         const auto kernelParams = GetDeviceKernelParameters<Implementation>(
-            sizeParam.nmTot(), nelmtPad, shmemsize, elmtsPerBlock);
+            dofsPerElmt, nelmtPad, shmemsize, elmtsPerBlock);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            IProductWRTPhysTraceWorkSpaceSize<Implementation>(nelmtPad,
-                                                              sizeParam);
+            useSharedMemoryWsp
+                ? 0
+                : IProductWRTPhysTraceWorkSpaceSize<Implementation>(
+                      WorkSpaceNumElmts<Implementation>(
+                          nelmtPad, kernelParams.gridSize, elmtsPerBlock),
+                      sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -970,15 +1039,19 @@ protected:
         }
 
         // IProductWRTPhysTrace kernel.
-        DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (IProductWRTPhysTraceKernelLauncher<SHAPE_TYPE, Implementation,
-                                                DEFORMED>),
-            kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
-            kernelParams.shmemSize, m_streamID, sizeParam, m_B[ind0]...,
-            nelmtPad, numDataIn, numDataOut, numDataJac,
-            m_B[sizeof...(ind0) + ind1]..., m_W[ind1]..., m_jacptr, wspptr,
-            inptr, outptr, (bool)this->m_isCollocated[ind1]...,
-            (bool)m_endPtsCollocated[ind0]..., this->m_append);
+        DispatchElmtsPerBlock<Implementation>(
+            sizeParam, elmtsPerBlock, [&](const auto elmtsPerBlockArg) {
+                DEVICE_2DGRID_KERNEL_LAUNCHER(
+                    (IProductWRTPhysTraceKernelLauncher<
+                        SHAPE_TYPE, Implementation, DEFORMED>),
+                    kernelParams.gridSize, ncomp, kernelParams.blockSize, 1,
+                    kernelParams.shmemSize, m_streamID, sizeParam, m_B[ind0]...,
+                    nelmtPad, elmtsPerBlockArg, numDataIn, numDataOut,
+                    numDataJac, m_B[sizeof...(ind0) + ind1]..., m_W[ind1]...,
+                    m_jacptr, useSharedMemoryWsp, wspptr, inptr, outptr,
+                    (bool)this->m_isCollocated[ind1]...,
+                    (bool)m_endPtsCollocated[ind0]..., this->m_append);
+            });
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

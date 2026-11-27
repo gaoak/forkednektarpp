@@ -1552,12 +1552,14 @@ NEK_DEVICE_INLINE static TData PhysLiftProjectOnePointLiftTOPKernel(
     TData lift                   = 0.0;
     unsigned int k               = 0;
     unsigned int iface           = 0;
+#pragma unroll
     for (unsigned int d = 0; d < dim; ++d)
     {
         const unsigned int tnq0 = (dim == 3) ? tnq[2 * d] : tnq[d];
         const unsigned int tnq1 = (dim == 3) ? tnq[2 * d + 1] : 1u;
         const TData *tw0        = (dim == 3) ? tw[2 * d] : tw[d];
         const TData *tw1        = (dim == 3) ? tw[2 * d + 1] : nullptr;
+#pragma unroll
         for (unsigned int f = 0; f < nfaces[d]; ++f, ++iface)
         {
             TData sum = 0.0;
@@ -1749,6 +1751,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                                         nbasis1[2u * q], nbasis1[2u * q + 1u]};
                 // Each edge's factor, formed once for every component.
                 TData coef[nedge];
+#pragma unroll
                 for (unsigned int iedge = 0; iedge < nedge; ++iedge)
                 {
                     TData edgeJac;
@@ -1770,6 +1773,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                     {
                         const TData *traceptr =
                             trace + compTraceSize * c + traceOffset;
+#pragma unroll
                         for (unsigned int iedge = 0; iedge < nedge; ++iedge)
                         {
                             val += traceptr[k[iedge]] * coef[iedge];
@@ -1958,6 +1962,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                                          nbasis2[2u * r], nbasis2[2u * r + 1u]};
                 // Each face's factor, formed once for every component.
                 TData coef[nface];
+#pragma unroll
                 for (unsigned int iface = 0; iface < nface; ++iface)
                 {
                     TData faceJac;
@@ -1979,6 +1984,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                     {
                         const TData *traceptr =
                             trace + compTraceSize * c + traceOffset;
+#pragma unroll
                         for (unsigned int iface = 0; iface < nface; ++iface)
                         {
                             val += traceptr[k[iface]] * coef[iface];
