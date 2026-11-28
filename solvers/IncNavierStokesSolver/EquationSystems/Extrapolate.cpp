@@ -36,6 +36,8 @@
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/Communication/Comm.h>
 
+#include <algorithm>
+
 namespace Nektar
 {
 
@@ -168,6 +170,11 @@ void Extrapolate::v_CalcNeumannPressureBCs(
             for (int i = 0; i < m_bnd_dim; i++)
             {
                 MountHOPBCs(nq, kinvis, Q[i], Advection[i]);
+                if (m_hartmannBraking > 0.0 && !m_hartmannDirichletVelocity[n])
+                {
+                    Vmath::Svtvp(nq, -m_hartmannBraking, Velocity[i], 1, Q[i],
+                                 1, Q[i], 1);
+                }
             }
 
             Pvals = (m_pressureHBCs[m_intSteps - 1]) + cnt;
@@ -651,6 +658,7 @@ void Extrapolate::GenerateHOPBCMap(
     int numOutHBCPts = 0;
 
     m_hbcType = Array<OneD, HBCType>(m_PBndConds.size(), eNOHBC);
+    m_hartmannDirichletVelocity = Array<OneD, bool>(m_PBndConds.size(), false);
     for (n = 0; n < m_PBndConds.size(); ++n)
     {
         // High order boundary Neumann Condiiton
@@ -659,6 +667,16 @@ void Extrapolate::GenerateHOPBCMap(
             m_hbcType[n] = eHBCNeumann;
             m_numHBCDof += m_PBndExp[n]->GetNcoeffs();
             m_HBCnumber += m_PBndExp[n]->GetExpSize();
+            if (m_hartmannBraking > 0.0)
+            {
+                m_hartmannDirichletVelocity[n] = std::all_of(
+                    m_velocity.begin(), m_velocity.end(), [&](int field) {
+                        return m_fields[field]
+                                   ->GetBndConditions()[n]
+                                   ->GetBoundaryConditionType() ==
+                               SpatialDomains::eDirichlet;
+                    });
+            }
         }
 
         // High order outflow convective condition
@@ -1070,6 +1088,33 @@ void Extrapolate::CopyPressureHBCsToPbndExp(void)
             Vmath::Vcopy(nq, &(m_pressureHBCs[m_intSteps - 1])[cnt], 1,
                          &(m_PBndExp[n]->UpdateCoeffs()[0]), 1);
             cnt += nq;
+        }
+    }
+}
+
+void Extrapolate::ApplyHartmannPressureBCs()
+{
+    if (m_hartmannBraking == 0.0 || m_numHBCDof == 0)
+    {
+        return;
+    }
+
+    Array<OneD, NekDouble> normalVelocity(m_numHBCDof);
+    IProductNormVelocityBCOnHBC(normalVelocity);
+    size_t offset = 0;
+    for (size_t n = 0; n < m_PBndConds.size(); ++n)
+    {
+        if (m_hbcType[n] == eHBCNeumann || m_hbcType[n] == eConvectiveOBC)
+        {
+            const int ncoeffs = m_PBndExp[n]->GetNcoeffs();
+            if (m_hartmannDirichletVelocity[n])
+            {
+                Vmath::Svtvp(ncoeffs, -m_hartmannBraking,
+                             normalVelocity.data() + offset, 1,
+                             m_pressureHBCs[m_intSteps - 1].data() + offset, 1,
+                             m_PBndExp[n]->UpdateCoeffs().data(), 1);
+            }
+            offset += ncoeffs;
         }
     }
 }

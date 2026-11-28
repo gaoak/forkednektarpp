@@ -60,6 +60,14 @@ public:
     /// Name of class
     static std::string className;
 
+    /// Override the diffusion coefficient after initialisation.  Used by
+    /// derived equations (e.g. AdjointTemperature) that compute epsilon from
+    /// physical properties rather than the session parameter.
+    void SetEpsilon(const NekDouble epsilon)
+    {
+        m_epsilon = epsilon;
+    }
+
 protected:
     bool m_subSteppingScheme;
     // Use Spectral Vanishing Viscosity

@@ -9,6 +9,8 @@ ENDIF()
 IF( NEKTAR_SOLVER_ADR )
     ADD_SOLVER_EXECUTABLE(ADRSolver SOURCES
         ./ADRSolver.cpp
+        ./Adjoint/AdjointBaseFlow.cpp
+        ./EquationSystems/AdjointTemperature.cpp
         ./EquationSystems/Helmholtz.cpp
         ./EquationSystems/Laplace.cpp
         ./EquationSystems/LaplacePhi.cpp
@@ -20,6 +22,7 @@ IF( NEKTAR_SOLVER_ADR )
         ./EquationSystems/MMFAdvection.cpp
         ./EquationSystems/UnsteadyDiffusion.cpp
         ./EquationSystems/UnsteadyAdvectionDiffusion.cpp
+        ./EquationSystems/UnsteadyAdjointTemperature.cpp
         ./EquationSystems/UnsteadyInviscidBurgers.cpp
         ./EquationSystems/UnsteadyReactionDiffusion.cpp
         ./EquationSystems/UnsteadyViscousBurgers.cpp

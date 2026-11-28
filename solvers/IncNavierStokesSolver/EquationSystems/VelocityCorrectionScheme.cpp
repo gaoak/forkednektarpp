@@ -43,6 +43,8 @@
 
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 
+#include <cmath>
+
 namespace Nektar
 {
 
@@ -78,6 +80,23 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
     m_MHD.hasLorentzForce = DefinedForcing("ForcingLorentz");
     IncNavierStokes::v_InitObject(DeclareField);
     m_explicitDiffusion = false;
+
+    if (!m_MHD.hasLorentzForce)
+    {
+        NekDouble hartmannBraking = 0.0;
+        m_session->LoadParameter("HartmannBraking", hartmannBraking, 0.0);
+        ASSERTL0(std::isfinite(hartmannBraking) && hartmannBraking >= 0.0,
+                 "HartmannBraking must be a finite, non-negative rate.");
+        if (hartmannBraking > 0.0)
+        {
+            ASSERTL0(m_expdim == 2 && m_spacedim == 2 &&
+                         m_session->MatchSolverInfoAsEnum(
+                             "SolverType", eVelocityCorrectionScheme),
+                     "HartmannBraking requires a two-dimensional "
+                     "VelocityCorrectionScheme session.");
+            SetImplicitLorentzDamping(hartmannBraking);
+        }
+    }
 
     // Set m_pressure to point to last field of m_fields;
     if (StringUtils::IEquals(m_session->GetVariable(m_fields.size() - 1), "p"))
@@ -177,6 +196,10 @@ void VelocityCorrectionScheme::SetUpExtrapolation()
             m_advObject);
 
         m_extrapolation->SetForcing(m_forcing);
+        if (!m_MHD.hasLorentzForce)
+        {
+            m_extrapolation->SetHartmannBraking(m_MHD.implicitLorentzDamping);
+        }
         m_extrapolation->SubSteppingTimeIntegration(m_intScheme);
         m_extrapolation->GenerateBndElmtExpansion();
         m_extrapolation->GenerateHOPBCMap(m_session);
@@ -577,6 +600,11 @@ void VelocityCorrectionScheme::v_GenerateSummary(SolverUtils::SummaryList &s)
     AdvectionSystem::v_GenerateSummary(s);
     SolverUtils::AddSummaryItem(s, "Splitting Scheme",
                                 "Velocity correction (strong press. form)");
+    if (!m_MHD.hasLorentzForce && m_MHD.implicitLorentzDamping > 0.0)
+    {
+        SolverUtils::AddSummaryItem(s, "Hartmann braking rate",
+                                    m_MHD.implicitLorentzDamping);
+    }
 
     if (m_extrapolation->GetSubStepName().size())
     {
@@ -831,6 +859,7 @@ void VelocityCorrectionScheme::v_SolveUnsteadyStokesSystem(
 
     // Substep the pressure boundary condition if using substepping
     m_extrapolation->SubStepSetPressureBCs(inarray, aii_Dt, m_kinvis);
+    m_extrapolation->ApplyHartmannPressureBCs();
 
     // Set up forcing term for pressure Poisson equation
     LibUtilities::Timer timer;

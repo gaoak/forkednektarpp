@@ -180,7 +180,7 @@ protected:
     {
         /// Whether ForcingLorentz is defined.
         bool hasLorentzForce = false;
-        /// Coefficient sigma |B|^2 treated in the velocity Helmholtz solve.
+        /// Implicit velocity damping from Lorentz forcing or Hartmann braking.
         NekDouble implicitLorentzDamping = 0.0;
     } m_MHD;
 
