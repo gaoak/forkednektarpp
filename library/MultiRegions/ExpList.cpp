@@ -1256,6 +1256,13 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
     // use GLL in all directions on Triangles if Continuous Expansion
     pSession->MatchSolverInfo("Projection", "Continuous", UseGLLOnTri, false);
 
+    // except with GJP stabilisation, which fills the trace from the boundary
+    // expansions. Only Dirichlet boundaries define their points on the trace,
+    // so other boundaries must keep the points of the element trace.
+    bool noGJP = true;
+    pSession->MatchSolverInfo("GJPStabilisation", "False", noGJP, true);
+    UseGLLOnTri = UseGLLOnTri && noGJP;
+
     bool DoOptOnCollection =
         m_session->DefinesCmdLineArgument("no-exp-opt") ? false : true;
     int cnt = 0;

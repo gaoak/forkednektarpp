@@ -144,6 +144,7 @@ v5.11.0
 - Fix the interpreter failing to parse the `bessel` function, and reading an unset value for the constant argument of a two-argument function such as `atan2(1, x)` (!2895)
 - Add `ExpressionBlockOp::GetExpressionVariables()` and `GetExpressionFunctions()`, the names an expression uses and the functions it calls, and use them to decide whether the device Expression operator compiles an expression (!2902)
 - Add the comparisons `>=`, `<`, `<=` and a lane-wise `select` to every tinysimd back-end, the `scalar_type_t` trait, and `Select()`, which chooses between two scalars or two SIMD vectors alike (!2904)
+- Keep element trace points on triangular boundary expansions when using GJP with Continuous projection, fixing a heap overflow with Neumann boundaries (!2906)
 - Add uniform and normal random fills to the Math library (`Math::fillUniform`, `Math::fillNormal`, `Math::RandomGenerator`) over cuRAND, hipRAND and oneMath/oneMKL on the device (!2903)
 - Add the white noise forcing (`TYPE="Noise"`) to SolverCore, and read the redesign forcing configuration through SessionNode
 - Add the fused element-local operators AdvectionFusedElmt and AdvDiffFusedElmt to SolverCore: the element-local part of a weak DG right-hand side in one pass, for a flux policy registered by the code that supplies it, with SumFac on Serial and AVX and SumFacTOP on Device; add multi-variable line-blocked PhysDeriv and PhysTraceExtract kernels for Serial and AVX (!2912)
