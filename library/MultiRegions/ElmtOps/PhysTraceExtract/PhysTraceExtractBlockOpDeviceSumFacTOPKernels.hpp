@@ -36,8 +36,9 @@
 
 /**
  * @file PhysTraceExtractBlockOpDeviceSumFacTOPKernels.hpp
- * @brief Device SumFacTOP kernels of the trace extraction: one thread
- * block per element, threads striding the trace points.
+ * @brief Device SumFacTOP kernels of the trace extraction: one element, or
+ * a group of them, per thread block at a time, threads striding the trace
+ * points.
  *
  * @details
  * The dedicated thread-over-points counterpart of
@@ -49,18 +50,18 @@
  *   @em n of element \f$e = (i_{warp}, i_{lane})\f$ lives at
  *   `buf[warpsize * n + ilane]` and a lane walks its element's points
  *   serially;
- * - these kernels put one element on one thread *block*, so an
+ * - these kernels put one element on one thread *block*, or on its share
+ *   of one where the block takes a group (GetDeviceElmtBlock()), so an
  *   element's entries are contiguous -- entry @em n at `buf[n]` from an
- *   element base of `numData * e` -- and the block's threads share the
- *   point loops, striding them by the block size with a
+ *   element base of `numData * e` -- and the share's threads share the
+ *   point loops, striding them by the share's size with a
  *   localBarrier() between dependent stages.
  *
  * That is why the host class pairs them with an implementation
  * interleave width of one (PhysTraceExtractBlockOpDeviceSumFac.hpp) and
  * with the SumFacTOP launch geometry of
- * GetDeviceKernelParameters(), and why the intermediate face-shaped blocks live
- * in dynamic shared memory rather than in the global workspace the
- * SumFac path partitions per warp.
+ * GetDeviceKernelParameters(), and why the intermediate face-shaped blocks are
+ * per element, in dynamic shared memory, with no global-memory fallback.
  *
  * Layout of an element's packed trace output is the shared one: traces
  * ordered by normal direction, the N0 pair first, then N1, then N2,
@@ -93,9 +94,9 @@ namespace Nektar::MultiRegions::detail
 
 // Helper functions
 
-/// @brief Workspace of a whole block, per component: none, the
-/// intermediates living in the dynamic shared memory
-/// PhysTraceExtractSharedMemorySize() sizes.
+/// @brief Workspace of @p nelmt elements, per component: none, a
+/// segment's traces being its end vertices with nothing to interpolate
+/// tangentially.
 template <typename Implementation, typename TTraceSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
@@ -108,82 +109,98 @@ inline constexpr size_t PhysTraceExtractWorkSpaceSize(
     return 0;
 }
 
-/// @brief Workspace of a whole block, per component: none, the
-/// intermediates living in the dynamic shared memory
-/// PhysTraceExtractSharedMemorySize() sizes.
+/// @brief Workspace of @p nelmt elements, per component: the edge block
+/// the normal stage writes, one PhysTraceExtractBlockSize(), followed by
+/// a copy of the element's volume field, per element.
 template <typename Implementation, typename TTraceSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                            bool>
               Enable = true>
 inline constexpr size_t PhysTraceExtractWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TTraceSizeParameter2D sizeParam2D)
+    const size_t nelmt, const TTraceSizeParameter2D sizeParam2D)
 {
-    return 0;
+    return (PhysTraceExtractBlockSize(sizeParam2D) + sizeParam2D.nmTot()) *
+           nelmt;
 }
 
-/// @brief Workspace of a whole block, per component: none, the
-/// intermediates living in the dynamic shared memory
-/// PhysTraceExtractSharedMemorySize() sizes.
+/// @brief Workspace of @p nelmt elements, per component: three
+/// PhysTraceExtractBlockSize(), two for the face block the normal stage
+/// writes and one for the tangential scratch, followed by a copy of the
+/// element's volume field, per element.
 template <typename Implementation, typename TTraceSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                            bool>
               Enable = true>
 inline constexpr size_t PhysTraceExtractWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TTraceSizeParameter3D sizeParam3D)
+    const size_t nelmt, const TTraceSizeParameter3D sizeParam3D)
 {
-    return 0;
+    return (3u * PhysTraceExtractBlockSize(sizeParam3D) + sizeParam3D.nmTot()) *
+           nelmt;
 }
 
-/// @brief Dynamic shared memory one block needs, in elements: none, a
-/// segment's traces being its end vertices with nothing to interpolate
-/// tangentially.
+/// @brief Dynamic shared memory one block needs, in elements: the
+/// workspace of @p elmtsPerBlock elements.
+///
+/// @p useSharedMemoryWsp is ignored: the kernels have no global-memory
+/// fallback, so the workspace is always reserved here, and a request
+/// beyond the shared memory per block is fatal in
+/// GetDeviceKernelParameters().
 template <typename Implementation, typename TTraceSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
-    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    const TTraceSizeParameter1D sizeParam1D, const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
-    return 0;
+    return static_cast<unsigned int>(
+        PhysTraceExtractWorkSpaceSize<Implementation>(elmtsPerBlock,
+                                                      sizeParam1D));
 }
 
-/// @brief Dynamic shared memory one block needs, in elements: the edge
-/// block the normal stage writes, one PhysTraceExtractBlockSize(),
-/// followed by a copy of the element's volume field, for each of the
-/// @p elmtsPerBlock elements of the block.
+/// @brief Dynamic shared memory one block needs, in elements: the
+/// workspace of @p elmtsPerBlock elements.
+///
+/// @p useSharedMemoryWsp is ignored: the kernels have no global-memory
+/// fallback, so the workspace is always reserved here, and a request
+/// beyond the shared memory per block is fatal in
+/// GetDeviceKernelParameters().
 template <typename Implementation, typename TTraceSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
-    const TTraceSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock)
+    const TTraceSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
-    return elmtsPerBlock *
-           (PhysTraceExtractBlockSize(sizeParam2D) + sizeParam2D.nmTot());
+    return static_cast<unsigned int>(
+        PhysTraceExtractWorkSpaceSize<Implementation>(elmtsPerBlock,
+                                                      sizeParam2D));
 }
 
-/// @brief Dynamic shared memory one block needs, in elements: three
-/// PhysTraceExtractBlockSize(), two for the face block the normal stage
-/// writes and one for the tangential scratch, the split the kernels
-/// re-derive from the same helper, followed by a copy of the element's
-/// volume field, for each of the @p elmtsPerBlock elements of the block.
+/// @brief Dynamic shared memory one block needs, in elements: the
+/// workspace of @p elmtsPerBlock elements.
+///
+/// @p useSharedMemoryWsp is ignored: the kernels have no global-memory
+/// fallback, so the workspace is always reserved here, and a request
+/// beyond the shared memory per block is fatal in
+/// GetDeviceKernelParameters().
 template <typename Implementation, typename TTraceSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                            bool>
               Enable = true>
 inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
-    const TTraceSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock)
+    const TTraceSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
-    return elmtsPerBlock *
-           (3u * PhysTraceExtractBlockSize(sizeParam3D) + sizeParam3D.nmTot());
+    return static_cast<unsigned int>(
+        PhysTraceExtractWorkSpaceSize<Implementation>(elmtsPerBlock,
+                                                      sizeParam3D));
 }
 
 // --- 2D ---
@@ -192,7 +209,7 @@ inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
  * @brief One two-dimensional element, one normal direction: extract the
  * edges of that direction and resample them onto their trace points.
  *
- * The one-block-per-element twin of BwdTransQuadSumFacKernelTrace. Both
+ * The SumFacTOP twin of BwdTransQuadSumFacKernelTrace. Both
  * stages live in a single kernel, with the normal direction set by
  * @p NormalDir and a barrier between them. Stage one takes the volume
  * field to the [@p edg, @p nedg) window of edges of that direction and
@@ -228,16 +245,17 @@ inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
  *                      direction.
  * @param   tbasis      eInterp table to the trace points of the in-edge
  *                      direction, indexed `tbasis[q * npts + i]`.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         Trace values, already offset to this direction's
  *                      block.
- * @param   wsp         Scratch between the two stages in shared memory,
+ * @param   wsp         Scratch between the two stages,
  *                      `2 * max(nm0,nm1)` entries.
  * @param   isCollocated      Trace points of this direction coincide
  *                      with the volume points of the in-edge direction.
  * @param   endPtsCollocated  Volume rule of the normal direction
  *                      contains the domain endpoints.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  * @param   offset_edge0,offset_edge1     Where each of the two edges
  *                      covered starts within @p out. The per-trace route
  *                      leaves both at zero, its window being one edge
@@ -384,7 +402,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernelTrace(
  * @brief All edges of one two-dimensional element: both directions, in
  * packed trace order.
  *
- * The bulk worker, and the one-block-per-element twin of
+ * The bulk worker, and the SumFacTOP twin of
  * PhysTraceExtract2DSumFacKernelCore. The direction-0 pair goes into the
  * first `2 * nq0` entries of @p out, lower edge then upper edge, and the
  * direction-1 traces follow: a pair for a quadrilateral, at offsets 0
@@ -407,16 +425,17 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernelTrace(
  * @param   basis0,basis1       eInterp tables to the trace points, one
  *                      per normal direction; the @c tbasis of the rest
  *                      of the file.
- * @param   wsp         Scratch between the two stages in shared memory,
+ * @param   wsp         Scratch between the two stages,
  *                      `2 * max(nm0,nm1)` entries.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         All of this element's trace values.
  * @param   isCollocated0,isCollocated1     Trace points of that normal
  *                      direction coincide with the volume points of the
  *                      in-edge direction.
  * @param   endPtsCollocated0,endPtsCollocated1   Volume rule of that
  *                      direction contains the domain endpoints.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename TthreadBlock,
           typename TData>
@@ -457,7 +476,7 @@ NEK_DEVICE_INLINE static void PhysTraceExtract2DSumFacTOPKernelCore(
  * face, or a pair of faces, from the volume grid onto the face's own
  * quadrature points.
  *
- * The one-block-per-element twin of PhysInterpFaceKernelTrace. Takes
+ * The SumFacTOP twin of PhysInterpFaceKernelTrace. Takes
  * @p nface faces laid out `(f, q1, q0)`, the first tangential index
  * fastest, and applies the two interpolation tables in turn,
  * \f$\text{out}_{fji} = \sum_q t^1_{qj} \sum_p t^0_{pi}\,
@@ -479,15 +498,16 @@ NEK_DEVICE_INLINE static void PhysTraceExtract2DSumFacTOPKernelCore(
  * @param   tbasis0,tbasis1     eInterp tables to the trace points of the
  *                      two tangential directions, indexed
  *                      `tbasis0[p * nqto0 + i]`.
- * @param   wsp         Scratch between the two contractions in shared
- *                      memory, `nface * nqfrom1 * nqto0` entries.
+ * @param   wsp         Scratch between the two contractions,
+ *                      `nface * nqfrom1 * nqto0` entries.
  *                      Untouched by the two collocated arms.
  * @param   in          Face values on the volume face grid.
  * @param   out         Face values on the trace grid.
  * @param   isCollocated0,isCollocated1   That tangential direction's
  *                      trace points coincide with the volume points it
  *                      comes from, so its table is the identity.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysInterpFaceTOPKernelTrace(
@@ -585,7 +605,7 @@ NEK_DEVICE_INLINE static void PhysInterpFaceTOPKernelTrace(
  * @brief Leaf kernel, normal stage in three dimensions: take the volume
  * field to the direction-0 faces of the [@p fac, @p nface) window.
  *
- * The one-block-per-element twin of PhysExtractEndFacesN0KernelTrace3D,
+ * The SumFacTOP twin of PhysExtractEndFacesN0KernelTrace3D,
  * the threads striding the flattened output index. Produces one value
  * per (face, direction-2 point, direction-1 point), direction 1 fastest, either
  * by selecting the boundary plane \f$i = 0\f$ or \f$i = nq_0 - 1\f$ when @p
@@ -607,10 +627,11 @@ NEK_DEVICE_INLINE static void PhysInterpFaceTOPKernelTrace(
  * @param   nq0,nq1,nq2 Volume quadrature points per direction: the
  *                      callers pass @c nm0, @c nm1 and @c nm2.
  * @param   ntbasis0    eInterp table \f$h_p(\pm 1)\f$ of direction 0.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         Face values on the volume face grid,
  *                      `(nface - fac) * nq2 * nq1` entries.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <bool END_PTS_COLLOCATED0 = false, typename TthreadBlock,
           typename TData>
@@ -656,7 +677,7 @@ NEK_DEVICE_INLINE static void PhysExtractEndFacesN0TOPKernelTrace3D(
  * @brief Leaf kernel, normal stage in three dimensions: take the volume
  * field to the direction-1 faces of the [@p fac, @p nface) window.
  *
- * The one-block-per-element twin of PhysExtractEndFacesN1KernelTrace3D,
+ * The SumFacTOP twin of PhysExtractEndFacesN1KernelTrace3D,
  * the threads striding the flattened output index. Produces one value
  * per (face, direction-2 point, direction-0 point), direction 0 fastest, either
  * by selecting the boundary plane \f$j = 0\f$ or \f$j = nq_1 - 1\f$ when @p
@@ -678,10 +699,11 @@ NEK_DEVICE_INLINE static void PhysExtractEndFacesN0TOPKernelTrace3D(
  * @param   nq0,nq1,nq2 Volume quadrature points per direction: the
  *                      callers pass @c nm0, @c nm1 and @c nm2.
  * @param   ntbasis1    eInterp table \f$h_q(\pm 1)\f$ of direction 1.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         Face values on the volume face grid,
  *                      `(nface - fac) * nq2 * nq0` entries.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <bool END_PTS_COLLOCATED1 = false, typename TthreadBlock,
           typename TData>
@@ -727,7 +749,7 @@ NEK_DEVICE_INLINE static void PhysExtractEndFacesN1TOPKernelTrace3D(
  * @brief Leaf kernel, normal stage in three dimensions: take the volume
  * field to the direction-2 faces of the [@p fac, @p nface) window.
  *
- * The one-block-per-element twin of PhysExtractEndFacesN2KernelTrace3D,
+ * The SumFacTOP twin of PhysExtractEndFacesN2KernelTrace3D,
  * the threads striding the flattened output index. Produces one value
  * per (face, direction-1 point, direction-0 point), direction 0 fastest, either
  * by selecting the boundary plane \f$k = 0\f$ or \f$k = nq_2 - 1\f$ when @p
@@ -749,10 +771,11 @@ NEK_DEVICE_INLINE static void PhysExtractEndFacesN1TOPKernelTrace3D(
  * @param   nq0,nq1,nq2 Volume quadrature points per direction: the
  *                      callers pass @c nm0, @c nm1 and @c nm2.
  * @param   ntbasis2    eInterp table \f$h_r(\pm 1)\f$ of direction 2.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         Face values on the volume face grid,
  *                      `(nface - fac) * nq1 * nq0` entries.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <bool END_PTS_COLLOCATED2 = false, typename TthreadBlock,
           typename TData>
@@ -796,7 +819,7 @@ NEK_DEVICE_INLINE static void PhysExtractEndFacesN2TOPKernelTrace3D(
  * @brief Glue for the direction-0 normal faces: normal stage, then the
  * tangential stage if it is needed.
  *
- * The one-block-per-element twin of PhysExtractFaceN0KernelTrace3D. When
+ * The SumFacTOP twin of PhysExtractFaceN0KernelTrace3D. When
  * both tangential directions are collocated the trace grid @em is the
  * volume face grid, and PhysExtractEndFacesN0TOPKernelTrace3D writes
  * straight into @p out. Otherwise it writes into @p wsp1 and
@@ -818,15 +841,15 @@ NEK_DEVICE_INLINE static void PhysExtractEndFacesN2TOPKernelTrace3D(
  * @param   nq00,nq01   Trace quadrature points of the two tangential
  *                      directions of a direction-0 face.
  * @param   tbasis00,tbasis01   eInterp tables to those trace points.
- * @param   wsp1        Face values between the two stages, in shared
- *                      memory.
+ * @param   wsp1        Face values between the two stages.
  * @param   wsp2        Scratch of the fully general tangential stage.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         Face values on the trace grid.
  * @param   isCollocated00,isCollocated01   That tangential direction's
  *                      trace points coincide with the volume points it
  *                      comes from.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <bool END_PTS_COLLOCATED0 = false, typename TthreadBlock,
           typename TData>
@@ -860,7 +883,7 @@ NEK_DEVICE_INLINE static void PhysExtractFaceN0TOPKernelTrace3D(
  * @brief Glue for the direction-1 normal faces: normal stage, then the
  * tangential stage if it is needed.
  *
- * The one-block-per-element twin of PhysExtractFaceN1KernelTrace3D. When
+ * The SumFacTOP twin of PhysExtractFaceN1KernelTrace3D. When
  * both tangential directions are collocated the trace grid @em is the
  * volume face grid, and PhysExtractEndFacesN1TOPKernelTrace3D writes
  * straight into @p out. Otherwise it writes into @p wsp1 and
@@ -882,15 +905,15 @@ NEK_DEVICE_INLINE static void PhysExtractFaceN0TOPKernelTrace3D(
  * @param   nq10,nq11   Trace quadrature points of the two tangential
  *                      directions of a direction-1 face.
  * @param   tbasis10,tbasis11   eInterp tables to those trace points.
- * @param   wsp1        Face values between the two stages, in shared
- *                      memory.
+ * @param   wsp1        Face values between the two stages.
  * @param   wsp2        Scratch of the fully general tangential stage.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         Face values on the trace grid.
  * @param   isCollocated10,isCollocated11   That tangential direction's
  *                      trace points coincide with the volume points it
  *                      comes from.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <bool END_PTS_COLLOCATED1 = false, typename TthreadBlock,
           typename TData>
@@ -924,7 +947,7 @@ NEK_DEVICE_INLINE static void PhysExtractFaceN1TOPKernelTrace3D(
  * @brief Glue for the direction-2 normal faces: normal stage, then the
  * tangential stage if it is needed.
  *
- * The one-block-per-element twin of PhysExtractFaceN2KernelTrace3D. When
+ * The SumFacTOP twin of PhysExtractFaceN2KernelTrace3D. When
  * both tangential directions are collocated the trace grid @em is the
  * volume face grid, and PhysExtractEndFacesN2TOPKernelTrace3D writes
  * straight into @p out. Otherwise it writes into @p wsp1 and
@@ -946,15 +969,15 @@ NEK_DEVICE_INLINE static void PhysExtractFaceN1TOPKernelTrace3D(
  * @param   nq20,nq21   Trace quadrature points of the two tangential
  *                      directions of a direction-2 face.
  * @param   tbasis20,tbasis21   eInterp tables to those trace points.
- * @param   wsp1        Face values between the two stages, in shared
- *                      memory.
+ * @param   wsp1        Face values between the two stages.
  * @param   wsp2        Scratch of the fully general tangential stage.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         Face values on the trace grid.
  * @param   isCollocated20,isCollocated21   That tangential direction's
  *                      trace points coincide with the volume points it
  *                      comes from.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <bool END_PTS_COLLOCATED2 = false, typename TthreadBlock,
           typename TData>
@@ -1003,12 +1026,13 @@ NEK_DEVICE_INLINE static void PhysExtractFaceN2TOPKernelTrace3D(
  * @param   tbasis00,tbasis01   eInterp tables to those trace points.
  * @param   wsp0,wsp1   Face workspace and general-contraction scratch,
  *                      handed on as the glue's @c wsp1 and @c wsp2.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         Face values on the trace grid.
  * @param   isCollocated00,isCollocated01   Tangential collocation flags.
  * @param   endPtsCollocated0   Direction-0 volume rule contains the
  *                      domain endpoints.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN0TOPKernelTrace3D(
@@ -1056,12 +1080,13 @@ NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN0TOPKernelTrace3D(
  * @param   tbasis10,tbasis11   eInterp tables to those trace points.
  * @param   wsp0,wsp1   Face workspace and general-contraction scratch,
  *                      handed on as the glue's @c wsp1 and @c wsp2.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         Face values on the trace grid.
  * @param   isCollocated10,isCollocated11   Tangential collocation flags.
  * @param   endPtsCollocated1   Direction-1 volume rule contains the
  *                      domain endpoints.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN1TOPKernelTrace3D(
@@ -1109,12 +1134,13 @@ NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN1TOPKernelTrace3D(
  * @param   tbasis20,tbasis21   eInterp tables to those trace points.
  * @param   wsp0,wsp1   Face workspace and general-contraction scratch,
  *                      handed on as the glue's @c wsp1 and @c wsp2.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         Face values on the trace grid.
  * @param   isCollocated20,isCollocated21   Tangential collocation flags.
  * @param   endPtsCollocated2   Direction-2 volume rule contains the
  *                      domain endpoints.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN2TOPKernelTrace3D(
@@ -1147,7 +1173,7 @@ NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN2TOPKernelTrace3D(
  * @brief All faces of one three-dimensional element: the three normal
  * directions in packed trace order.
  *
- * The bulk worker, and the one-block-per-element twin of
+ * The bulk worker, and the SumFacTOP twin of
  * PhysTraceExtract3DSumFacKernelCore. The direction-0 pair goes into the
  * first `2 * nq00 * nq01` entries of @p out, then the direction-1 faces,
  * a pair for every shape but the tetrahedron, then the direction-2
@@ -1166,10 +1192,9 @@ NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN2TOPKernelTrace3D(
  *                      \f$h_p(\pm 1)\f$ per direction.
  * @param   tbasis00,tbasis01,tbasis10,tbasis11,tbasis20,tbasis21
  *                      eInterp tables to the trace points.
- * @param   wsp0        Face values between the two stages, in shared
- *                      memory.
+ * @param   wsp0        Face values between the two stages.
  * @param   wsp1        Scratch of the fully general tangential stage.
- * @param   in          Volume field of this block's element.
+ * @param   in          Volume field of this element.
  * @param   out         All of this element's trace values.
  * @param   isCollocated00,isCollocated01   Tangential collocation flags
  *                      of the direction-0 faces.
@@ -1178,7 +1203,8 @@ NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN2TOPKernelTrace3D(
  * @param   endPtsCollocated0,endPtsCollocated1,endPtsCollocated2
  *                      Volume rule of each direction contains the domain
  *                      endpoints.
- * @param   threadBlock Thread block cooperating on this element.
+ * @param   threadBlock Thread block, or its share (GetDeviceElmtBlock()),
+ *                      cooperating on this element.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename TthreadBlock,
           typename TData>
@@ -1234,9 +1260,10 @@ NEK_DEVICE_INLINE static void PhysTraceExtract3DSumFacTOPKernelCore(
  *
  * @details
  * The TOP counterpart of the one-dimensional
- * PhysTraceExtractKernelLauncher. One block takes one element at a
- * time from the grid-stride loop and its threads share the two-vertex
- * loop, so with fewer than two threads busy this is the one arm where
+ * PhysTraceExtractKernelLauncher. One block takes one element group at a
+ * time from the grid-stride loop (GetDeviceElmtBlock()) and each element's
+ * threads share the two-vertex loop, so with fewer than two threads busy per
+ * element this is the one arm where
  * the thread-over-points mapping buys nothing; it exists for
  * uniformity, and because the bulk path must serve every shape.
  *
@@ -1248,11 +1275,14 @@ NEK_DEVICE_INLINE static void PhysTraceExtract3DSumFacTOPKernelCore(
  * @param   sizeParam1D Volume and trace point counts of the segment;
  *                      only nm0() is read.
  * @param   nelmt       Elements in the block, including padding.
+ * @param   elmtsPerBlock  Elements per thread block, from
+ *                      GetDeviceKernelParameters().
  * @param   nmTot       Volume points per element.
  * @param   ntbasis0    eInterp table \f$h_p(\pm 1)\f$, indexed
  *                      `ntbasis0[p * 2 + t]`.
  * @param   in          Volume field, element contiguous.
  * @param   out         Trace field, element contiguous.
+ * @param   useSharedMemoryWsp  Unused: a segment has no workspace.
  * @param   wsp         Global workspace; a segment needs none.
  * @param   endPtsCollocated0   Volume rule carries the endpoints, so
  *                      each vertex value is a volume value.
@@ -1260,20 +1290,21 @@ NEK_DEVICE_INLINE static void PhysTraceExtract3DSumFacTOPKernelCore(
  * @param   threadBlock Thread-block handle supplied by the launch macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TTraceSizeParameter1D, typename TthreadBlock, typename TData,
+          typename TTraceSizeParameter1D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter1D>()))
-    PhysTraceExtractKernelLauncher(const TTraceSizeParameter1D sizeParam1D,
-                                   const size_t nelmt, const unsigned int nmTot,
-                                   const TData *NEK_RESTRICT ntbasis0,
-                                   const TData *NEK_RESTRICT in,
-                                   TData *NEK_RESTRICT out,
-                                   [[maybe_unused]] TData *NEK_RESTRICT wsp,
-                                   const bool endPtsCollocated0,
-                                   [[maybe_unused]] unsigned char *shmemptr,
-                                   const TthreadBlock &threadBlock)
+    PhysTraceExtractKernelLauncher(
+        const TTraceSizeParameter1D sizeParam1D, const size_t nelmt,
+        const TElmtsPerBlock elmtsPerBlock, const unsigned int nmTot,
+        const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out,
+        [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const bool endPtsCollocated0,
+        [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
                   "Template argument must be either of type "
@@ -1284,13 +1315,18 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nm0 = sizeParam1D.nm0();
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
-
-    size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e            = elmtBlock.elmtIdx;
+        const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
+        const unsigned int stride = getLocalRange<0>(elmtBlock);
+
         const TData *inptr = in + nmTot * (nelmt * c + e);
         TData *outptr      = out + 2 * (nelmt * c + e);
 
@@ -1313,8 +1349,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 outptr[t] = tmp;
             }
         }
-        localBarrier(threadBlock);
-        e += getBlockRange(threadBlock);
+        localBarrier(elmtBlock);
     }
 }
 
@@ -1324,7 +1359,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * The single-trace counterpart of the one-dimensional
  * PhysTraceExtractKernelLauncher. One value per element, so thread
- * zero of the block writes it and the rest wait at the barrier.
+ * zero of the element's share of the block writes it and the rest wait at
+ * the barrier.
  *
  * @param   traceid     0 for the lower vertex, 1 for the upper one;
  *                      also the column of @p ntbasis0 to read.
@@ -1333,18 +1369,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *                      element's output.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TTraceSizeParameter1D, typename TthreadBlock, typename TData,
+          typename TTraceSizeParameter1D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter1D>()))
     PhysTraceExtractTraceKernelLauncher(
         const unsigned int traceid, const TTraceSizeParameter1D sizeParam1D,
-        const size_t nelmt, const unsigned int nmTot,
-        const unsigned int numDataOut, const unsigned int outOffset,
-        const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        const bool endPtsCollocated0, [[maybe_unused]] unsigned char *shmemptr,
+        const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
+        const unsigned int nmTot, const unsigned int numDataOut,
+        const unsigned int outOffset, const TData *NEK_RESTRICT ntbasis0,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const bool endPtsCollocated0,
+        [[maybe_unused]] unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
@@ -1356,12 +1395,17 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nm0 = sizeParam1D.nm0();
 
-    const unsigned int idx0 = getLocalIdx(threadBlock);
-
-    size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e          = elmtBlock.elmtIdx;
+        const unsigned int idx0 = getLocalIdx<0>(elmtBlock);
+
         const TData *inptr = in + nmTot * (nelmt * c + e);
         TData *outptr      = out + numDataOut * (nelmt * c + e) + outOffset;
 
@@ -1381,8 +1425,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 outptr[0] = tmp;
             }
         }
-        localBarrier(threadBlock);
-        e += getBlockRange(threadBlock);
+        localBarrier(elmtBlock);
     }
 }
 
@@ -1395,28 +1438,29 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * PhysTraceExtractKernelLauncher, walking the normal directions in
  * packing order through PhysTraceExtract2DSumFacTOPKernelCore.
  *
- * The edge block the normal stage writes lives in dynamic shared
- * memory, one PhysTraceExtractBlockSize() per block rather than the
- * SumFac path's one per element in the global workspace: with one
- * element resident per block at a time there is only ever one such
- * block live, and the host sizes the launch against the same helper so
- * the two cannot drift. @p wsp is therefore unused here.
+ * The edge block the normal stage writes, one
+ * PhysTraceExtractBlockSize(), and the staged volume field are one
+ * element's workspace, in its share of dynamic shared memory;
+ * @p useSharedMemoryWsp and @p wsp go unread.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TTraceSizeParameter2D, typename TthreadBlock, typename TData,
+          typename TTraceSizeParameter2D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter2D>()))
     PhysTraceExtractKernelLauncher(
         const TTraceSizeParameter2D sizeParam2D, const size_t nelmt,
-        const unsigned int nmTot, const TData *NEK_RESTRICT ntbasis0,
-        const TData *NEK_RESTRICT ntbasis1, const TData *NEK_RESTRICT basis0,
-        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        const bool isCollocated0, const bool isCollocated1,
-        const bool endPtsCollocated0, const bool endPtsCollocated1,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const TElmtsPerBlock elmtsPerBlock, const unsigned int nmTot,
+        const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT ntbasis1,
+        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const bool isCollocated0,
+        const bool isCollocated1, const bool endPtsCollocated0,
+        const bool endPtsCollocated1, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                   "Template argument must be either of type "
@@ -1424,8 +1468,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                   "TemplatedTraceSizeParameter2D.");
 
     FETCH_SHARED_MEMORY(shmemptr);
-    TData *s_wsp = (TData *)shmemptr;
-    TData *s_in  = s_wsp + PhysTraceExtractBlockSize(sizeParam2D);
 
     const unsigned int nm0 = sizeParam2D.nm0();
     const unsigned int nm1 = sizeParam2D.nm1();
@@ -1434,22 +1476,35 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nqTotOut = sizeParam2D.template nqTotTrace<SHAPE_TYPE>();
 
-    size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+
+    // Workspace: the element's share of shared memory.
+    const unsigned int wspSize =
+        PhysTraceExtractBlockSize(sizeParam2D) + sizeParam2D.nmTot();
+    TData *s_wsp = (TData *)shmemptr + wspSize * wspIdx;
+    TData *s_in  = s_wsp + PhysTraceExtractBlockSize(sizeParam2D);
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e = elmtBlock.elmtIdx;
+
         const TData *inptr = in + nmTot * (nelmt * c + e);
         TData *outptr      = out + nqTotOut * (nelmt * c + e);
 
-        // Copy to shared memory.
-        LoadToSharedMemory(nmTot, inptr, s_in, threadBlock);
-        localBarrier(threadBlock);
+        // Copy to the workspace.
+        LoadToSharedMemory(nmTot, inptr, s_in, elmtBlock);
+        localBarrier(elmtBlock);
 
         PhysTraceExtract2DSumFacTOPKernelCore<SHAPE_TYPE>(
             nm0, nm1, nq0, nq1, ntbasis0, ntbasis1, basis0, basis1, s_wsp, s_in,
             outptr, isCollocated0, isCollocated1, endPtsCollocated0,
-            endPtsCollocated1, threadBlock);
-        e += getBlockRange(threadBlock);
+            endPtsCollocated1, elmtBlock);
     }
 }
 
@@ -1465,18 +1520,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * pointing at this trace's slot.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TTraceSizeParameter2D, typename TthreadBlock, typename TData,
+          typename TTraceSizeParameter2D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter2D>()))
     PhysTraceExtractTraceKernelLauncher(
         const unsigned int traceid, const TTraceSizeParameter2D sizeParam2D,
-        const size_t nelmt, const unsigned int nmTot,
-        const unsigned int numDataOut, const unsigned int outOffset,
-        const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT ntbasis1,
-        const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis10,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
+        const unsigned int nmTot, const unsigned int numDataOut,
+        const unsigned int outOffset, const TData *NEK_RESTRICT ntbasis0,
+        const TData *NEK_RESTRICT ntbasis1, const TData *NEK_RESTRICT tbasis00,
+        const TData *NEK_RESTRICT tbasis10, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out,
+        [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
         [[maybe_unused]] TData *NEK_RESTRICT wsp, const bool isCollocated00,
         const bool isCollocated10, const bool endPtsCollocated0,
         const bool endPtsCollocated1, unsigned char *shmemptr,
@@ -1488,8 +1546,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                   "TemplatedTraceSizeParameter2D.");
 
     FETCH_SHARED_MEMORY(shmemptr);
-    TData *s_wsp = (TData *)shmemptr;
-    TData *s_in  = s_wsp + PhysTraceExtractBlockSize(sizeParam2D);
 
     const unsigned int nm0  = sizeParam2D.nm0();
     const unsigned int nm1  = sizeParam2D.nm1();
@@ -1502,32 +1558,45 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         return;
     }
 
-    size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+
+    // Workspace: the element's share of shared memory.
+    const unsigned int wspSize =
+        PhysTraceExtractBlockSize(sizeParam2D) + sizeParam2D.nmTot();
+    TData *s_wsp = (TData *)shmemptr + wspSize * wspIdx;
+    TData *s_in  = s_wsp + PhysTraceExtractBlockSize(sizeParam2D);
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e = elmtBlock.elmtIdx;
+
         const TData *inptr = in + nmTot * (nelmt * c + e);
         TData *outptr      = out + numDataOut * (nelmt * c + e) + outOffset;
 
         if (dispatch.normalDir == 0u)
         {
-            // Copy to shared memory.
-            LoadToSharedMemory(nmTot, inptr, s_in, threadBlock);
-            localBarrier(threadBlock);
+            // Copy to the workspace.
+            LoadToSharedMemory(nmTot, inptr, s_in, elmtBlock);
+            localBarrier(elmtBlock);
 
             BwdTransQuadSumFacTOPKernelTrace<SHAPE_TYPE, 0>(
                 nm0, nm1, nq00, nq10, dispatch.fac, dispatch.nfac, nq00,
                 ntbasis0, tbasis00, s_in, outptr, s_wsp, isCollocated00,
-                endPtsCollocated0, threadBlock);
+                endPtsCollocated0, elmtBlock);
         }
         else
         {
             BwdTransQuadSumFacTOPKernelTrace<SHAPE_TYPE, 1>(
                 nm0, nm1, nq00, nq10, dispatch.fac, dispatch.nfac, nq10,
                 ntbasis1, tbasis10, inptr, outptr, s_wsp, isCollocated10,
-                endPtsCollocated1, threadBlock);
+                endPtsCollocated1, elmtBlock);
         }
-        e += getBlockRange(threadBlock);
     }
 }
 
@@ -1540,27 +1609,30 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * PhysTraceExtractKernelLauncher, walking the normal directions in
  * packing order through PhysTraceExtract3DSumFacTOPKernelCore.
  *
- * Shared memory is partitioned exactly as the SumFac path partitions
- * its per-element global workspace: `2 * PhysTraceExtractBlockSize()`
- * for the face block the normal stage writes, then one more for the
- * tangential scratch of PhysInterpFaceTOPKernelTrace -- the three
- * blocks PhysTraceExtractSharedMemorySize() asks for. The host sizes the
- * dynamic allocation against the same helper.
+ * An element's workspace, in its share of dynamic shared memory
+ * (@p useSharedMemoryWsp and @p wsp go unread), is partitioned
+ * as the SumFac path partitions its per-element workspace:
+ * `2 * PhysTraceExtractBlockSize()` for the face block the normal stage
+ * writes, then one more for the tangential scratch of
+ * PhysInterpFaceTOPKernelTrace, then the staged volume field.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TTraceSizeParameter3D, typename TthreadBlock, typename TData,
+          typename TTraceSizeParameter3D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter3D>()))
     PhysTraceExtractKernelLauncher(
         const TTraceSizeParameter3D sizeParam3D, const size_t nelmt,
-        const unsigned int nmTot, const TData *NEK_RESTRICT ntbasis0,
-        const TData *NEK_RESTRICT ntbasis1, const TData *NEK_RESTRICT ntbasis2,
-        const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis01,
-        const TData *NEK_RESTRICT tbasis10, const TData *NEK_RESTRICT tbasis11,
-        const TData *NEK_RESTRICT tbasis20, const TData *NEK_RESTRICT tbasis21,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        const TElmtsPerBlock elmtsPerBlock, const unsigned int nmTot,
+        const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT ntbasis1,
+        const TData *NEK_RESTRICT ntbasis2, const TData *NEK_RESTRICT tbasis00,
+        const TData *NEK_RESTRICT tbasis01, const TData *NEK_RESTRICT tbasis10,
+        const TData *NEK_RESTRICT tbasis11, const TData *NEK_RESTRICT tbasis20,
+        const TData *NEK_RESTRICT tbasis21, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out,
+        [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
         [[maybe_unused]] TData *NEK_RESTRICT wsp, const bool isCollocated00,
         const bool isCollocated01, const bool isCollocated10,
         const bool isCollocated11, const bool isCollocated20,
@@ -1575,11 +1647,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
-    const unsigned int max_wsp_size = PhysTraceExtractBlockSize(sizeParam3D);
-    TData *s_wsp0                   = (TData *)shmemptr;
-    TData *s_wsp1                   = s_wsp0 + 2u * max_wsp_size;
-    TData *s_in                     = s_wsp0 + 3u * max_wsp_size;
-
     const unsigned int nm0  = sizeParam3D.nm0();
     const unsigned int nm1  = sizeParam3D.nm1();
     const unsigned int nm2  = sizeParam3D.nm2();
@@ -1592,16 +1659,31 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nqTotOut = sizeParam3D.template nqTotTrace<SHAPE_TYPE>();
 
-    size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+
+    // Workspace: the element's share of shared memory.
+    const unsigned int max_wsp_size = PhysTraceExtractBlockSize(sizeParam3D);
+    const unsigned int wspSize      = 3u * max_wsp_size + sizeParam3D.nmTot();
+    TData *s_wsp0                   = (TData *)shmemptr + wspSize * wspIdx;
+    TData *s_wsp1                   = s_wsp0 + 2u * max_wsp_size;
+    TData *s_in                     = s_wsp0 + 3u * max_wsp_size;
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e = elmtBlock.elmtIdx;
+
         const TData *inptr = in + nmTot * (nelmt * c + e);
         TData *outptr      = out + nqTotOut * (nelmt * c + e);
 
-        // Copy to shared memory.
-        LoadToSharedMemory(nmTot, inptr, s_in, threadBlock);
-        localBarrier(threadBlock);
+        // Copy to the workspace.
+        LoadToSharedMemory(nmTot, inptr, s_in, elmtBlock);
+        localBarrier(elmtBlock);
 
         PhysTraceExtract3DSumFacTOPKernelCore<SHAPE_TYPE>(
             nm0, nm1, nm2, nq00, nq01, nq10, nq11, nq20, nq21, ntbasis0,
@@ -1609,8 +1691,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             tbasis20, tbasis21, s_wsp0, s_wsp1, s_in, outptr, isCollocated00,
             isCollocated01, isCollocated10, isCollocated11, isCollocated20,
             isCollocated21, endPtsCollocated0, endPtsCollocated1,
-            endPtsCollocated2, threadBlock);
-        e += getBlockRange(threadBlock);
+            endPtsCollocated2, elmtBlock);
     }
 }
 
@@ -1630,27 +1711,29 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * table correctly.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TTraceSizeParameter3D, typename TthreadBlock, typename TData,
+          typename TTraceSizeParameter3D, typename TElmtsPerBlock,
+          typename TthreadBlock, typename TData, typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter3D>()))
     PhysTraceExtractTraceKernelLauncher(
         const unsigned int traceid, const TTraceSizeParameter3D sizeParam3D,
-        const size_t nelmt, const unsigned int nmTot,
-        const unsigned int numDataOut, const unsigned int outOffset,
-        const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT ntbasis1,
-        const TData *NEK_RESTRICT ntbasis2, const TData *NEK_RESTRICT tbasis00,
-        const TData *NEK_RESTRICT tbasis01, const TData *NEK_RESTRICT tbasis10,
-        const TData *NEK_RESTRICT tbasis11, const TData *NEK_RESTRICT tbasis20,
-        const TData *NEK_RESTRICT tbasis21, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        const bool isCollocated00, const bool isCollocated01,
-        const bool isCollocated10, const bool isCollocated11,
-        const bool isCollocated20, const bool isCollocated21,
-        const bool endPtsCollocated0, const bool endPtsCollocated1,
-        const bool endPtsCollocated2, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
+        const unsigned int nmTot, const unsigned int numDataOut,
+        const unsigned int outOffset, const TData *NEK_RESTRICT ntbasis0,
+        const TData *NEK_RESTRICT ntbasis1, const TData *NEK_RESTRICT ntbasis2,
+        const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis01,
+        const TData *NEK_RESTRICT tbasis10, const TData *NEK_RESTRICT tbasis11,
+        const TData *NEK_RESTRICT tbasis20, const TData *NEK_RESTRICT tbasis21,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const bool isCollocated00,
+        const bool isCollocated01, const bool isCollocated10,
+        const bool isCollocated11, const bool isCollocated20,
+        const bool isCollocated21, const bool endPtsCollocated0,
+        const bool endPtsCollocated1, const bool endPtsCollocated2,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                   "Template argument must be either of type "
@@ -1658,11 +1741,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                   "TemplatedTraceSizeParameter3D.");
 
     FETCH_SHARED_MEMORY(shmemptr);
-
-    const unsigned int max_wsp_size = PhysTraceExtractBlockSize(sizeParam3D);
-    TData *s_wsp0                   = (TData *)shmemptr;
-    TData *s_wsp1                   = s_wsp0 + 2u * max_wsp_size;
-    TData *s_in                     = s_wsp0 + 3u * max_wsp_size;
 
     const unsigned int nm0  = sizeParam3D.nm0();
     const unsigned int nm1  = sizeParam3D.nm1();
@@ -1691,44 +1769,58 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         return;
     }
 
-    size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+
+    // Workspace: the element's share of shared memory.
+    const unsigned int max_wsp_size = PhysTraceExtractBlockSize(sizeParam3D);
+    const unsigned int wspSize      = 3u * max_wsp_size + sizeParam3D.nmTot();
+    TData *s_wsp0                   = (TData *)shmemptr + wspSize * wspIdx;
+    TData *s_wsp1                   = s_wsp0 + 2u * max_wsp_size;
+    TData *s_in                     = s_wsp0 + 3u * max_wsp_size;
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e = elmtBlock.elmtIdx;
+
         const TData *inptr = in + nmTot * (nelmt * c + e);
         TData *outptr      = out + numDataOut * (nelmt * c + e) + outOffset;
 
         switch (dispatch.normalDir)
         {
             case 0:
-                // Copy to shared memory.
-                LoadToSharedMemory(nmTot, inptr, s_in, threadBlock);
-                localBarrier(threadBlock);
+                // Copy to the workspace.
+                LoadToSharedMemory(nmTot, inptr, s_in, elmtBlock);
+                localBarrier(elmtBlock);
 
                 DispatchPhysExtractFaceN0TOPKernelTrace3D(
                     dispatch.fac, dispatch.nfac, tstride0, nm0, nm1, nm2,
                     ntbasis0, nq00, nq01, tbasis00, tbasis01, s_wsp0, s_wsp1,
                     s_in, outptr, isCollocated00, isCollocated01,
-                    endPtsCollocated0, threadBlock);
+                    endPtsCollocated0, elmtBlock);
                 break;
             case 1:
                 DispatchPhysExtractFaceN1TOPKernelTrace3D(
                     dispatch.fac, dispatch.nfac, tstride1, nm0, nm1, nm2,
                     ntbasis1, nq10, nq11, tbasis10, tbasis11, s_wsp0, s_wsp1,
                     inptr, outptr, isCollocated10, isCollocated11,
-                    endPtsCollocated1, threadBlock);
+                    endPtsCollocated1, elmtBlock);
                 break;
             case 2:
                 DispatchPhysExtractFaceN2TOPKernelTrace3D(
                     dispatch.fac, dispatch.nfac, tstride2, nm0, nm1, nm2,
                     ntbasis2, nq20, nq21, tbasis20, tbasis21, s_wsp0, s_wsp1,
                     inptr, outptr, isCollocated20, isCollocated21,
-                    endPtsCollocated2, threadBlock);
+                    endPtsCollocated2, elmtBlock);
                 break;
             default:
                 break;
         }
-        e += getBlockRange(threadBlock);
     }
 }
 

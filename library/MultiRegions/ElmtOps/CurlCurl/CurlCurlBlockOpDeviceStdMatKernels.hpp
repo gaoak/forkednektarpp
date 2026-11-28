@@ -235,6 +235,7 @@ NEK_DEVICE_KERNEL static void Curl3DStdMatKernel(
         const unsigned int dfstride = DEFORMED ? nqTot : 1u;
 
         TData d0[3], d1[3], d2[3];
+#pragma unroll
         for (unsigned int c = 0u; c < 3u; ++c)
         {
             d0[c] = deriv[(0u * 3u + c) * derivoffset + idx];
@@ -243,6 +244,7 @@ NEK_DEVICE_KERNEL static void Curl3DStdMatKernel(
         }
 
         TData df[9];
+#pragma unroll
         for (unsigned int m = 0u; m < 9u; ++m)
         {
             df[m] = dfptr[dfbase + m * dfstride];

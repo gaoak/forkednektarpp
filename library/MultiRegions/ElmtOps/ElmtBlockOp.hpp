@@ -503,37 +503,39 @@ constexpr unsigned int defaultPackingThreads = 128u;
  *
  * For SumFac one warp, a lane per element. For SumFacTOP as many whole
  * elements, of @p dofsPerElmt threads rounded up to a power of two each, as
- * fit in @p packingThreads threads, one at least, where an element takes at
+ * fit in @p PACKING_THREADS threads, one at least, where an element takes at
  * most half a warp; one otherwise, as more would leave as many threads idle
- * and couple the elements' barriers, and one where @p packingThreads is zero.
+ * and couple the elements' barriers, and one where @p PACKING_THREADS is zero.
  *
- * @param   dofsPerElmt      Degrees of freedom of one element, a thread
- *                           each (SumFacTOP).
- * @param   packingThreads   Threads to fill with whole elements
+ * Pass the same @p dofsPerElmt to GetDeviceKernelParameters(), usually the
+ * GetDofsPerElmt() of the launch's size parameter.
+ *
+ * @tparam  PACKING_THREADS  Threads to fill with whole elements
  *                           (SumFacTOP), at most the default block size,
  *                           or zero for no packing.
+ * @param   dofsPerElmt      Degrees of freedom of one element, a thread
+ *                           each (SumFacTOP).
  */
-template <typename Implementation>
+template <typename Implementation,
+          unsigned int PACKING_THREADS = defaultPackingThreads>
 NEK_FORCE_INLINE static constexpr unsigned int GetElmtsPerBlock(
-    [[maybe_unused]] const unsigned int dofsPerElmt,
-    [[maybe_unused]] const unsigned int packingThreads = defaultPackingThreads)
+    [[maybe_unused]] const unsigned int dofsPerElmt)
 {
     static_assert(std::is_same_v<Implementation, MultiRegions::SumFac> ||
                       std::is_same_v<Implementation, MultiRegions::SumFacTOP>,
                   "Only SumFac and SumFacTOP kernels use GetElmtsPerBlock().");
+    // Packed elements share a block whose launch bounds
+    // (GetMaxThreadPerBlock()) are the default block size.
+    static_assert(PACKING_THREADS <= NektarSpaces::Device::defaultBlockSize,
+                  "PACKING_THREADS exceeds the default block size of the "
+                  "launch bounds.");
 
     if constexpr (std::is_same_v<Implementation, MultiRegions::SumFac>)
     {
         return NektarSpaces::Device::warpSize;
     }
-    else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
+    else
     {
-        // Packed elements share a block whose launch bounds
-        // (GetMaxThreadPerBlock()) are the default block size.
-        ASSERTL0(packingThreads <= NektarSpaces::Device::defaultBlockSize,
-                 "packingThreads exceeds the default block size of the "
-                 "launch bounds.");
-
         if (dofsPerElmt <= NektarSpaces::Device::warpSize / 2)
         {
             // Round to power of two.
@@ -544,13 +546,28 @@ NEK_FORCE_INLINE static constexpr unsigned int GetElmtsPerBlock(
             }
 
             // As many whole elements as fit, one at least.
-            return std::max(1u, packingThreads / elmtThreads);
+            return std::max(1u, PACKING_THREADS / elmtThreads);
         }
         else
         {
             return 1u;
         }
     }
+}
+
+/**
+ * @brief GetElmtsPerBlock() of a compile-time @p DOFS, as a
+ * `std::integral_constant`, for a templated GetDofsPerElmt().
+ */
+template <typename Implementation,
+          unsigned int PACKING_THREADS = defaultPackingThreads,
+          unsigned int DOFS>
+NEK_FORCE_INLINE static constexpr auto GetElmtsPerBlock(
+    std::integral_constant<unsigned int, DOFS>)
+{
+    return std::integral_constant<
+        unsigned int,
+        GetElmtsPerBlock<Implementation, PACKING_THREADS>(DOFS)>{};
 }
 
 /**
@@ -632,7 +649,7 @@ NEK_FORCE_INLINE static DeviceKernelParameters GetDeviceKernelParameters(
     else if constexpr (std::is_same_v<Implementation, MultiRegions::SumFacTOP>)
     {
         // Zero elmtsPerBlock defaults to one element per block, as
-        // GetElmtsPerBlock() gives without packingThreads.
+        // GetElmtsPerBlock() gives with a PACKING_THREADS of zero.
         kernelParams.elmtsPerBlock = elmtsPerBlock ? elmtsPerBlock : 1u;
 
         // Each block processes elmtsPerBlock elements per pass.

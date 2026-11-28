@@ -29,16 +29,16 @@
 // DEALINGS IN THE SOFTWARE.
 //
 // Description: IProductWRTPhysNormalDerivTrace SumFacTOP device kernels: one
-// thread block per element on width-1 element-contiguous storage, threads
-// striding the trace points and modes.
+// or several elements per thread block on width-1 element-contiguous storage,
+// threads striding the trace points and modes.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
  * @file IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFacTOPKernels.hpp
  * @brief Device SumFacTOP kernels of the surface inner product against the
- * normal derivative of the volume cardinal basis, one thread block per
- * element.
+ * normal derivative of the volume cardinal basis, one or several elements
+ * per thread block.
  *
  * @details
  * The thread-over-points counterpart of
@@ -46,16 +46,18 @@
  * compute one trace inner product per element direction, each the plain
  * trace lift with the direction's table replaced by its derivative, and
  * apply the collapsed \f$2/(1 - \eta)\f$ factors on the volume. Here an
- * element's entries are contiguous at width one and the block's threads
- * share its point and mode loops. The edge and face cores are those of
+ * element's entries are contiguous at width one and its threads, its share
+ * of the block (GetDeviceElmtBlock()), stride its point and mode loops. The
+ * edge and face cores are those of
  * IProductWRTPhysTraceBlockOpDeviceSumFacTOPKernels.hpp.
  *
  * The trace-mode buffer, the face contraction scratch, the element's
  * volume and, for a collapsed shape, the volume buffer of the collapsed
- * factor scaling all live in dynamic shared memory, after the
- * \f$2/(1 - \eta)\f$ tables. Faces go through the cores one at a time, as
- * on the plain trace lift's TOP route, so the buffers are sized for one
- * face.
+ * factor scaling live in dynamic shared memory after the
+ * \f$2/(1 - \eta)\f$ tables, one share per element of the thread block,
+ * with no global-memory fallback.
+ * Faces go through the cores one at a time, as on the plain trace lift's TOP
+ * route, so the buffers are sized for one face.
  *
  * @see IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFac.hpp for the host
  * dispatch that launches these under the SumFacTOP tag.
@@ -72,49 +74,64 @@
 namespace Nektar::MultiRegions::detail
 {
 
-/// @brief Workspace of a whole block, per component: none, the
-/// intermediates living in the dynamic shared memory
-/// IProductWRTPhysNormalDerivTraceSharedMemorySize() sizes.
-template <typename Implementation, typename TTraceSizeParameter1D,
+/// @brief Workspace of @p nelmt elements, per component: none, a
+/// segment's traces being points.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
                            bool>
               Enable = true>
-inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
+NEK_HOSTDEVICE_INLINE constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
     [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
 {
     return 0;
 }
 
-/// @brief Workspace of a whole block, per component: none, the
-/// intermediates living in the dynamic shared memory
-/// IProductWRTPhysNormalDerivTraceSharedMemorySize() sizes.
-template <typename Implementation, typename TTraceSizeParameter2D,
+/// @brief Workspace of @p nelmt elements, per component: an edge pair's
+/// trace-mode buffer, the element's volume and, for a collapsed shape, the
+/// volume buffer of the collapsed factor scaling, per element.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                            bool>
               Enable = true>
-inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TTraceSizeParameter2D sizeParam2D)
+NEK_HOSTDEVICE_INLINE constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
+    const size_t nelmt, const TTraceSizeParameter2D sizeParam2D)
 {
-    return 0;
+    constexpr bool COLLAPSED = IsCollapsedDir(SHAPE_TYPE, 1);
+
+    const unsigned int nmTot = sizeParam2D.nmTot();
+
+    return (2u * IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D) +
+            (COLLAPSED ? 2u : 1u) * nmTot) *
+           nelmt;
 }
 
-/// @brief Workspace of a whole block, per component: none, the
-/// intermediates living in the dynamic shared memory
-/// IProductWRTPhysNormalDerivTraceSharedMemorySize() sizes.
-template <typename Implementation, typename TTraceSizeParameter3D,
+/// @brief Workspace of @p nelmt elements, per component: one face's mode
+/// block, the face contraction scratch, the element's volume and, for a
+/// collapsed shape, the volume buffer of the collapsed factor scaling, per
+/// element.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                            bool>
               Enable = true>
-inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
-    [[maybe_unused]] const size_t nelmt,
-    [[maybe_unused]] const TTraceSizeParameter3D sizeParam3D)
+NEK_HOSTDEVICE_INLINE constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
+    const size_t nelmt, const TTraceSizeParameter3D sizeParam3D)
 {
-    return 0;
+    constexpr bool COLLAPSED1 = IsCollapsedDir(SHAPE_TYPE, 1);
+    constexpr bool COLLAPSED2 = IsCollapsedDir(SHAPE_TYPE, 2);
+
+    const unsigned int nmTot = sizeParam3D.nmTot();
+
+    return (IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D) +
+            IProductWRTPhysTraceFaceScratchSize(sizeParam3D) +
+            ((COLLAPSED1 || COLLAPSED2) ? 2u : 1u) * nmTot) *
+           nelmt;
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: none, a
@@ -127,16 +144,20 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
     [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D,
-    [[maybe_unused]] const unsigned int elmtsPerBlock)
+    [[maybe_unused]] const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     return 0;
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: the
-/// \f$2/(1 - \eta_1)\f$ table of a collapsed shape, then, for each of the
-/// @p elmtsPerBlock elements of the block, an edge pair's trace-mode buffer,
-/// the element's volume and, for a collapsed shape, the volume buffer of
-/// the collapsed factor scaling.
+/// \f$2/(1 - \eta_1)\f$ table of a collapsed shape, then the workspace of
+/// the block's @p elmtsPerBlock elements.
+///
+/// @p useSharedMemoryWsp is ignored: the kernels have no global-memory
+/// fallback, so the workspace is always reserved here, and a request
+/// beyond the shared memory per block is fatal in
+/// GetDeviceKernelParameters().
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TTraceSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -144,23 +165,26 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
-    const TTraceSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock)
+    const TTraceSizeParameter2D sizeParam2D, const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     constexpr bool COLLAPSED = IsCollapsedDir(SHAPE_TYPE, 1);
 
-    const unsigned int nmTot = sizeParam2D.nmTot();
-
     return (COLLAPSED ? sizeParam2D.nm1() : 0u) +
-           elmtsPerBlock *
-               (2u * IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D) +
-                (COLLAPSED ? 2u : 1u) * nmTot);
+           static_cast<unsigned int>(
+               IProductWRTPhysNormalDerivTraceWorkSpaceSize<SHAPE_TYPE,
+                                                            Implementation>(
+                   elmtsPerBlock, sizeParam2D));
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: the
-/// \f$2/(1 - \eta)\f$ tables of the shape's collapsed directions, then, for
-/// each of the @p elmtsPerBlock elements of the block, one face's mode
-/// block, the face contraction scratch, the element's volume and, for a
-/// collapsed shape, the volume buffer of the collapsed factor scaling.
+/// \f$2/(1 - \eta)\f$ tables of the shape's collapsed directions, then
+/// the workspace of the block's @p elmtsPerBlock elements.
+///
+/// @p useSharedMemoryWsp is ignored: the kernels have no global-memory
+/// fallback, so the workspace is always reserved here, and a request
+/// beyond the shared memory per block is fatal in
+/// GetDeviceKernelParameters().
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TTraceSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -168,25 +192,25 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
-    const TTraceSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock)
+    const TTraceSizeParameter3D sizeParam3D, const unsigned int elmtsPerBlock,
+    [[maybe_unused]] const bool useSharedMemoryWsp)
 {
     constexpr bool COLLAPSED1 = IsCollapsedDir(SHAPE_TYPE, 1);
     constexpr bool COLLAPSED2 = IsCollapsedDir(SHAPE_TYPE, 2);
 
-    const unsigned int nmTot = sizeParam3D.nmTot();
-
     return (COLLAPSED1 ? sizeParam3D.nm1() : 0u) +
            (COLLAPSED2 ? sizeParam3D.nm2() : 0u) +
-           elmtsPerBlock * (IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D) +
-                            IProductWRTPhysTraceFaceScratchSize(sizeParam3D) +
-                            ((COLLAPSED1 || COLLAPSED2) ? 2u : 1u) * nmTot);
+           static_cast<unsigned int>(
+               IProductWRTPhysNormalDerivTraceWorkSpaceSize<SHAPE_TYPE,
+                                                            Implementation>(
+                   elmtsPerBlock, sizeParam3D));
 }
 
 /**
  * @brief The one-dimensional lift: \f$\langle \partial_n \phi, g \rangle\f$
- * over a segment's two vertices, one thread block per element.
+ * over a segment's two vertices, one or several elements per thread block.
  *
- * The TOP counterpart of the one-dimensional SumFac launcher: the block's
+ * The TOP counterpart of the one-dimensional SumFac launcher: an element's
  * threads share the volume points of the point evaluation
  * \f[ out_p \mathrel{+}= \sum_{v=0,1} \partial h_p(\xi_v)\, F_v\, g_v . \f]
  *
@@ -194,10 +218,14 @@ inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
  * @tparam Implementation   SumFacTOP.
  * @tparam DEFORMED     Unread: a segment carries one factor per vertex
  *                      whatever its geometry.
+ * @tparam TElmtsPerBlock  SingleElmtPerBlock or MultipleElmtPerBlock.
+ * @tparam TUseSharedWsp  Type of @p useSharedMemoryWsp: `bool`, or a
+ *                        `std::bool_constant` SelectSharedWorkSpace() fixed.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TTraceSizeParameter1D, typename TData,
-          typename TthreadBlock,
+          bool DEFORMED, typename TTraceSizeParameter1D,
+          typename TElmtsPerBlock, typename TData, typename TthreadBlock,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -206,13 +234,15 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TTraceSizeParameter1D sizeParam1D,
         [[maybe_unused]] const TData *NEK_RESTRICT nbasis0,
         const TData *NEK_RESTRICT dnbasis0, const size_t nelmt,
-        const unsigned int numDataIn, const unsigned int numDataOut,
-        const unsigned int numDataJac,
+        const TElmtsPerBlock elmtsPerBlock, const unsigned int numDataIn,
+        const unsigned int numDataOut, const unsigned int numDataJac,
         [[maybe_unused]] const size_t jacCompStride,
         [[maybe_unused]] const TData *NEK_RESTRICT twoOver0,
-        const TData *NEK_RESTRICT jac, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        const bool append, [[maybe_unused]] const bool endPtsCollocated0,
+        const TData *NEK_RESTRICT jac,
+        [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, const bool append,
+        [[maybe_unused]] const bool endPtsCollocated0,
         [[maybe_unused]] unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
@@ -223,13 +253,18 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nm0 = sizeParam1D.nm0();
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
-
-    size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e            = elmtBlock.elmtIdx;
+        const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
+        const unsigned int stride = getLocalRange<0>(elmtBlock);
+
         const TData *inptr  = in + numDataIn * (nelmt * c + e);
         TData *outptr       = out + numDataOut * (nelmt * c + e);
         const TData *jacptr = jac + numDataJac * e;
@@ -245,8 +280,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             outptr[p] = acc;
         }
 
-        localBarrier(threadBlock);
-        e += getBlockRange(threadBlock);
+        localBarrier(elmtBlock);
     }
 }
 
@@ -288,21 +322,24 @@ NEK_DEVICE_INLINE static void ScaleAddCollapsedFacTOPKernel(
 
 /**
  * @brief All edges of one two-dimensional element: the two terms of the
- * operator, one per element direction, accumulated in turn; one thread
- * block per element.
+ * operator, one per element direction, accumulated in turn; one or several
+ * elements per thread block.
  *
  * The TOP counterpart of the two-dimensional SumFac launcher, with the
  * same choice of derivative table per term and the same treatment of the
  * collapsed factor: the \f$\eta_0\f$ term's direction-0 edge group of a
  * collapsed shape goes through the volume buffer and is scaled there. The
- * element's volume is accumulated in shared memory and written out once.
+ * element's volume is accumulated in the workspace and written out once.
  *
- * The parameters are those of the SumFac launcher; @p wsp is unread, the
- * intermediates living in @p shmemptr.
+ * The parameters are those of the SumFac launcher, @p elmtsPerBlock a
+ * SingleElmtPerBlock or MultipleElmtPerBlock; the intermediates live in the
+ * element's share of @p shmemptr after the factor table, and
+ * @p useSharedMemoryWsp and @p wsp go unread.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TTraceSizeParameter2D, typename TData,
-          typename TthreadBlock,
+          bool DEFORMED, typename TTraceSizeParameter2D,
+          typename TElmtsPerBlock, typename TData, typename TthreadBlock,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -311,20 +348,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TTraceSizeParameter2D sizeParam2D,
         const TData *NEK_RESTRICT nbasis0, const TData *NEK_RESTRICT nbasis1,
         const TData *NEK_RESTRICT dnbasis0, const TData *NEK_RESTRICT dnbasis1,
-        const size_t nelmt, const unsigned int numDataIn,
-        const unsigned int numDataOut, const unsigned int numDataJac,
-        const size_t jacCompStride, const TData *NEK_RESTRICT tbasis0,
-        const TData *NEK_RESTRICT tbasis1, const TData *NEK_RESTRICT dtbasis0,
-        const TData *NEK_RESTRICT dtbasis1, const TData *NEK_RESTRICT tw0,
-        const TData *NEK_RESTRICT tw1,
+        const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
+        const unsigned int numDataIn, const unsigned int numDataOut,
+        const unsigned int numDataJac, const size_t jacCompStride,
+        const TData *NEK_RESTRICT tbasis0, const TData *NEK_RESTRICT tbasis1,
+        const TData *NEK_RESTRICT dtbasis0, const TData *NEK_RESTRICT dtbasis1,
+        const TData *NEK_RESTRICT tw0, const TData *NEK_RESTRICT tw1,
         [[maybe_unused]] const TData *NEK_RESTRICT twoOver0,
         [[maybe_unused]] const TData *NEK_RESTRICT twoOver1,
-        const TData *NEK_RESTRICT jac, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        const unsigned int traceDir0, const unsigned int traceDir1,
-        const bool append, const bool isColl0, const bool isColl1,
-        const bool endPtsColl0, const bool endPtsColl1, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        const TData *NEK_RESTRICT jac,
+        [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, const unsigned int traceDir0,
+        const unsigned int traceDir1, const bool append, const bool isColl0,
+        const bool isColl1, const bool endPtsColl0, const bool endPtsColl1,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                   "Template argument must be either of type "
@@ -343,15 +381,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
     constexpr bool COLLAPSED = IsCollapsedDir(SHAPE_TYPE, 1);
 
-    // Shared memory: the factor table, then the edge pair's trace-mode
-    // buffer, the element's volume and the volume buffer.
+    // Shared memory: the factor table.
     TData *s_twoOver1 = (TData *)shmemptr;
-    TData *s_wsp      = s_twoOver1 + (COLLAPSED ? nm1 : 0u);
-    TData *s_out =
-        s_wsp + 2u * IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D);
-    TData *s_vol = s_out + nmTot;
 
-    // Pre-compute factor.
+    // Pre-compute factor, once per thread block.
     if constexpr (COLLAPSED)
     {
         // Copy to shared memory.
@@ -364,23 +397,41 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int off1  = 2 * tnq00;
     const unsigned int joff1 = (DEFORMED) ? off1 : 2;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
-
-    size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+    const size_t elmtWspSize = IProductWRTPhysNormalDerivTraceWorkSpaceSize<
+        SHAPE_TYPE, Implementation>(1, sizeParam2D);
+
+    // Workspace: the edge pair's trace-mode buffer, the element's volume
+    // and the volume buffer, in the element's share after the factor
+    // table.
+    TData *s_wsp = s_twoOver1 + (COLLAPSED ? nm1 : 0u) + elmtWspSize * wspIdx;
+    TData *s_out =
+        s_wsp + 2u * IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D);
+    TData *s_vol = s_out + nmTot;
+
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e            = elmtBlock.elmtIdx;
+        const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
+        const unsigned int stride = getLocalRange<0>(elmtBlock);
+
         const TData *inptr = in + numDataIn * (nelmt * c + e);
         TData *outptr      = out + numDataOut * (nelmt * c + e);
 
-        // Accumulate the element's volume in shared memory and write it
+        // Accumulate the element's volume in the workspace and write it
         // out once, coalesced.
         for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
             s_out[idx] = append ? outptr[idx] : TData(0);
         }
-        localBarrier(threadBlock);
+        localBarrier(elmtBlock);
 
         for (unsigned int d = 0; d < 2; ++d)
         {
@@ -401,7 +452,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 TData *dst = useD1 ? s_vol : s_out;
                 if (useD1)
                 {
-                    ZeroModesTOPKernel(nmTot, s_vol, threadBlock);
+                    ZeroModesTOPKernel(nmTot, s_vol, elmtBlock);
                 }
 
                 const TData *nb = (0 == d) ? dnbasis0 : nbasis0;
@@ -413,25 +464,25 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 {
                     IPWRTPhysTraceEdgeN0TOPKernel<true, DEFORMED>(
                         0, 2, 2, nm0, nm1, nb, tnq00, tb, tw0, jacptr, s_wsp,
-                        inptr, dst, coll, threadBlock);
+                        inptr, dst, coll, elmtBlock);
                 }
                 else
                 {
                     IPWRTPhysTraceEdgeN0TOPKernel<false, DEFORMED>(
                         0, 2, 2, nm0, nm1, nb, tnq00, tb, tw0, jacptr, s_wsp,
-                        inptr, dst, coll, threadBlock);
+                        inptr, dst, coll, elmtBlock);
                 }
 
                 if (useD1)
                 {
                     ScaleAddCollapsedFacTOPKernel(nm0, nm1, 1u, true, false,
                                                   s_twoOver1, s_twoOver1, s_vol,
-                                                  s_out, threadBlock);
+                                                  s_out, elmtBlock);
                 }
             }
 
-            // Group 1: edges normal to direction 1. Sits at eta_1 = -1, so it
-            // drops the direction 1 factor.
+            // Group 1: edges normal to direction 1. Sits at eta_1 = -1, so
+            // it drops the direction 1 factor.
             {
                 const TData *nb = (1 == d) ? dnbasis1 : nbasis1;
                 const TData *tb = (traceDir1 == d) ? dtbasis1 : tbasis1;
@@ -443,14 +494,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                     IPWRTPhysTraceEdgeN1TOPKernel<true, DEFORMED>(
                         0, nedgeN1, nedgeN1, nm0, nm1, nb, tnq10, tb, tw1,
                         jacptr + joff1, s_wsp, inptr + off1, s_out, coll,
-                        threadBlock);
+                        elmtBlock);
                 }
                 else
                 {
                     IPWRTPhysTraceEdgeN1TOPKernel<false, DEFORMED>(
                         0, nedgeN1, nedgeN1, nm0, nm1, nb, tnq10, tb, tw1,
                         jacptr + joff1, s_wsp, inptr + off1, s_out, coll,
-                        threadBlock);
+                        elmtBlock);
                 }
             }
         }
@@ -459,15 +510,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         {
             outptr[idx] = s_out[idx];
         }
-
-        e += getBlockRange(threadBlock);
     }
 }
 
 /**
  * @brief All faces of one three-dimensional element: the three terms of
- * the operator, one per element direction, accumulated in turn; one thread
- * block per element.
+ * the operator, one per element direction, accumulated in turn; one or
+ * several elements per thread block.
  *
  * The TOP counterpart of the three-dimensional SumFac launcher, with the
  * same choice of derivative table per term and the same treatment of the
@@ -476,15 +525,18 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * Each group's faces go through the face cores one at a time, @p in and the
  * factors offset to the face and the face's position within its direction
  * passed as the window, so that the trace-mode buffer and the contraction
- * scratch hold one face. The element's volume is accumulated in shared
- * memory and written out once.
+ * scratch hold one face. The element's volume is accumulated in the
+ * workspace and written out once.
  *
- * The parameters are those of the SumFac launcher; @p wsp is unread, the
- * intermediates living in @p shmemptr.
+ * The parameters are those of the SumFac launcher, @p elmtsPerBlock a
+ * SingleElmtPerBlock or MultipleElmtPerBlock; the intermediates live in the
+ * element's share of @p shmemptr after the factor tables, and
+ * @p useSharedMemoryWsp and @p wsp go unread.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TTraceSizeParameter3D, typename TData,
-          typename TthreadBlock,
+          bool DEFORMED, typename TTraceSizeParameter3D,
+          typename TElmtsPerBlock, typename TData, typename TthreadBlock,
+          typename TUseSharedWsp,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -494,12 +546,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT nbasis0, const TData *NEK_RESTRICT nbasis1,
         const TData *NEK_RESTRICT nbasis2, const TData *NEK_RESTRICT dnbasis0,
         const TData *NEK_RESTRICT dnbasis1, const TData *NEK_RESTRICT dnbasis2,
-        const size_t nelmt, const unsigned int numDataIn,
-        const unsigned int numDataOut, const unsigned int numDataJac,
-        const size_t jacCompStride, const TData *NEK_RESTRICT tbasis00,
-        const TData *NEK_RESTRICT tbasis01, const TData *NEK_RESTRICT tbasis10,
-        const TData *NEK_RESTRICT tbasis11, const TData *NEK_RESTRICT tbasis20,
-        const TData *NEK_RESTRICT tbasis21, const TData *NEK_RESTRICT dtbasis00,
+        const size_t nelmt, const TElmtsPerBlock elmtsPerBlock,
+        const unsigned int numDataIn, const unsigned int numDataOut,
+        const unsigned int numDataJac, const size_t jacCompStride,
+        const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis01,
+        const TData *NEK_RESTRICT tbasis10, const TData *NEK_RESTRICT tbasis11,
+        const TData *NEK_RESTRICT tbasis20, const TData *NEK_RESTRICT tbasis21,
+        const TData *NEK_RESTRICT dtbasis00,
         const TData *NEK_RESTRICT dtbasis01,
         const TData *NEK_RESTRICT dtbasis10,
         const TData *NEK_RESTRICT dtbasis11,
@@ -511,15 +564,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         [[maybe_unused]] const TData *NEK_RESTRICT twoOver0,
         [[maybe_unused]] const TData *NEK_RESTRICT twoOver1,
         [[maybe_unused]] const TData *NEK_RESTRICT twoOver2,
-        const TData *NEK_RESTRICT jac, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        const unsigned int traceDir00, const unsigned int traceDir01,
-        const unsigned int traceDir10, const unsigned int traceDir11,
-        const unsigned int traceDir20, const unsigned int traceDir21,
-        const bool append, const bool isColl00, const bool isColl01,
-        const bool isColl10, const bool isColl11, const bool isColl20,
-        const bool isColl21, const bool endPtsColl0, const bool endPtsColl1,
-        const bool endPtsColl2, unsigned char *shmemptr,
+        const TData *NEK_RESTRICT jac,
+        [[maybe_unused]] const TUseSharedWsp useSharedMemoryWsp,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, const unsigned int traceDir00,
+        const unsigned int traceDir01, const unsigned int traceDir10,
+        const unsigned int traceDir11, const unsigned int traceDir20,
+        const unsigned int traceDir21, const bool append, const bool isColl00,
+        const bool isColl01, const bool isColl10, const bool isColl11,
+        const bool isColl20, const bool isColl21, const bool endPtsColl0,
+        const bool endPtsColl1, const bool endPtsColl2, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
@@ -547,16 +601,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     constexpr bool COLLAPSED1 = IsCollapsedDir(SHAPE_TYPE, 1);
     constexpr bool COLLAPSED2 = IsCollapsedDir(SHAPE_TYPE, 2);
 
-    // Shared memory: the factor tables, then one face's mode block, the
-    // contraction scratch, the element's volume and the volume buffer.
+    // Shared memory: the factor tables.
     TData *s_twoOver1 = (TData *)shmemptr;
     TData *s_twoOver2 = s_twoOver1 + (COLLAPSED1 ? nm1 : 0u);
-    TData *s_wsp0     = s_twoOver2 + (COLLAPSED2 ? nm2 : 0u);
-    TData *s_wsp1 = s_wsp0 + IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D);
-    TData *s_out  = s_wsp1 + IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
-    TData *s_vol  = s_out + nmTot;
 
-    // Pre-compute factor.
+    // Pre-compute factor, once per thread block.
     if constexpr (COLLAPSED1)
     {
         // Copy to shared memory.
@@ -582,23 +631,41 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int in2  = in1 + nfaceN1 * fsz1;
     const unsigned int jac2 = jac1 + (DEFORMED ? nfaceN1 * fsz1 : nfaceN1);
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
-
-    size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
+    const unsigned int wspIdx =
+        GetDeviceSharedWorkSpaceIdx(elmtsPerBlock, threadBlock);
+    const size_t elmtWspSize = IProductWRTPhysNormalDerivTraceWorkSpaceSize<
+        SHAPE_TYPE, Implementation>(1, sizeParam3D);
+
+    // Workspace: one face's mode block, the contraction scratch, the
+    // element's volume and the volume buffer, in the element's share
+    // after the factor tables.
+    TData *s_wsp0 = s_twoOver2 + (COLLAPSED2 ? nm2 : 0u) + elmtWspSize * wspIdx;
+    TData *s_wsp1 = s_wsp0 + IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D);
+    TData *s_out  = s_wsp1 + IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
+    TData *s_vol  = s_out + nmTot;
+
+    for (size_t e0 =
+             static_cast<size_t>(getBlockIdx<0>(threadBlock)) * elmtsPerBlock;
+         e0 < nelmt; e0 += static_cast<size_t>(getBlockRange<0>(threadBlock)) *
+                           elmtsPerBlock)
     {
+        const auto elmtBlock =
+            GetDeviceElmtBlock(e0, nelmt, elmtsPerBlock, threadBlock);
+        const size_t e            = elmtBlock.elmtIdx;
+        const unsigned int idx0   = getLocalIdx<0>(elmtBlock);
+        const unsigned int stride = getLocalRange<0>(elmtBlock);
+
         const TData *inptr = in + numDataIn * (nelmt * c + e);
         TData *outptr      = out + numDataOut * (nelmt * c + e);
 
-        // Accumulate the element's volume in shared memory and write it
+        // Accumulate the element's volume in the workspace and write it
         // out once, coalesced.
         for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
             s_out[idx] = append ? outptr[idx] : TData(0);
         }
-        localBarrier(threadBlock);
+        localBarrier(elmtBlock);
 
         for (unsigned int d = 0; d < 3; ++d)
         {
@@ -639,7 +706,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 TData *dst       = scale ? s_vol : s_out;
                 if (scale)
                 {
-                    ZeroModesTOPKernel(nmTot, s_vol, threadBlock);
+                    ZeroModesTOPKernel(nmTot, s_vol, elmtBlock);
                 }
 
                 for (unsigned int f = 0; f < 2; ++f)
@@ -652,14 +719,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                         IPWRTPhysTraceFaceN0TOPKernel<true, DEFORMED>(
                             f, f + 1, 2, nm0, nm1, nm2, nbd0, tnq00, tnq01,
                             tbd0, tbd1, tw00, tw01, fjac, s_wsp0, s_wsp1, fin,
-                            dst, cd0, cd1, threadBlock);
+                            dst, cd0, cd1, elmtBlock);
                     }
                     else
                     {
                         IPWRTPhysTraceFaceN0TOPKernel<false, DEFORMED>(
                             f, f + 1, 2, nm0, nm1, nm2, nbd0, tnq00, tnq01,
                             tbd0, tbd1, tw00, tw01, fjac, s_wsp0, s_wsp1, fin,
-                            dst, cd0, cd1, threadBlock);
+                            dst, cd0, cd1, elmtBlock);
                     }
                 }
 
@@ -667,7 +734,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 {
                     ScaleAddCollapsedFacTOPKernel(nm0, nm1, nm2, c1, c2,
                                                   s_twoOver1, s_twoOver2, s_vol,
-                                                  s_out, threadBlock);
+                                                  s_out, elmtBlock);
                 }
             }
 
@@ -678,7 +745,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 TData *dst       = scale ? s_vol : s_out;
                 if (scale)
                 {
-                    ZeroModesTOPKernel(nmTot, s_vol, threadBlock);
+                    ZeroModesTOPKernel(nmTot, s_vol, elmtBlock);
                 }
 
                 for (unsigned int f = 0; f < nfaceN1; ++f)
@@ -692,14 +759,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                         IPWRTPhysTraceFaceN1TOPKernel<true, DEFORMED>(
                             f, f + 1, nfaceN1, nm0, nm1, nm2, nbd1, tnq10,
                             tnq11, tbd2, tbd3, tw10, tw11, fjac, s_wsp0, s_wsp1,
-                            fin, dst, cd2, cd3, threadBlock);
+                            fin, dst, cd2, cd3, elmtBlock);
                     }
                     else
                     {
                         IPWRTPhysTraceFaceN1TOPKernel<false, DEFORMED>(
                             f, f + 1, nfaceN1, nm0, nm1, nm2, nbd1, tnq10,
                             tnq11, tbd2, tbd3, tw10, tw11, fjac, s_wsp0, s_wsp1,
-                            fin, dst, cd2, cd3, threadBlock);
+                            fin, dst, cd2, cd3, elmtBlock);
                     }
                 }
 
@@ -707,7 +774,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 {
                     ScaleAddCollapsedFacTOPKernel(nm0, nm1, nm2, false, c2,
                                                   s_twoOver1, s_twoOver2, s_vol,
-                                                  s_out, threadBlock);
+                                                  s_out, elmtBlock);
                 }
             }
 
@@ -718,7 +785,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 TData *dst       = scale ? s_vol : s_out;
                 if (scale)
                 {
-                    ZeroModesTOPKernel(nmTot, s_vol, threadBlock);
+                    ZeroModesTOPKernel(nmTot, s_vol, elmtBlock);
                 }
 
                 for (unsigned int f = 0; f < nfaceN2; ++f)
@@ -732,14 +799,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                         IPWRTPhysTraceFaceN2TOPKernel<true, DEFORMED>(
                             f, f + 1, nfaceN2, nm0, nm1, nm2, nbd2, tnq20,
                             tnq21, tbd4, tbd5, tw20, tw21, fjac, s_wsp0, s_wsp1,
-                            fin, dst, cd4, cd5, threadBlock);
+                            fin, dst, cd4, cd5, elmtBlock);
                     }
                     else
                     {
                         IPWRTPhysTraceFaceN2TOPKernel<false, DEFORMED>(
                             f, f + 1, nfaceN2, nm0, nm1, nm2, nbd2, tnq20,
                             tnq21, tbd4, tbd5, tw20, tw21, fjac, s_wsp0, s_wsp1,
-                            fin, dst, cd4, cd5, threadBlock);
+                            fin, dst, cd4, cd5, elmtBlock);
                     }
                 }
 
@@ -747,7 +814,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 {
                     ScaleAddCollapsedFacTOPKernel(nm0, nm1, nm2, c1, false,
                                                   s_twoOver1, s_twoOver2, s_vol,
-                                                  s_out, threadBlock);
+                                                  s_out, elmtBlock);
                 }
             }
         }
@@ -756,8 +823,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         {
             outptr[idx] = s_out[idx];
         }
-
-        e += getBlockRange(threadBlock);
     }
 }
 
